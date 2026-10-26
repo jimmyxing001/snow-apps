@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout your fork repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5   # 从v4改成v5，消除Node废弃警告
         with:
           fetch-depth: 0
 
