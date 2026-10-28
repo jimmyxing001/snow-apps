@@ -370,6 +370,9 @@ include(SnowDiagnostics)
 include("${CMAKE_CURRENT_SOURCE_DIR}/../cmake/SnowOcrToolchain.cmake")
 set(SNOW_SHOT_OCR_PROCESS_FEATURES)
 set(SNOW_SHOT_OCR_PROCESS_ENVIRONMENT)
+if(WIN32 OR (APPLE AND CMAKE_OSX_ARCHITECTURES STREQUAL "arm64"))
+    list(APPEND SNOW_SHOT_OCR_PROCESS_FEATURES gpu)
+endif()
 
 if(WIN32 OR APPLE)
     list(APPEND SNOW_SHOT_OCR_PROCESS_FEATURES crash-diagnostics)
@@ -1826,6 +1829,22 @@ set(PROJECT_HEADERS
     include/snow_shot/presentation/systemtraycontroller.h
 )
 
+add_library(snow_shot_airdrop STATIC src/presentation/services/screenshotairdropservice.cpp)
+snow_shot_register_source_capability(airdrop
+    FULL_TARGET snow_shot_airdrop MINI_TARGET snow_shot_airdrop_mini)
+snow_shot_source_requires(airdrop SOURCES
+    src/presentation/services/screenshotcontroller.cpp
+    src/presentation/pinned/screenshotpinnedwindow.cpp)
+target_include_directories(snow_shot_airdrop PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_link_libraries(snow_shot_airdrop PUBLIC Qt6::Widgets PRIVATE Qt6::Concurrent snow_shot_diagnostics)
+if(APPLE)
+    target_sources(snow_shot_airdrop PRIVATE src/platform/macos/nativeairdrop.mm)
+    target_compile_options(snow_shot_airdrop PRIVATE $<$<COMPILE_LANGUAGE:OBJCXX>:-fobjc-arc>)
+    target_link_libraries(snow_shot_airdrop PRIVATE "-framework AppKit")
+else()
+    target_sources(snow_shot_airdrop PRIVATE src/presentation/services/nativeairdropunsupported.cpp)
+endif()
+
 add_library(snow_shot_print STATIC src/presentation/services/screenshotprintservice.cpp)
 snow_shot_register_source_capability(print
     FULL_TARGET snow_shot_print MINI_TARGET snow_shot_print_mini)
@@ -3016,6 +3035,14 @@ if(SNOW_SHOT_BUILD_TESTS)
         ENVIRONMENT "${_SNOW_SHOT_OFFSCREEN_QPA_ENVIRONMENT}"
         ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
     )
+    if(APPLE)
+        add_test(NAME snow-shot-tray-icon-color-settings-tests
+            COMMAND snow-shot-about-page-tests --tray-icon-color-only)
+        set_tests_properties(snow-shot-tray-icon-color-settings-tests PROPERTIES
+            LABELS "unit" TIMEOUT 30 SNOW_TEST_CROSS_PLATFORM TRUE
+            ENVIRONMENT "${_SNOW_SHOT_OFFSCREEN_QPA_ENVIRONMENT}"
+            ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
+    endif()
 
     get_target_property(_main_window_font_sources snow-shot-about-page-tests SOURCES)
     list(REMOVE_ITEM _main_window_font_sources tests/about_page_tests.cpp)
@@ -3074,6 +3101,11 @@ if(SNOW_SHOT_BUILD_TESTS)
         ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
     add_test(NAME snow-shot-settings-catalog-tests
              COMMAND snow-shot-settings-catalog-tests)
+    add_test(NAME snow-shot-tray-icon-settings-catalog-tests
+        COMMAND snow-shot-settings-catalog-tests --tray-icons-only)
+    set_tests_properties(snow-shot-tray-icon-settings-catalog-tests PROPERTIES
+        LABELS "unit" TIMEOUT 30 SNOW_TEST_CROSS_PLATFORM TRUE
+        ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
     add_test(NAME snow-shot-translation-confidence-catalog-tests
         COMMAND snow-shot-settings-catalog-tests --translation-confidence-only)
     set_tests_properties(snow-shot-translation-confidence-catalog-tests PROPERTIES
@@ -12525,6 +12557,24 @@ endif()
 if(SNOW_SHOT_BUILD_TESTS)
     target_sources(snow-shot-pinned-window-tests PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/../test-support/fonts/recording_test_fonts.qrc")
+    add_executable(snow-shot-airdrop-service-tests tests/screenshot_airdrop_service_tests.cpp)
+    target_link_libraries(snow-shot-airdrop-service-tests PRIVATE snow_shot_airdrop)
+    snow_shot_import_offscreen_platform(snow-shot-airdrop-service-tests)
+    add_test(NAME snow-shot-airdrop-service-tests
+        COMMAND snow-shot-airdrop-service-tests -platform offscreen)
+    set_tests_properties(snow-shot-airdrop-service-tests PROPERTIES
+        LABELS unit SNOW_TEST_CROSS_PLATFORM TRUE TIMEOUT 60
+        ENVIRONMENT "${_SNOW_SHOT_OFFSCREEN_QPA_ENVIRONMENT}")
+    foreach(_airdrop_host IN ITEMS pinned-window toolbar-main-panel floating-toolbar-drag)
+        add_test(NAME snow-shot-${_airdrop_host}-airdrop-tests
+            COMMAND snow-shot-${_airdrop_host}-tests --airdrop-only -platform offscreen)
+        set_tests_properties(snow-shot-${_airdrop_host}-airdrop-tests PROPERTIES
+            LABELS unit SNOW_TEST_CROSS_PLATFORM TRUE RUN_SERIAL TRUE TIMEOUT 60
+            ENVIRONMENT "${_SNOW_SHOT_OFFSCREEN_QPA_ENVIRONMENT}")
+    endforeach()
+    add_test(NAME snow-shot-airdrop-icon-tests
+        COMMAND snow-shot-generated-icon-pack-tests --airdrop-only -platform offscreen)
+    set_tests_properties(snow-shot-airdrop-icon-tests PROPERTIES LABELS unit TIMEOUT 30)
     add_executable(snow-shot-print-service-tests tests/screenshot_print_service_tests.cpp)
     target_link_libraries(snow-shot-print-service-tests PRIVATE snow_shot_print snow_shot_diagnostics)
     snow_shot_import_offscreen_platform(snow-shot-print-service-tests)
@@ -12536,6 +12586,14 @@ if(SNOW_SHOT_BUILD_TESTS)
     add_executable(snow-shot-native-print-smoke tests/native_print_smoke.cpp)
     target_link_libraries(snow-shot-native-print-smoke PRIVATE snow_shot_print)
     if(APPLE)
+        add_executable(snow-shot-macos-airdrop-native-tests tests/macos_airdrop_native_tests.mm)
+        target_include_directories(snow-shot-macos-airdrop-native-tests PRIVATE include src)
+        target_link_libraries(snow-shot-macos-airdrop-native-tests PRIVATE
+            snow_shot_airdrop snow_shot_macos_window_platform "-framework AppKit")
+        add_test(NAME snow-shot-macos-airdrop-native-tests
+            COMMAND snow-shot-macos-airdrop-native-tests -platform cocoa)
+        set_tests_properties(snow-shot-macos-airdrop-native-tests PROPERTIES
+            LABELS "interactive;macos" RUN_SERIAL TRUE TIMEOUT 75 SKIP_RETURN_CODE 77)
         add_executable(snow-shot-macos-native-print-stacking-tests
             tests/macos_native_print_stacking_tests.mm)
         target_include_directories(snow-shot-macos-native-print-stacking-tests PRIVATE include src)

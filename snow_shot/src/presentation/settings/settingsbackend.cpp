@@ -875,6 +875,11 @@ bool BuiltInSettingsBackend::applySelectValue(SettingsSelectBinding binding,
 
 bool BuiltInSettingsBackend::switchValue(SettingsSwitchBinding binding) const {
     switch (binding) {
+    case SettingsSwitchBinding::OcrHardwareAcceleration:
+        return storage::ApplicationStorage::instance()
+            .configuration()
+            .value(QStringLiteral("text_recognition/hardware_acceleration"))
+            .toBool();
     case SettingsSwitchBinding::HistoryEnabled:
         return storage::ApplicationStorage::instance().captureHistoryPolicy().enabled;
     case SettingsSwitchBinding::PinnedHistoryEnabled:
@@ -905,6 +910,8 @@ bool BuiltInSettingsBackend::switchValue(SettingsSwitchBinding binding) const {
         return storage::FloatingToolbarSettings().enabled();
     case SettingsSwitchBinding::TrayEnabled:
         return storage::TraySettings().enabled();
+    case SettingsSwitchBinding::TrayUseSystemIconColor:
+        return storage::TraySettings().useSystemIconColor();
     case SettingsSwitchBinding::ScreenshotQuickSelectionModification:
         return storage::ScreenshotSettings().quickSelectionModification();
     case SettingsSwitchBinding::ScreenshotShowCursor:
@@ -1165,6 +1172,13 @@ bool BuiltInSettingsBackend::switchEnabled(SettingsSwitchBinding binding) const 
 }
 
 bool BuiltInSettingsBackend::applySwitchValue(SettingsSwitchBinding binding, bool value) {
+    if (binding == SettingsSwitchBinding::OcrHardwareAcceleration) {
+        const bool accepted = storage::ApplicationStorage::instance().configuration().setValue(
+            QStringLiteral("text_recognition/hardware_acceleration"), value);
+        if (accepted)
+            emit synchronized();
+        return accepted;
+    }
     if (binding == SettingsSwitchBinding::ScreenshotShowSaveResult)
         return switchEnabled(binding) && storage::ScreenshotSettings().setShowSaveResult(value);
     if (binding == SettingsSwitchBinding::OcrResidentProcess ||
@@ -1223,6 +1237,9 @@ bool BuiltInSettingsBackend::applySwitchValue(SettingsSwitchBinding binding, boo
         return storage::FloatingToolbarSettings().setEnabled(value);
     if (binding == SettingsSwitchBinding::TrayEnabled) {
         return storage::TraySettings().setEnabled(value);
+    }
+    if (binding == SettingsSwitchBinding::TrayUseSystemIconColor) {
+        return storage::TraySettings().setUseSystemIconColor(value);
     }
     if (binding == SettingsSwitchBinding::ScreenshotCopyImageFileToClipboard) {
         return storage::ScreenshotSettings().setCopyImageFileToClipboard(value);
@@ -1383,12 +1400,14 @@ bool BuiltInSettingsBackend::applySwitchValue(SettingsSwitchBinding binding, boo
         return false;
     case SettingsSwitchBinding::OcrResidentProcess:
     case SettingsSwitchBinding::OcrModelHotStart:
+    case SettingsSwitchBinding::OcrHardwareAcceleration:
         return false;
     case SettingsSwitchBinding::ScreenshotAreaTypeHint:
     case SettingsSwitchBinding::ShowGuidesByDefault:
     case SettingsSwitchBinding::ShowEditSelectionToolbar:
     case SettingsSwitchBinding::FloatingToolbarEnabled:
     case SettingsSwitchBinding::TrayEnabled:
+    case SettingsSwitchBinding::TrayUseSystemIconColor:
     case SettingsSwitchBinding::ScreenshotQuickSelectionModification:
     case SettingsSwitchBinding::ScreenshotShowCursor:
     case SettingsSwitchBinding::ScreenshotCaptureUiInScrollingScreenshot:
@@ -3085,6 +3104,7 @@ bool BuiltInSettingsBackend::resetSection(SettingsSectionReset reset) {
         const bool accepted = storage.configuration().setValues({
             {QStringLiteral("text_recognition/resident_process"), false},
             {QStringLiteral("text_recognition/model_hot_start"), false},
+            {QStringLiteral("text_recognition/hardware_acceleration"), false},
             {QStringLiteral("text_recognition/model_type"),
              storage::ConfigurationSchema::defaultValue(
                  QStringLiteral("text_recognition/model_type"))},
