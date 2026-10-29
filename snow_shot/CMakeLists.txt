@@ -2463,6 +2463,11 @@ if(SNOW_SHOT_BUILD_TESTS)
         tests/application_storage_tests.cpp
     )
     target_link_libraries(snow-shot-application-storage-tests PRIVATE snow_shot_storage Qt6::Core)
+    add_test(NAME snow-shot-portable-system-integration-tests
+        COMMAND snow-shot-application-storage-tests --portable-system-integration-only)
+    set_tests_properties(snow-shot-portable-system-integration-tests PROPERTIES LABELS "unit"
+        TIMEOUT 30
+        ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
     add_test(NAME snow-shot-tray-theme-icon-storage-tests
         COMMAND snow-shot-application-storage-tests --tray-theme-icons-only)
     set_tests_properties(snow-shot-tray-theme-icon-storage-tests PROPERTIES LABELS "unit" TIMEOUT 30)
@@ -2755,6 +2760,17 @@ if(SNOW_SHOT_BUILD_TESTS)
     )
     add_test(NAME snow-shot-screenshot-history-page-loading-tests
         COMMAND snow-shot-screenshot-history-page-tests --loading-only)
+    add_test(NAME snow-shot-history-sticky-selection-tests
+        COMMAND snow-shot-screenshot-history-page-tests --sticky-only)
+    add_test(NAME snow-shot-pinned-sticky-selection-tests
+        COMMAND snow-shot-pinned-window-management-page-tests --sticky-only)
+    add_test(NAME snow-shot-history-page-size-tests
+        COMMAND snow-shot-screenshot-history-page-tests --page-size-only -platform offscreen)
+    set_tests_properties(snow-shot-history-sticky-selection-tests
+        snow-shot-pinned-sticky-selection-tests snow-shot-history-page-size-tests PROPERTIES
+        LABELS unit
+        ENVIRONMENT "${_SNOW_SHOT_OFFSCREEN_QPA_ENVIRONMENT}"
+        ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
     add_test(NAME snow-shot-history-entry-layout-tests
         COMMAND snow-shot-screenshot-history-page-tests --entry-layout-only -platform offscreen)
     set_tests_properties(snow-shot-screenshot-history-page-tests
@@ -4143,6 +4159,19 @@ if(SNOW_SHOT_BUILD_TESTS)
     add_test(NAME snow-shot-capture-worker-tests COMMAND snow-shot-capture-worker-tests)
 
     if(WIN32)
+        add_executable(snow-shot-capture-policy-tests
+            tests/screenshot_capture_policy_tests.cpp
+            src/presentation/capture/screenshotcapturepolicy.cpp)
+        target_include_directories(snow-shot-capture-policy-tests PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/include"
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/presentation/capture"
+            "${SNOW_SHOT_CAPTURE_CRATES_DIR}/crates/snow-capture-c/include")
+        target_link_libraries(snow-shot-capture-policy-tests PRIVATE Qt6::Gui user32)
+        add_test(NAME snow-shot-capture-policy-tests COMMAND snow-shot-capture-policy-tests)
+        set_tests_properties(snow-shot-capture-policy-tests PROPERTIES
+            LABELS "unit;windows" TIMEOUT 30
+            ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
+
         add_executable(snow-shot-recapture-cursor-native-e2e-test
             tests/recapture_cursor_native_e2e_test.cpp
             include/snow_shot/presentation/screenshotcapturecoordinator.h
@@ -5266,6 +5295,21 @@ if(SNOW_SHOT_BUILD_TESTS)
         set_tests_properties(snow-shot-image-editing-toolbar-native-tests PROPERTIES
             LABELS "interactive;windows" RUN_SERIAL TRUE TIMEOUT 60
             ENVIRONMENT "QT_QPA_PLATFORM=windows")
+    elseif(APPLE)
+        target_sources(snow-shot-pinned-window-tests PRIVATE
+            tests/macos_image_editing_toolbar_tests.mm)
+        add_test(NAME snow-shot-image-editing-toolbar-stacking-tests
+            COMMAND snow-shot-pinned-window-tests --image-editing-toolbar-stacking-only
+                -platform offscreen)
+        set_tests_properties(snow-shot-image-editing-toolbar-stacking-tests PROPERTIES
+            LABELS "unit;macos" SNOW_TEST_CROSS_PLATFORM TRUE RUN_SERIAL TRUE TIMEOUT 60
+            ENVIRONMENT "${_SNOW_SHOT_OFFSCREEN_QPA_ENVIRONMENT}")
+        add_test(NAME snow-shot-image-editing-toolbar-stacking-native-tests
+            COMMAND snow-shot-pinned-window-tests --image-editing-toolbar-stacking-only
+                -platform cocoa)
+        set_tests_properties(snow-shot-image-editing-toolbar-stacking-native-tests PROPERTIES
+            LABELS "interactive;macos" SNOW_TEST_CROSS_PLATFORM TRUE RUN_SERIAL TRUE TIMEOUT 60
+            ENVIRONMENT "QT_QPA_PLATFORM=cocoa")
     endif()
     add_test(NAME snow-shot-pinned-wheel-step-tests
         COMMAND snow-shot-pinned-window-tests --wheel-step-only -platform offscreen)
@@ -8602,6 +8646,17 @@ if(SNOW_SHOT_BUILD_TESTS)
     endif()
     add_test(NAME snow-shot-recording-capture-exclusion-tests
         COMMAND snow-shot-screen-recording-controller-tests --capture-exclusion-only)
+    add_test(NAME snow-shot-recording-toolbar-ownership-tests
+        COMMAND snow-shot-screen-recording-controller-tests --toolbar-ownership-only -platform offscreen)
+    set_tests_properties(snow-shot-recording-toolbar-ownership-tests PROPERTIES
+        LABELS "unit" TIMEOUT 30)
+    if(WIN32)
+        add_test(NAME snow-shot-recording-toolbar-exclusion-stacking-tests
+            COMMAND snow-shot-screen-recording-controller-tests --toolbar-exclusion-stacking-only
+                -platform windows)
+        set_tests_properties(snow-shot-recording-toolbar-exclusion-stacking-tests PROPERTIES
+            LABELS "interactive;windows" RUN_SERIAL TRUE TIMEOUT 60)
+    endif()
     set_tests_properties(snow-shot-recording-capture-exclusion-tests PROPERTIES
         LABELS "unit" RUN_SERIAL TRUE TIMEOUT 60 ENVIRONMENT "${_SNOW_SHOT_OFFSCREEN_QPA_ENVIRONMENT}")
     if(APPLE)
@@ -8813,6 +8868,7 @@ if(SNOW_SHOT_BUILD_TESTS)
         src/presentation/styles/buttonborder.cpp
     )
     snow_shot_link_macos_window_platform(snow-shot-recognition-window-tests)
+    target_compile_definitions(snow-shot-recognition-window-tests PRIVATE SNOW_SHOT_BENCH_INTERNALS=1)
     target_include_directories(snow-shot-recognition-window-tests PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/include"
     )

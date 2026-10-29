@@ -329,7 +329,8 @@ const QVector<ConfigurationSchemaEntry> kRawEntries = {
      ConfigurationValueKind::String,
      std::nullopt,
      {QStringLiteral("none"), QStringLiteral("system")}},
-    {QStringLiteral("text_recognition/resident_process"), false, ConfigurationValueKind::Boolean},
+    {QStringLiteral("text_recognition/resident_process"), !app::edition::isMini,
+     ConfigurationValueKind::Boolean},
     {QStringLiteral("text_recognition/model_hot_start"), false, ConfigurationValueKind::Boolean},
     {QStringLiteral("text_recognition/hardware_acceleration"), false,
      ConfigurationValueKind::Boolean},
@@ -419,6 +420,9 @@ const QVector<ConfigurationSchemaEntry> kRawEntries = {
      {QStringLiteral("smart_merge"), QStringLiteral("original")}},
 #endif
     {QStringLiteral("interface/sidebar_collapsed"), false, ConfigurationValueKind::Boolean},
+    {QStringLiteral("interface/screenshot_history_page_size"), 10, ConfigurationValueKind::Integer},
+    {QStringLiteral("interface/pinned_window_management_page_size"), 10,
+     ConfigurationValueKind::Integer},
     {QStringLiteral("interface/main_window_geometry"), QJsonObject(),
      ConfigurationValueKind::Structured},
 #if SNOW_SHOT_ENABLE_TEXT_TRANSLATION
@@ -2957,6 +2961,10 @@ ConfigurationNormalization ConfigurationSchema::normalize(const QString& key,
     }
     if (key == QStringLiteral("screen_recording/frame_rate")) {
         return normalizeAllowedInteger(value, {5, 10, 15, 24, 30, 60, 120, 83});
+    }
+    if (key == QStringLiteral("interface/screenshot_history_page_size") ||
+        key == QStringLiteral("interface/pinned_window_management_page_size")) {
+        return normalizeAllowedInteger(value, {10, 20, 50});
     }
     if (key == QStringLiteral("screenshot_ui/selection_transition_animation")) {
         if (value.isBool()) {
