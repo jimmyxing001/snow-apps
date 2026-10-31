@@ -5,11 +5,12 @@ on:
     - cron: '0 0 * * *'
   workflow_dispatch: # 支持手动点按钮触发，调试用
 
-# GITHUB_TOKEN 需要写权限才能把合并结果推回 fork
+# 本仓库定位：上游的单向备份镜像。
+# 只执行 upstream → origin 的同步，任何步骤都不会向上游仓库推送。
+
 permissions:
   contents: write
 
-# 定时与手动触发不要并发跑同一分支
 concurrency:
   group: sync-upstream
   cancel-in-progress: false
@@ -32,30 +33,48 @@ jobs:
       - name: Add upstream remote
         run: git remote add upstream https://github.com/mg-chao/snow-apps.git
 
-      - name: Fetch all upstream commits
-        run: git fetch upstream
+      - name: Fetch all upstream commits and tags
+        # 备份需要连发布标签一起镜像；--force 用于上游重打标签时保持跟随
+        run: git fetch upstream --tags --force
 
       - name: Merge upstream/main into local main
         run: |
           BASE=$(git rev-parse HEAD)
+
+          # ① keep-ours 合并驱动：.github/workflows 下的文件永远保留本仓库版本。
+          #    GITHUB_TOKEN 是 GitHub App 令牌，没有 workflows 权限，推送含 workflow
+          #    变更的提交会被拒绝：
+          #      refusing to allow a GitHub App to create or update workflow
+          #      '.github/workflows/xxx.yml' without `workflows` permission
+          #    本仓库的 workflow 已冻结在同步前版本；一旦上游再次修改同一文件，双方都
+          #    发生过改动，默认会产生内容冲突。配置该驱动后这一步永不冲突。
+          #    写在 $GIT_DIR/info/attributes，不随仓库提交，不会给仓库引入任何差异。
+          git config merge.keepours.name "keep this repository's workflow files"
+          git config merge.keepours.driver "true"
+          mkdir -p "$(git rev-parse --git-path info)"
+          printf '.github/workflows/** merge=keepours\n' >> "$(git rev-parse --git-path info/attributes)"
+
           git checkout main
-          git merge upstream/main --no-edit
-          # ── 为什么需要下面这段 ──────────────────────────────────────────────
-          # GITHUB_TOKEN 是 GitHub App 令牌，永远没有 workflows 权限。
-          # 一旦合并结果里包含 .github/workflows/ 的变更，push 会被 GitHub 拒绝：
-          #   refusing to allow a GitHub App to create or update workflow
-          #   '.github/workflows/xxx.yml' without `workflows` permission
-          # 表现为 "Process completed with exit code 1"，而且每天都会重复失败。
-          # fork 不使用上游的发布流水线（homebrew / scoop / winget），
-          # 因此这里把 .github 还原成 fork 自己的版本，使推送范围不含 workflow 变更。
-          # 若将来希望上游 workflow 的更新也同步进来，请改用带 workflow 权限的 PAT
-          # （见仓库说明），并删除本段。
-          if ! git diff --quiet "$BASE" HEAD -- .github; then
-            echo "上游包含 .github 变更，已剥离以规避 GITHUB_TOKEN 的 workflows 权限限制"
-            git rm -r -f --cached --quiet .github
-            git checkout "$BASE" -- .github
+          # ② --no-ff：即使可以快进也生成合并提交。否则快进后 HEAD 会变成上游提交，
+          #    下面第 ③ 步的 --amend 就会改写上游历史，导致与上游分叉。
+          git merge --no-ff upstream/main --no-edit
+
+          # ③ 兜底剥离：把 .github/workflows 整体还原为同步前版本。
+          #    覆盖合并驱动管不到的两种情况：上游单方面修改文件、上游新增 workflow 文件。
+          #    其余内容（含 .github 下非 workflow 的文件）照常镜像。
+          if git rev-parse -q --verify HEAD^2 >/dev/null &&
+             ! git diff --quiet "$BASE" HEAD -- .github/workflows; then
+            echo "上游包含 .github/workflows 变更，已剥离以规避 GITHUB_TOKEN 的 workflows 权限限制"
+            git rm -r -f --cached --quiet .github/workflows
+            git checkout "$BASE" -- .github/workflows
             git commit --amend --no-edit
           fi
 
       - name: Push merged code back to your fork
         run: git push origin main
+
+      # 备份 release 标签（v1.4.2_snow-shot 等）。
+      # 标签推送失败不应让代码同步显示为失败，因此 continue-on-error。
+      - name: Mirror upstream tags
+        continue-on-error: true
+        run: git push origin --tags
