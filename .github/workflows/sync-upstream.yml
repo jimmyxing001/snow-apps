@@ -5,9 +5,19 @@ on:
     - cron: '0 0 * * *'
   workflow_dispatch: # 支持手动点按钮触发，调试用
 
+# GITHUB_TOKEN 需要写权限才能把合并结果推回 fork
+permissions:
+  contents: write
+
+# 定时与手动触发不要并发跑同一分支
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
 jobs:
   sync:
-    runs-on: ubuntu-latest
+    # 固定到具体版本：ubuntu-latest 将于 2026-10-19 起迁移到 Ubuntu 26，避免环境被动变化
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout your fork repo
         uses: actions/checkout@v5   # 从v4改成v5，消除Node废弃警告
@@ -27,8 +37,25 @@ jobs:
 
       - name: Merge upstream/main into local main
         run: |
+          BASE=$(git rev-parse HEAD)
           git checkout main
-          git merge upstream/main
+          git merge upstream/main --no-edit
+          # ── 为什么需要下面这段 ──────────────────────────────────────────────
+          # GITHUB_TOKEN 是 GitHub App 令牌，永远没有 workflows 权限。
+          # 一旦合并结果里包含 .github/workflows/ 的变更，push 会被 GitHub 拒绝：
+          #   refusing to allow a GitHub App to create or update workflow
+          #   '.github/workflows/xxx.yml' without `workflows` permission
+          # 表现为 "Process completed with exit code 1"，而且每天都会重复失败。
+          # fork 不使用上游的发布流水线（homebrew / scoop / winget），
+          # 因此这里把 .github 还原成 fork 自己的版本，使推送范围不含 workflow 变更。
+          # 若将来希望上游 workflow 的更新也同步进来，请改用带 workflow 权限的 PAT
+          # （见仓库说明），并删除本段。
+          if ! git diff --quiet "$BASE" HEAD -- .github; then
+            echo "上游包含 .github 变更，已剥离以规避 GITHUB_TOKEN 的 workflows 权限限制"
+            git rm -r -f --cached --quiet .github
+            git checkout "$BASE" -- .github
+            git commit --amend --no-edit
+          fi
 
       - name: Push merged code back to your fork
         run: git push origin main
