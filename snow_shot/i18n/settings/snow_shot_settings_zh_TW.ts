@@ -760,14 +760,6 @@
             <translation>Snow Shot 需要有效的程式碼簽章才能使用登入時啟動功能。請重新安裝已簽署的 App。</translation>
         </message>
         <message>
-            <source>macOS could not find %1's login item. Reinstall the app in Applications.</source>
-            <translation>macOS 找不到 %1 的登入項目。請將應用程式重新安裝到 Applications。</translation>
-        </message>
-        <message>
-            <source>macOS could not find Snow Shot's login item. Reinstall the app in Applications.</source>
-            <translation>macOS 找不到 Snow Shot 的登入項目。請將 App 重新安裝到「應用程式」中。</translation>
-        </message>
-        <message>
             <source>macOS did not apply the launch-at-login change. Check Login Items in System Settings.</source>
             <translation>macOS 未套用登入時啟動變更。請檢查「系統設定」中的「登入項目」。</translation>
         </message>
@@ -1113,6 +1105,10 @@
             <translation>無法匯入設定。</translation>
         </message>
         <message>
+            <source>The setting could not be saved.</source>
+            <translation>設定無法儲存。</translation>
+        </message>
+        <message>
             <source>Translation service is unavailable</source>
             <translation>翻譯服務無法使用</translation>
         </message>
@@ -1270,6 +1266,10 @@
         <message>
             <source>All screenshot history will be removed</source>
             <translation>所有截圖歷史都將被移除</translation>
+        </message>
+        <message>
+            <source>All windows</source>
+            <translation>所有視窗</translation>
         </message>
         <message>
             <source>Allow MCP clients running as your OS user to control Snow Shot. Snow Shot must be running.</source>
@@ -1760,8 +1760,8 @@
             <translation>選擇手動和自動儲存 PDF 檔案時使用的頁面大小</translation>
         </message>
         <message>
-            <source>Choose the preferred API for normal screenshots; Auto uses DXGI on HDR displays and GDI otherwise</source>
-            <translation>選擇一般螢幕擷取的偏好 API；自動模式在 HDR 顯示器上使用 DXGI，其他情況使用 GDI</translation>
+            <source>Choose the preferred API for screenshots and current-monitor captures; Auto uses WGC on HDR displays and GDI otherwise</source>
+            <translation>選擇截圖和目前顯示器擷取的首選 API；自動模式在 HDR 顯示器上使用 WGC，其他情況下使用 GDI</translation>
         </message>
         <message>
             <source>Choose the preferred capture API for screen recording</source>
@@ -1830,6 +1830,10 @@
         <message>
             <source>Choose which actions also save an image in the selected image format and save directory</source>
             <translation>選擇執行哪些操作時，同時以所選影像格式儲存至指定目錄</translation>
+        </message>
+        <message>
+            <source>Choose which fullscreen windows automatically disable global hotkeys</source>
+            <translation>選擇哪些全螢幕視窗會自動停用全域快速鍵</translation>
         </message>
         <message>
             <source>Clear</source>
@@ -2580,6 +2584,10 @@
             <translation>GPU</translation>
         </message>
         <message>
+            <source>Game windows</source>
+            <translation>遊戲視窗</translation>
+        </message>
+        <message>
             <source>General</source>
             <translation>一般</translation>
         </message>
@@ -2676,8 +2684,8 @@
             <translation>圖示</translation>
         </message>
         <message>
-            <source>Ignore global hotkeys while the focused window occupies an entire monitor</source>
-            <translation>焦點視窗占滿整個螢幕時忽略全域快速鍵</translation>
+            <source>Ignore global hotkeys while a matching focused window occupies an entire monitor</source>
+            <translation>符合篩選條件的焦點視窗佔滿整個顯示器時忽略全域快速鍵</translation>
         </message>
         <message>
             <source>Image Recognition</source>
@@ -4798,6 +4806,10 @@
         <message>
             <source>Window capture</source>
             <translation>視窗截圖</translation>
+        </message>
+        <message>
+            <source>Window filter type</source>
+            <translation>視窗篩選類型</translation>
         </message>
         <message>
             <source>Window grouping</source>

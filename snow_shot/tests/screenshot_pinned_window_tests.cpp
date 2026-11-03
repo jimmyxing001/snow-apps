@@ -1,3 +1,5 @@
+#include "snow_shot/presentation/pinnedwindowstackingcoordinator.h"
+#include "../src/presentation/pinned/pinnedwindowstackingplatform.h"
 #include "canvas_automatic_selection_test_support.h"
 #include "snow_shot/presentation/imageeditingdocument.h"
 #include "snow_shot/presentation/imageeditingwindow.h"
@@ -3809,6 +3811,85 @@ void pinnedRecognitionShortcutTogglesResults() {
                     (offscreen || window->persistenceSnapshot().recognitionVisible == visible),
                 "each recognition shortcut press must toggle result visibility");
     }
+}
+
+void pinnedTranslationSettingsSuspendWindowShortcuts() {
+#if SNOW_SHOT_ENABLE_TEXT_TRANSLATION
+    using Access = ScreenshotPinnedWindowTestAccess;
+    const snow_shot::storage::PinToScreenShortcutSettings settings;
+    const auto previousLock = settings.shortcuts(QStringLiteral("toggle_lock"));
+    const auto previousBorder = settings.shortcuts(QStringLiteral("show_border"));
+    const auto restore = qScopeGuard([&] {
+        require(settings.setShortcuts(QStringLiteral("toggle_lock"), previousLock) &&
+                    settings.setShortcuts(QStringLiteral("show_border"), previousBorder),
+                "restore pinned modal shortcut settings");
+    });
+    require(settings.setShortcuts(QStringLiteral("toggle_lock"), {QStringLiteral("F6")}) &&
+                settings.setShortcuts(QStringLiteral("show_border"), {QStringLiteral("F7")}),
+            "configure independent pinned modal shortcuts");
+    SnowShotApiClient apiClient(QStringLiteral("http://127.0.0.1:1"));
+    ScreenshotPinnedWindow window;
+    auto config = cachedOcrPinConfig(nullptr);
+    config.tableRecognition = &apiClient;
+    auto* session = Access::hiddenSelectionOffscreen(window, config);
+    auto* canvas = window.findChild<SnowCanvasWidget*>();
+    materializePinnedMenuTree(window);
+    auto* lock = window.findChild<QAction*>(QStringLiteral("screenshotPinnedLockAction"));
+    auto* border = window.findChild<QAction*>(QStringLiteral("screenshotPinnedShowBorderAction"));
+    require(session && canvas && lock && border,
+            "translation settings fixture exposes its pinned commands");
+    window.activateWindow();
+    canvas->setFocus(Qt::OtherFocusReason);
+    waitForUi(20);
+    const bool locked = lock->isChecked();
+    const bool bordered = border->isChecked();
+    const auto press = [](QWidget& receiver, Qt::Key key) {
+        PhysicalKeyEvent overrideEvent(QEvent::ShortcutOverride, key, Qt::NoModifier);
+        QCoreApplication::sendEvent(&receiver, &overrideEvent);
+        sendShortcut(receiver, key);
+        PhysicalKeyEvent release(QEvent::KeyRelease, key, Qt::NoModifier);
+        QCoreApplication::sendEvent(&receiver, &release);
+    };
+    press(*canvas, Qt::Key_F6);
+    press(*canvas, Qt::Key_F7);
+    require(lock->isChecked() == !locked && border->isChecked() == !bordered,
+            "pinned commands work before translation settings open");
+    press(*canvas, Qt::Key_F6);
+    press(*canvas, Qt::Key_F7);
+
+    session->openTranslationSettings();
+    auto* modal = session->findChild<adqt::widgets::AdModal*>(
+        QStringLiteral("screenshotTranslationSettingsModal"));
+    require(modal && modal->isOpen() && modal->rejectButton(),
+            "pinned recognition opens the real translation settings modal");
+    modal->contentWidget()->window()->activateWindow();
+    modal->rejectButton()->setFocus(Qt::OtherFocusReason);
+    waitForUi(20);
+    require(adqt::widgets::detail::blockingModalWindow(window.windowHandle()) &&
+                !snow_shot::presentation::WindowShortcutManager::focusAcceptsTextInput(
+                    QApplication::focusWidget()),
+            "translation settings block the pin while a noneditable control owns focus");
+    for (QWidget* receiver : {static_cast<QWidget*>(modal->rejectButton()),
+                              static_cast<QWidget*>(canvas), static_cast<QWidget*>(&window)}) {
+        press(*receiver, Qt::Key_F6);
+        require(lock->isChecked() == locked,
+                "translation settings prevent pinned lock shortcuts from every receiver");
+        press(*receiver, Qt::Key_F7);
+        require(border->isChecked() == bordered,
+                "translation settings prevent pinned border shortcuts from every receiver");
+    }
+    QPointer<adqt::widgets::AdModal> dismissed(modal);
+    press(*modal->rejectButton(), Qt::Key_Escape);
+    require(processUntilDeleted(dismissed, 2000) && window.isVisible(),
+            "Escape dismisses translation settings without closing the pin");
+    window.activateWindow();
+    canvas->setFocus(Qt::OtherFocusReason);
+    waitForUi(20);
+    press(*canvas, Qt::Key_F6);
+    press(*canvas, Qt::Key_F7);
+    require(lock->isChecked() == !locked && border->isChecked() == !bordered,
+            "pinned shortcuts resume after translation settings close");
+#endif
 }
 
 void pinnedMouseActionsToggleRecognition(Qt::MouseButton button) {
@@ -11132,6 +11213,8 @@ void restoredPartiallyVisiblePlacementStaysExact() {
         }
     }
 }
+
+#include "pinned_stacking_restore_tests.h"
 
 void restoredStateSavePreservesSourceRevision() {
     IsolatedPinnedStorage isolated;
@@ -22120,14 +22203,25 @@ void pinnedManagementLifecycle() {
     ScreenshotPinnedWindowTestAccess::setGeneralOpacity(*live(first), 65);
     require(service.restoreRecord(unrelated.id), "page restore activates another group");
     require(!live(unrelated.id) && repository.loadRecord(unrelated.id)->ignored &&
-                !service.restoreRecord(unrelated.id),
-            "restore queues payload loading without blocking the UI or duplicating the request");
+                service.restoreRecord(unrelated.id),
+            "repeated restore requests are accepted while payload loading remains asynchronous");
     require(repository.loadRecord(first)->opacityPercent == 65 &&
                 !repository.loadRecord(first)->ignored &&
                 repository.loadRecord(first)->activitySequence == firstActivity,
             "group switches save final state without marking closed or reordering");
     wait([&]() { return !repository.loadRecord(unrelated.id)->ignored; },
          "page restoration completes");
+    require(storage::ApplicationStorage::instance().pinnedFullImagePool().waitForDone(5000),
+            "repeated restoration finishes all payload loads");
+    QCoreApplication::processEvents();
+    const auto topLevels = QApplication::topLevelWidgets();
+    require(std::count_if(topLevels.cbegin(), topLevels.cend(),
+                          [&](QWidget* widget) {
+                              auto* pin = qobject_cast<ScreenshotPinnedWindow*>(widget);
+                              return pin && pin->persistenceId() == unrelated.id &&
+                                     pin->isVisible();
+                          }) == 1,
+            "accepted repeated restores present exactly one window");
     require(groups.activeGroupId() == *other, "page restore preserves group ownership");
     QPointer<ScreenshotPinnedWindow> otherWindow(live(unrelated.id));
     require(otherWindow, "other group window exists");
@@ -27374,6 +27468,7 @@ void pinnedAnimatedImages(bool transformsOnly = false) {
 #include "pinned_color_swatch_window_tests.h"
 #include "screenshot_live_pinned_window_tests.h"
 #include "screenshot_live_pinned_window_native_tests.h"
+#include "pinned_clipboard_paste_tests.h"
 #ifdef SNOW_SHOT_LIVE_WINDOW_BENCHMARK
 #include "screenshot_live_window_performance_benchmark.h"
 #endif
@@ -28055,6 +28150,10 @@ int main(int argc, char* argv[]) {
             pinnedContentReplacement();
             return 0;
         }
+        if (app.arguments().contains(QStringLiteral("--clipboard-paste-only"))) {
+            pinnedClipboardPasteTests();
+            return 0;
+        }
         if (app.arguments().contains(QStringLiteral("--file-drop-only"))) {
             pinnedFileDrop();
             return 0;
@@ -28377,6 +28476,10 @@ int main(int argc, char* argv[]) {
             pinnedToolbarLayoutReloadsAndResetsIndependently();
             return 0;
         }
+        if (app.arguments().contains(QStringLiteral("--translation-modal-shortcuts-only"))) {
+            pinnedTranslationSettingsSuspendWindowShortcuts();
+            return 0;
+        }
         if (app.arguments().contains(QStringLiteral("--recognition-shortcut-only"))) {
             pinnedEditingPreservesActiveRecognition();
             pinnedDrawingToolsRemainUsableAfterRecognition();
@@ -28445,6 +28548,12 @@ int main(int argc, char* argv[]) {
         }
         if (app.arguments().contains(QStringLiteral("--partial-placement-restore-only"))) {
             restoredPartiallyVisiblePlacementStaysExact();
+            return 0;
+        }
+        if (app.arguments().contains(QStringLiteral("--stacking-restore-only"))) {
+            pinnedStackingSurvivesRestoration();
+            pinnedStackingExplicitShowDuringRestore();
+            pinnedStackingRestoreDuringMutation();
             return 0;
         }
         if (app.arguments().contains(QStringLiteral("--restored-state-persistence-only"))) {
@@ -28541,6 +28650,7 @@ int main(int argc, char* argv[]) {
         pinnedEditingPreservesActiveRecognition();
         pinnedDrawingToolsRemainUsableAfterRecognition();
         pinnedRecognitionShortcutTogglesResults();
+        pinnedTranslationSettingsSuspendWindowShortcuts();
         pinnedEditingRecognitionShortcutsUsePaletteCommands();
         pinnedArrowLabelWheelReachesTextEditor();
         pinnedEditingRemembersLastFilterToolAcrossSessions();

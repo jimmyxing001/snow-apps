@@ -37,6 +37,7 @@
 #include "snow_shot/storage/pinnedwindowrepository.h"
 #include "snow_shot/presentation/shortcutdisplaytext.h"
 #include "snow_shot/presentation/pinnedwindowgroupmanager.h"
+#include "snow_shot/presentation/pinnedwindowstackingcoordinator.h"
 #include "snow_shot/presentation/pinnedwindowselectioncontroller.h"
 #include "snow_shot/storage/applicationstorage.h"
 #include "snow_shot/storage/pinnedwindowrepository.h"
@@ -1184,6 +1185,14 @@ ScreenshotPinnedWindow::ScreenshotPinnedWindow(QWidget* parent)
       m_nativeGeometryController(std::make_unique<ScreenshotPinnedNativeGeometryController>()) {
     snow_shot::presentation::installWindowCloseShortcut(this, [this] { requestUserClose(); });
     m_platform->setResizeInteractionState(&m_systemSizingActive);
+    m_platform->stackingChanged = [this] {
+        if (m_stackingCoordinator)
+            m_stackingCoordinator->nativeOrderChanged(this);
+    };
+    m_platform->stackingActivated = [this] {
+        if (m_stackingCoordinator)
+            m_stackingCoordinator->promote(this);
+    };
     m_platform->environmentChanged = [this](bool layoutChanged) {
         reconcilePlatformEnvironment(layoutChanged);
     };
@@ -1394,6 +1403,21 @@ void ScreenshotPinnedWindow::registerWindowShortcuts() {
     };
     m_pinnedShortcutBindings.insert(QStringLiteral("copy_original_content"),
                                     m_shortcutManager->addBinding(this, std::move(copyOriginal)));
+
+    ShortcutManager::Binding paste;
+    paste.id = QStringLiteral("pinned.paste");
+    paste.keyCombinations = standardKeyCombinations(QKeySequence::Paste);
+    paste.priority = ShortcutManager::StandardPriority::WindowCommand;
+    paste.canActivate = [this, localCommandsAllowed](const auto& context) {
+        return !isLiveWindow() && m_firstContentFramePublished && !m_originalImage.isNull() &&
+               (context.event == nullptr || !context.event->isAutoRepeat()) &&
+               QApplication::activeModalWidget() == nullptr && localCommandsAllowed(context);
+    };
+    paste.activate = [this](const auto&) {
+        loadClipboardContent();
+        return true;
+    };
+    static_cast<void>(m_shortcutManager->addBinding(this, std::move(paste)));
 
     ShortcutManager::Binding print;
     print.id = QStringLiteral("pinned.print");
@@ -1829,6 +1853,10 @@ bool ScreenshotPinnedWindow::prewarm(QScreen* screen) {
 }
 
 ScreenshotPinnedWindow::~ScreenshotPinnedWindow() {
+    if (m_stackingCoordinator)
+        m_stackingCoordinator->retiring(this);
+    m_platform->stackingChanged = {};
+    m_platform->stackingActivated = {};
     stopLiveSource();
     m_destroying = true;
     endWindowShake(true);
@@ -2599,6 +2627,9 @@ bool ScreenshotPinnedWindow::present(const Config& requestedConfig,
         m_selectionController->unregisterWindow(this);
     m_selectionController = config.selectionController;
     m_groupManager = config.groupManager;
+    m_stackingCoordinator = config.stackingCoordinator ? config.stackingCoordinator.data()
+                            : m_groupManager           ? m_groupManager->stackingCoordinator()
+                                                       : nullptr;
     m_groupId = config.groupId.trimmed();
     if (m_groupId.isEmpty()) {
         m_groupId =
@@ -2612,6 +2643,8 @@ bool ScreenshotPinnedWindow::present(const Config& requestedConfig,
     } else if (m_persistenceId.isEmpty()) {
         m_persistenceId = QUuid::createUuid().toString(QUuid::WithoutBraces);
     }
+    if (m_stackingCoordinator && !isLiveWindow())
+        m_stackingCoordinator->track(this, m_persistenceId, m_groupId);
     if (m_groupManager != nullptr) {
         m_groupManager->registerWindow(this, m_groupId);
         connect(m_groupManager, &snow_shot::presentation::PinnedWindowGroupManager::groupsChanged,
@@ -2794,9 +2827,9 @@ bool ScreenshotPinnedWindow::present(const Config& requestedConfig,
     const bool restoreClickThrough =
         config.restorePersistentState && config.persistedClickThroughMode &&
         !config.persistedHideToTopMode && !config.persistedThumbnailMode;
-    if (restoreClickThrough) {
-        setAttribute(Qt::WA_ShowWithoutActivating, true);
-    }
+    setAttribute(Qt::WA_ShowWithoutActivating,
+                 restoreClickThrough || hideToTopActive() ||
+                     config.presentationPolicy == PresentationPolicy::PreserveFocus);
     configureAnimationPlayback(config.restorePersistentState ? config.persistedAnimationSpeedPercent
                                                              : 100,
                                !config.restorePersistentState || config.persistedAnimationPlaying);
@@ -2826,7 +2859,11 @@ bool ScreenshotPinnedWindow::present(const Config& requestedConfig,
     if (restoreClickThrough && !setClickThroughMode(true)) {
         qWarning("Pinned window click-through restoration failed");
     }
-    if (!hideToTopActive() && !m_clickThroughActive) {
+    if (m_stackingCoordinator && !isLiveWindow())
+        m_stackingCoordinator->presented(this, config.presentationPolicy ==
+                                                   PresentationPolicy::PreserveFocus);
+    if (config.presentationPolicy == PresentationPolicy::Activate && !hideToTopActive() &&
+        !m_clickThroughActive) {
         raise();
         static_cast<void>(m_platform->activate());
         activateWindow();
@@ -9613,6 +9650,12 @@ void ScreenshotPinnedWindow::showShakeMessage(bool restart) {
 }
 
 void ScreenshotPinnedWindow::closeOtherPinnedWindows() {
+    if (m_stackingCoordinator)
+        m_stackingCoordinator->beginMutation();
+    const auto mutation = qScopeGuard([stacking = m_stackingCoordinator] {
+        if (stacking)
+            stacking->endMutation();
+    });
     const auto windows = livePinnedWindows();
     for (const QPointer<ScreenshotPinnedWindow>& window : windows) {
         if (window != nullptr && window != this && window->m_presented && !window->m_closing &&
@@ -9624,6 +9667,12 @@ void ScreenshotPinnedWindow::closeOtherPinnedWindows() {
 }
 
 void ScreenshotPinnedWindow::closeAllPinnedWindows() {
+    if (m_stackingCoordinator)
+        m_stackingCoordinator->beginMutation();
+    const auto mutation = qScopeGuard([stacking = m_stackingCoordinator] {
+        if (stacking)
+            stacking->endMutation();
+    });
     const auto windows = livePinnedWindows();
     for (const QPointer<ScreenshotPinnedWindow>& window : windows) {
         if (window != nullptr && window->m_presented && !window->m_closing &&
@@ -9636,6 +9685,8 @@ void ScreenshotPinnedWindow::closeAllPinnedWindows() {
 }
 
 void ScreenshotPinnedWindow::hideForClosing() {
+    if (m_stackingCoordinator)
+        m_stackingCoordinator->retiring(this);
     endWindowShake(true);
     const bool firstClose = !m_closing;
     m_closing = true;
@@ -9826,10 +9877,27 @@ void ScreenshotPinnedWindow::showFromManagement() {
     if (hideToTopActive())
         m_hideToTop->setSuppressed(false);
     else {
+        setAttribute(Qt::WA_ShowWithoutActivating, m_clickThroughActive);
+        if (m_stackingCoordinator)
+            m_stackingCoordinator->promote(this);
         show();
         raise();
-        activateWindow();
+        if (!m_clickThroughActive)
+            activateWindow();
     }
+}
+
+void ScreenshotPinnedWindow::showPreservingStacking() {
+    if (m_closing)
+        return;
+    if (hideToTopActive()) {
+        m_hideToTop->setSuppressed(false);
+        return;
+    }
+    setAttribute(Qt::WA_ShowWithoutActivating, true);
+    show();
+    if (m_stackingCoordinator)
+        m_stackingCoordinator->presented(this, true);
 }
 
 void ScreenshotPinnedWindow::requestDestroy() {

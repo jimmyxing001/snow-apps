@@ -760,14 +760,6 @@
             <translation>Snow Shot needs a valid code signature to use launch at login. Reinstall the signed app.</translation>
         </message>
         <message>
-            <source>macOS could not find %1's login item. Reinstall the app in Applications.</source>
-            <translation>macOS could not find %1's login item. Reinstall the app in Applications.</translation>
-        </message>
-        <message>
-            <source>macOS could not find Snow Shot's login item. Reinstall the app in Applications.</source>
-            <translation>macOS could not find Snow Shot's login item. Reinstall the app in Applications.</translation>
-        </message>
-        <message>
             <source>macOS did not apply the launch-at-login change. Check Login Items in System Settings.</source>
             <translation>macOS did not apply the launch-at-login change. Check Login Items in System Settings.</translation>
         </message>
@@ -1113,6 +1105,10 @@
             <translation>The configuration could not be imported.</translation>
         </message>
         <message>
+            <source>The setting could not be saved.</source>
+            <translation>The setting could not be saved.</translation>
+        </message>
+        <message>
             <source>Translation service is unavailable</source>
             <translation>Translation service is unavailable</translation>
         </message>
@@ -1270,6 +1266,10 @@
         <message>
             <source>All screenshot history will be removed</source>
             <translation>All screenshot history will be removed</translation>
+        </message>
+        <message>
+            <source>All windows</source>
+            <translation>All windows</translation>
         </message>
         <message>
             <source>Allow MCP clients running as your OS user to control Snow Shot. Snow Shot must be running.</source>
@@ -1760,8 +1760,8 @@
             <translation>Choose the page size for manually and automatically saved PDF files</translation>
         </message>
         <message>
-            <source>Choose the preferred API for normal screenshots; Auto uses DXGI on HDR displays and GDI otherwise</source>
-            <translation>Choose the preferred API for normal screenshots; Auto uses DXGI on HDR displays and GDI otherwise</translation>
+            <source>Choose the preferred API for screenshots and current-monitor captures; Auto uses WGC on HDR displays and GDI otherwise</source>
+            <translation>Choose the preferred API for screenshots and current-monitor captures; Auto uses WGC on HDR displays and GDI otherwise</translation>
         </message>
         <message>
             <source>Choose the preferred capture API for screen recording</source>
@@ -1830,6 +1830,10 @@
         <message>
             <source>Choose which actions also save an image in the selected image format and save directory</source>
             <translation>Choose which actions also save an image in the selected image format and save directory</translation>
+        </message>
+        <message>
+            <source>Choose which fullscreen windows automatically disable global hotkeys</source>
+            <translation>Choose which fullscreen windows automatically disable global hotkeys</translation>
         </message>
         <message>
             <source>Clear</source>
@@ -2580,6 +2584,10 @@
             <translation>GPU</translation>
         </message>
         <message>
+            <source>Game windows</source>
+            <translation>Game windows</translation>
+        </message>
+        <message>
             <source>General</source>
             <translation>General</translation>
         </message>
@@ -2676,8 +2684,8 @@
             <translation>Icon</translation>
         </message>
         <message>
-            <source>Ignore global hotkeys while the focused window occupies an entire monitor</source>
-            <translation>Ignore global hotkeys while the focused window occupies an entire monitor</translation>
+            <source>Ignore global hotkeys while a matching focused window occupies an entire monitor</source>
+            <translation>Ignore global hotkeys while a matching focused window occupies an entire monitor</translation>
         </message>
         <message>
             <source>Image Recognition</source>
@@ -4798,6 +4806,10 @@
         <message>
             <source>Window capture</source>
             <translation>Window capture</translation>
+        </message>
+        <message>
+            <source>Window filter type</source>
+            <translation>Window filter type</translation>
         </message>
         <message>
             <source>Window grouping</source>

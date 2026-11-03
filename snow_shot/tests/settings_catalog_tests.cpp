@@ -906,8 +906,8 @@ void builtInCatalogIsCompleteAndValid() {
                 recordingApiSelect.options[1].value == QStringLiteral("wgc") &&
                 recordingApiSelect.options[2].value == QStringLiteral("gdi") &&
                 storage::ConfigurationSchema::defaultValue(recordingApiMode->configurationKey) ==
-                    QStringLiteral("dxgi"),
-            "recording API mode must offer exactly DXGI, WGC, GDI and default to DXGI");
+                    QStringLiteral("wgc"),
+            "recording API mode must offer exactly DXGI, WGC, GDI and default to WGC");
 #endif
     require(
         recordingToolbarCapture != nullptr && recordingCaptureSection != nullptr &&
@@ -3779,6 +3779,40 @@ void emptyRegistryBuilderIsExplicitlyInvalid() {
                 registry.pages().isEmpty() && registry.fields().isEmpty(),
             "building without providers must produce an invalid, empty registry");
 }
+void fullscreenWindowFilterHasStableContract() {
+    const auto& registry = settings::builtInSettingsRegistry();
+    const auto& catalog = registry.catalog();
+    const settings::SettingsSearchIndex search(registry);
+    require(registry.validationErrors().isEmpty(),
+            "fullscreen filter conforms to the settings registry");
+    const auto* fullscreen =
+        registry.fieldForSwitch(settings::SettingsSwitchBinding::DisableHotkeysOnFocusedFullscreen);
+    const auto* filter =
+        registry.fieldForSelect(settings::SettingsSelectBinding::FullscreenWindowFilter);
+    const auto* automatic =
+        catalog.section(QStringLiteral("global-hotkeys"), QStringLiteral("global-hotkeys"));
+    require(filter && automatic && automatic->items.size() == 2 &&
+                automatic->items.at(0).id == fullscreen->id &&
+                automatic->items.at(1).id == filter->id &&
+                filter->reset == settings::SettingsSectionReset::GlobalHotkeys &&
+                filter->configurationKey ==
+                    QStringLiteral("global_shortcuts/fullscreen_window_filter") &&
+                filter->defaultValue == QJsonValue(QStringLiteral("game_windows")),
+            "the default game filter immediately follows fullscreen suppression in the same reset "
+            "scope");
+    const auto& filterSelect =
+        std::get<settings::SettingsSelectDefinition>(filter->definition->payload);
+    require(filterSelect.options.size() == 2 &&
+                filterSelect.options.at(0).value == QStringLiteral("all_windows") &&
+                filterSelect.options.at(0).label.translated() == QStringLiteral("All windows") &&
+                filterSelect.options.at(1).value == QStringLiteral("game_windows") &&
+                filterSelect.options.at(1).label.translated() == QStringLiteral("Game windows"),
+            "the fullscreen filter exposes exactly the requested two options");
+    const auto filterHits = search.search(QStringLiteral("Window filter type"));
+    require(!filterHits.isEmpty() && filterHits.first().location.itemId == filter->id,
+            "search locates the fullscreen window filter");
+}
+
 void featureNavigationAndSearchAreConsistent() {
     const auto& registry = settings::builtInSettingsRegistry();
     const auto& catalog = registry.catalog();
@@ -3844,6 +3878,7 @@ void featureNavigationAndSearchAreConsistent() {
     require(!fullscreenHits.isEmpty() && fullscreenHits.first().location.itemId == fullscreen->id &&
                 fullscreenHits.first().location.pageId == QStringLiteral("global-hotkeys"),
             "search navigates to the relocated full-screen control");
+    fullscreenWindowFilterHasStableContract();
     for (const auto& node : catalog.navigation()) {
         const auto* group = std::get_if<settings::SettingsNavigationGroupDefinition>(&node);
         if (group == nullptr || group->id != QStringLiteral("nav.settings"))
@@ -3957,8 +3992,46 @@ void memoryOptimizationPolicyCatalog() {
 }
 } // namespace
 
+void captureApiCatalog() {
+    const auto& catalog = settings::builtInSettingsRegistry().catalog();
+    const auto* screenshot =
+        catalog.item({QStringLiteral("screenshots"), QStringLiteral("capture-compatibility"),
+                      QStringLiteral("screenshot.api-mode")});
+    const auto* recording = catalog.item({QStringLiteral("screen-recording"),
+                                          QStringLiteral("screen-recording-capture"),
+                                          QStringLiteral("screen-recording.api-mode")});
+#ifdef Q_OS_MACOS
+    require(!screenshot && !recording, "macOS must omit Windows capture API settings");
+#else
+    require(screenshot && recording, "Windows capture API settings must be present");
+    const auto& screenshotSelect =
+        std::get<settings::SettingsSelectDefinition>(screenshot->payload);
+    require(screenshotSelect.binding == settings::SettingsSelectBinding::ScreenshotApiMode &&
+                screenshotSelect.options.size() == 4 &&
+                storage::ConfigurationSchema::defaultValue(screenshot->configurationKey) ==
+                    QStringLiteral("auto") &&
+                QString::fromUtf8(screenshot->description.source) ==
+                    QStringLiteral("Choose the preferred API for screenshots and current-monitor "
+                                   "captures; Auto uses WGC on HDR displays and GDI otherwise"),
+            "screenshot API must retain Auto and describe the shared current-monitor HDR policy");
+    const auto& recordingSelect = std::get<settings::SettingsSelectDefinition>(recording->payload);
+    require(recordingSelect.binding == settings::SettingsSelectBinding::ScreenRecordingApiMode &&
+                recordingSelect.options.size() == 3 &&
+                recordingSelect.options[0].value == QStringLiteral("dxgi") &&
+                recordingSelect.options[1].value == QStringLiteral("wgc") &&
+                recordingSelect.options[2].value == QStringLiteral("gdi") &&
+                storage::ConfigurationSchema::defaultValue(recording->configurationKey) ==
+                    QStringLiteral("wgc"),
+            "recording API must default to WGC and retain every manual preference");
+#endif
+}
+
 int main(int argc, char** argv) {
     QCoreApplication application(argc, argv);
+    if (application.arguments().contains(QStringLiteral("--capture-api-only"))) {
+        captureApiCatalog();
+        return 0;
+    }
     if (application.arguments().contains(QStringLiteral("--screenshot-interaction-only"))) {
         screenshotInteractionCatalog();
         searchIndexRebuildsLocalizedFields();
@@ -4016,6 +4089,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     if (application.arguments().contains(QStringLiteral("--global-hotkeys-only"))) {
+        fullscreenWindowFilterHasStableContract();
         globalHotkeyShortcutsHaveStableContracts();
         compactTrayManifestMatchesRegistryCatalog();
         searchIndexIsGeneratedAndRanked();

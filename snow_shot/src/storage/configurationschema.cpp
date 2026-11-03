@@ -635,6 +635,11 @@ const QVector<ConfigurationSchemaEntry> kRawEntries = {
      2},
     {QStringLiteral("global_shortcuts/disable_on_focused_fullscreen_window"), false,
      ConfigurationValueKind::Boolean},
+    {QStringLiteral("global_shortcuts/fullscreen_window_filter"),
+     QStringLiteral("game_windows"),
+     ConfigurationValueKind::String,
+     std::nullopt,
+     {QStringLiteral("all_windows"), QStringLiteral("game_windows")}},
     {QStringLiteral("global_mouse/screenshot_copy"),
 #ifdef Q_OS_MACOS
      QJsonObject(),
@@ -765,7 +770,11 @@ const QVector<ConfigurationSchemaEntry> kRawEntries = {
      {QStringLiteral("ultrafast"), QStringLiteral("veryfast"), QStringLiteral("medium"),
       QStringLiteral("veryslow"), QStringLiteral("placebo")}},
     {QStringLiteral("screen_recording/api_mode"),
+#ifdef Q_OS_WIN
+     QStringLiteral("wgc"),
+#else
      QStringLiteral("dxgi"),
+#endif
      ConfigurationValueKind::String,
      std::nullopt,
      {QStringLiteral("dxgi"), QStringLiteral("wgc"), QStringLiteral("gdi")}},
