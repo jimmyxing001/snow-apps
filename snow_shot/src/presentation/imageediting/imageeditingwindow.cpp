@@ -892,6 +892,10 @@ Session* ImageEditingWindow::Impl::ensureSession() {
     actions.setTextTargetLanguage = [this](const QString& text) {
         palette->setTextTargetLanguage(text);
     };
+    actions.setTextTranslationServices = [this](const QVector<SnowShotChatModel>& models,
+                                                const QString& selection, bool modelsLoading) {
+        palette->setTextTranslationServices(models, selection, modelsLoading);
+    };
     actions.setShowOriginalImage = [this](bool) {
         palette->setShowOriginalImage(false);
         palette->setOriginalImageToggleEnabled(false);
@@ -988,6 +992,7 @@ void ImageEditingWindow::Impl::bindRecognition() {
     SESSION_ACTION(textTranslateRequested, beginTextTranslation);
     SESSION_ACTION(textResetRequested, resetTextEditing);
     SESSION_ACTION(textSettingsRequested, openTranslationSettings);
+    SESSION_ACTION(textTranslationServicesRequested, requestTextTranslationServices);
     SESSION_ACTION(imageConversionSettingsRequested, openImageConversionSettings);
 #undef SESSION_ACTION
 #define SESSION_VALUE(signal, method)                                                              \
@@ -998,6 +1003,7 @@ void ImageEditingWindow::Impl::bindRecognition() {
     SESSION_VALUE(textFormattingRequested, applyTextFormatting);
     SESSION_VALUE(textPunctuationRequested, applyTextPunctuation);
     SESSION_VALUE(textTargetLanguageRequested, applyTextTargetLanguage);
+    SESSION_VALUE(textTranslationServiceRequested, applyTextTranslationService);
     SESSION_VALUE(recognitionModelChanged, setRecognitionModel);
 #undef SESSION_VALUE
     palette->setOriginalImageToggleEnabled(false);
@@ -1110,6 +1116,30 @@ void ImageEditingWindow::present(ImageEditingSource source) {
             });
         if (d.loadJob.isValid())
             return;
+    }
+    if (!source.textAnnotations.empty() && source.error.isEmpty()) {
+        d.setLoading(true);
+        auto result = std::make_shared<ImageEditingSource>(std::move(source));
+        d.loadJob = ScreenshotExportCoordinator::shared().submit(
+            this, ScreenshotExportCoordinator::Priority::Foreground,
+            [result](const auto& cancel) {
+                if (!cancel.isCancellationRequested()) {
+                    result->image = renderScreenshotTextAnnotations(
+                        result->image, result->canvasRect, result->textAnnotations);
+                    if (result->image.isNull())
+                        result->error = ImageEditingWindow::tr("The image could not be loaded.");
+                    result->textAnnotations = {};
+                }
+                return ScreenshotExportTaskResult{};
+            },
+            [this, result, generation](auto) {
+                if (!m_impl->closing && m_impl->loadGeneration == generation)
+                    present(std::move(*result));
+            });
+        if (d.loadJob.isValid())
+            return;
+        source = std::move(*result);
+        source.error = tr("The image could not be loaded.");
     }
     if (source.resultStyle && source.error.isEmpty()) {
         d.setLoading(true);

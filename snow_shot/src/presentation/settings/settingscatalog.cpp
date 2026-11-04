@@ -2082,6 +2082,16 @@ SettingsItemDefinition pinDuplicateContentItem() {
           settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Repeat Action"))}});
 }
 
+SettingsItemDefinition pinQuickTextAnnotationItem() {
+    return switchItem(
+        QStringLiteral("pin-to-screen.quick-annotation-for-selected-text"),
+        QT_TRANSLATE_NOOP("SettingsCatalog", "Quick annotation for selected text"),
+        QT_TRANSLATE_NOOP("SettingsCatalog",
+                          "Annotate selected canvas text when text selection is set to Always."),
+        QStringLiteral("pin_to_screen/quick_annotation_for_selected_text"),
+        SettingsSwitchBinding::PinQuickAnnotationForSelectedText);
+}
+
 SettingsItemDefinition pinWheelOpacityStepItem() {
     return {QStringLiteral("pin-to-screen.mouse-wheel-opacity-step"),
             settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Mouse wheel opacity step")),
@@ -2147,6 +2157,10 @@ QVector<SettingsOptionDefinition> trayClickActionOptions() {
          settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Copy to Clipboard"))},
         {QStringLiteral("screenshot_fixed"),
          settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Pin to Screen"))},
+        {QStringLiteral("open_capture_history"),
+         settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Open Screenshot History"))},
+        {QStringLiteral("open_pin_to_screen_management"),
+         settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Open Pin to Screen Management"))},
         {QStringLiteral("open_function_settings"),
          settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Open screenshot settings"))},
     };
@@ -2161,6 +2175,7 @@ SettingsItemDefinition trayLeftClickItem() {
         trayClickActionOptions());
 }
 
+#ifndef Q_OS_MACOS
 SettingsItemDefinition trayMiddleClickItem() {
     return fixedSelectItem(
         QStringLiteral("tray.middle-click-action"),
@@ -2169,6 +2184,7 @@ SettingsItemDefinition trayMiddleClickItem() {
         QStringLiteral("tray/middle_click_action"), SettingsSelectBinding::TrayMiddleClickAction,
         trayClickActionOptions());
 }
+#endif
 
 #if SNOW_SHOT_ENABLE_TEXT_TRANSLATION
 QVector<SettingsOptionDefinition> translationLanguageOptions(bool source) {
@@ -3664,8 +3680,8 @@ QVector<SettingsPageDefinition> builtInPages() {
                                                 "Pinned screenshot window appearance settings")),
                  SettingsSectionReset::PinToScreenBehavior,
                  {pinZoomModeItem(), pinDoubleClickActionItem(), pinMiddleClickActionItem(),
-                  pinAutomaticOcrItem(), pinTextSelectionItem(), pinAutoResizeItem(),
-                  pinDuplicateContentItem(), pinShakeWindowToHideOthersItem(),
+                  pinAutomaticOcrItem(), pinTextSelectionItem(), pinQuickTextAnnotationItem(),
+                  pinAutoResizeItem(), pinDuplicateContentItem(), pinShakeWindowToHideOthersItem(),
                   pinWheelOpacityStepItem(), pinWheelZoomStepItem(), pinShowWindowButtonsItem(),
                   pinExitAnnotationModeBeforeClosingItem(), pinConfirmBeforeClosingWindowItem(),
                   pinConfirmBeforeDestroyingWindowItem()},
@@ -3997,7 +4013,10 @@ QVector<SettingsPageDefinition> builtInPages() {
                   trayUseSystemIconColorItem(),
 #endif
                   trayIconItem(), trayCustomIconItem(), trayDarkIconItem(),
-                  trayDarkCustomIconItem(), trayLeftClickItem(), trayMiddleClickItem(),
+                  trayDarkCustomIconItem(), trayLeftClickItem(),
+#ifndef Q_OS_MACOS
+                  trayMiddleClickItem(),
+#endif
                   trayMenuOptionsItem()},
              },
              {
@@ -5362,6 +5381,10 @@ QStringList SettingsCatalog::validationErrors() const {
                         break;
                     case SettingsSwitchBinding::PinAutomaticTextRecognition:
                         expectedKey = QStringLiteral("pin_to_screen/automatic_text_recognition");
+                        break;
+                    case SettingsSwitchBinding::PinQuickAnnotationForSelectedText:
+                        expectedKey =
+                            QStringLiteral("pin_to_screen/quick_annotation_for_selected_text");
                         break;
                     case SettingsSwitchBinding::PinAutoResizeWindow:
                         expectedKey = QStringLiteral("pin_to_screen/auto_resize_window");

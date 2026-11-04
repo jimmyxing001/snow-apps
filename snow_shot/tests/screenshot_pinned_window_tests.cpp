@@ -42,6 +42,7 @@ int macLivePinnedWindowTests();
 #include "snow_shot/presentation/screenshottoolbarlayoutmodel.h"
 #include "close_release_native_test_support.h"
 #include "snow_shot/presentation/screenshotpinnedwindow.h"
+#include "snow_shot/presentation/screenshotquicktextannotationtoolbar.h"
 #ifdef Q_OS_WIN
 #include "snow_shot/platform/windows/windowalwaysontop.h"
 #endif
@@ -348,6 +349,17 @@ class ObservedPinnedPlatform final : public snow_shot::presentation::PinnedWindo
 // installing the Windows HWND hooks required by present().
 class ScreenshotPinnedWindowTestAccess {
   public:
+    static const ScreenshotTextAnnotationDocument&
+    quickTextAnnotations(const ScreenshotPinnedWindow& window) {
+        return window.m_textAnnotations;
+    }
+    static ScreenshotQuickTextAnnotationToolbar* quickTextToolbar(ScreenshotPinnedWindow& window) {
+        return window.m_quickTextAnnotationToolbar;
+    }
+    static ScreenshotTextAnnotationRenderSnapshot
+    quickTextSnapshot(const ScreenshotPinnedWindow& window) {
+        return window.m_textAnnotationSnapshot;
+    }
 #ifdef Q_OS_WIN
     static bool cropNativeInput(ScreenshotPinnedWindow& window, UINT type, WPARAM hit,
                                 LPARAM point) {
@@ -802,6 +814,9 @@ class ScreenshotPinnedWindowTestAccess {
     }
     static QByteArray drawingHistory(const ScreenshotPinnedWindow& window) {
         return window.m_runtime.serializeDocumentHistory();
+    }
+    static SnowCanvasRuntime& drawingRuntime(ScreenshotPinnedWindow& window) {
+        return window.m_runtime;
     }
     static ScreenshotCanvasRenderer& renderer(ScreenshotPinnedWindow& window) {
         return *window.m_screenshotRenderer;
@@ -27473,9 +27488,11 @@ void pinnedAnimatedImages(bool transformsOnly = false) {
 #include "screenshot_live_window_performance_benchmark.h"
 #endif
 #include "pinned_text_type_tests.h"
+#include "pinned_quick_text_annotation_tests.h"
 #include "pinned_shake_window_tests.h"
 #include "screenshot_pinned_crop_tests.h"
 #include "screenshot_pinned_menu_lifetime_tests.h"
+#include "pinned_export_snapshot_tests.h"
 #ifdef SNOW_SHOT_LIVE_WINDOW_BENCHMARK
 #include "screenshot_pinned_crop_performance_benchmark.h"
 #endif
@@ -27500,6 +27517,10 @@ int main(int argc, char* argv[]) {
         // without this, lazily initialized storage lands in the developer's
         // real AppData (see IsolatedPinnedStorage).
         IsolatedPinnedStorage processStorage;
+        if (app.arguments().contains(QStringLiteral("--quick-text-annotation-only"))) {
+            pinned_quick_text_annotation_tests::run();
+            return 0;
+        }
         if (app.arguments().contains(QStringLiteral("--crop-preview-only"))) {
             pinned_crop_tests::cropSelectionProjectsNativeBounds();
             pinned_crop_tests::cropSelectionMatchesCanvas();
@@ -27697,6 +27718,11 @@ int main(int argc, char* argv[]) {
         if (app.arguments().contains(QStringLiteral("--stitching-snapshot-only"))) {
             pinnedImageStitchingSnapshots();
             pinnedImageStitchingTextAndDeferredContent();
+            return 0;
+        }
+        if (app.arguments().contains(QStringLiteral("--export-snapshot-only"))) {
+            pinnedExportsIgnoreAnnotationHistory();
+            pinnedExportsRejectUnavailableDocumentSnapshots();
             return 0;
         }
         if (app.arguments().contains(QStringLiteral("--batch-actions-only"))) {

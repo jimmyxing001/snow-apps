@@ -1320,6 +1320,10 @@
             <translation>动图</translation>
         </message>
         <message>
+            <source>Annotate selected canvas text when text selection is set to Always.</source>
+            <translation>当文字选择设为“始终”时，为画布上选中的文字添加标注。</translation>
+        </message>
+        <message>
             <source>Annotation</source>
             <translation>标注</translation>
         </message>
@@ -3184,6 +3188,14 @@
             <translation>打开登录项设置</translation>
         </message>
         <message>
+            <source>Open Pin to Screen Management</source>
+            <translation>打开固定到屏幕管理</translation>
+        </message>
+        <message>
+            <source>Open Screenshot History</source>
+            <translation>打开截图历史</translation>
+        </message>
+        <message>
             <source>Open a canvas on the current display or toggle click-through</source>
             <translation>在当前显示器上打开画布或切换鼠标穿透</translation>
         </message>
@@ -3466,6 +3478,10 @@
         <message>
             <source>Quick Selection Modification</source>
             <translation>快速修改选区</translation>
+        </message>
+        <message>
+            <source>Quick annotation for selected text</source>
+            <translation>选中文字快速标注</translation>
         </message>
         <message>
             <source>Quick save</source>
