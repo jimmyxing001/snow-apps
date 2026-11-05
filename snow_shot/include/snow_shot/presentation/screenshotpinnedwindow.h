@@ -128,6 +128,8 @@ struct ScreenshotPinnedRecognitionProviders {
     SnowShotApiClient* tableRecognition = nullptr;
 };
 
+struct ScreenshotRecognitionFileSnapshot;
+
 class ScreenshotPinnedWindow final : public QWidget {
     Q_OBJECT
 
@@ -151,10 +153,12 @@ class ScreenshotPinnedWindow final : public QWidget {
     }
     [[nodiscard]] bool liveFrameAvailable() const;
     Q_INVOKABLE void closeLiveWindow();
-    struct HideOtherWindowsResult {
+    struct OtherWindowsVisibilityResult {
+        enum class Action { Hide, Show };
         bool success = false;
-        // Includes hiding a displayed pin or canceling a peer's pending presentation/restore.
+        // Includes changing desired visibility for a pending presentation/restore.
         bool changed = false;
+        Action action = Action::Hide;
     };
     enum class PresentationPolicy { Activate, PreserveFocus };
     struct Config {
@@ -240,7 +244,8 @@ class ScreenshotPinnedWindow final : public QWidget {
         std::function<bool(const snow_shot::storage::PinnedWindowRecord&)> persistenceHider;
         std::function<void()> showAllWindowsRequested;
         std::function<void(const QString&)> hideOtherWindowsRequested;
-        std::function<HideOtherWindowsResult(const QString&)> shakeHideOtherWindowsRequested;
+        std::function<OtherWindowsVisibilityResult(const QString&)>
+            shakeToggleOtherWindowsRequested;
         snow_shot::storage::PinnedWindowCreationSource creationSource =
             snow_shot::storage::PinnedWindowCreationSource::Other;
         snow_shot::presentation::PinnedWindowGroupManager* groupManager = nullptr;
@@ -261,7 +266,7 @@ class ScreenshotPinnedWindow final : public QWidget {
     bool prewarm(QScreen* screen = nullptr);
     QRect currentNativeGeometry() const;
     [[nodiscard]] snow_shot::storage::PinnedWindowRecord persistenceSnapshot() const;
-    [[nodiscard]] snow_shot::presentation::ImageEditingSource imageEditingSnapshot() const;
+    void requestRenderedImageSnapshot(std::function<void(ScreenshotPinnedImageSnapshot)> ready);
     void checkpointStorage();
     [[nodiscard]] ScreenshotPinnedImageSnapshot stitchingSnapshot();
     [[nodiscard]] ScreenshotPinnedImageSnapshot splittingSnapshot();
@@ -319,6 +324,7 @@ class ScreenshotPinnedWindow final : public QWidget {
     static void setRuntimeTrayEnabled(bool enabled);
 
   signals:
+    void renderedImageSnapshotInvalidated();
     void automationWorkflowStateChanged() const;
     void showMainWindowRequested();
     void splitRequested(const ScreenshotPinnedImageSnapshot& snapshot);
@@ -473,7 +479,8 @@ class ScreenshotPinnedWindow final : public QWidget {
     void scheduleDeferredPresentationSetup();
     void finishDeferredPresentationSetup(quint64 generation);
     void finishPresentation(bool succeeded, QImage image = {});
-    void commitClipboardPayload(ScreenshotClipboardPayload payload);
+    void commitClipboardPayload(ScreenshotClipboardPayload payload,
+                                ScreenshotClipboardService::PublicationId publicationId);
     void ensureEditController();
     void configureEditToolbar(ScreenshotFloatingToolPaletteWindow* toolbarWindow);
     void setEditMode(bool enabled);
@@ -519,6 +526,7 @@ class ScreenshotPinnedWindow final : public QWidget {
     struct CopyOutputOptions;
     void copyCurrentViewportWithOptions(CopyOutputOptions output);
     void copyOriginalContent();
+    void copyOriginalImage(ScreenshotClipboardService::PublicationId publicationId);
     void loadImageFile();
     void loadClipboardContent();
     void requestContentReplacement(QStringList paths,
@@ -533,21 +541,31 @@ class ScreenshotPinnedWindow final : public QWidget {
     void saveAsFile();
     void saveDisplayedPinnedWindows();
     void saveDisplayedPinnedWindowsToDirectory(const QString& directory);
+    void savePinnedWindows(const QList<QPointer<ScreenshotPinnedWindow>>& targets, bool selected);
+    void copyPinnedWindowFiles(const QList<QPointer<ScreenshotPinnedWindow>>& targets);
+    void stitchDisplayedPinnedWindows();
     [[nodiscard]] static bool batchSavePending();
     void uploadToCloud();
     void cancelCloudUpload();
     [[nodiscard]] std::shared_ptr<ScreenshotExportArtifact> fileSaveArtifact();
     enum class ViewportExportMode { Complete, RecognitionBackground };
+    [[nodiscard]] ScreenshotPinnedImageSnapshot
+    renderedImageSnapshot(ViewportExportMode mode = ViewportExportMode::Complete);
     [[nodiscard]] std::shared_ptr<ScreenshotExportArtifact>
     viewportArtifact(ViewportExportMode mode = ViewportExportMode::Complete);
     [[nodiscard]] ScreenshotExportSource
-    cachedPinnedExportSource(ScreenshotPinnedViewportExportSource request);
+    cachedPinnedExportSource(ScreenshotPinnedViewportExportSource request,
+                             ScreenshotPinnedImageSnapshot& snapshot);
     [[nodiscard]] std::optional<QByteArray> exportDocumentSnapshot() const;
     void quickSave();
     void invalidatePendingCopy();
+    void saveRecognitionSnapshot(ScreenshotRecognitionFileSnapshot snapshot, QString path,
+                                 QString baseName = {}, bool automatic = false);
+    [[nodiscard]] ScreenshotClipboardService::PublicationId beginCopyRequest();
     void copyRenderedImage(std::shared_ptr<ScreenshotExportArtifact> artifact);
     void copyRenderedImage(std::shared_ptr<ScreenshotExportArtifact> artifact,
-                           const CopyOutputOptions& output);
+                           const CopyOutputOptions& output,
+                           ScreenshotClipboardService::PublicationId publicationId);
     void applyImageOperation(const QTransform& operation, int quarterTurnDelta = 0);
     void resetImageTransform();
     void applyImageTransform(const QTransform& transform, int quarterTurns);
@@ -633,8 +651,9 @@ class ScreenshotPinnedWindow final : public QWidget {
     void sampleWindowShake(const QPointF& pointer);
     void updateWindowShake(const QPointF& pointer, qint64 timeMs);
     void endWindowShake(bool cancel);
-    [[nodiscard]] HideOtherWindowsResult hideOtherWindowsForShake();
+    [[nodiscard]] OtherWindowsVisibilityResult toggleOtherWindowsForShake();
     void showShakeMessage(bool restart = true);
+    void setShowWithoutActivating(bool enabled);
     bool windowDragEnabled() const;
     bool windowDragEligible() const;
     bool windowDragEligibleAt(const QPoint& position,
@@ -707,6 +726,7 @@ class ScreenshotPinnedWindow final : public QWidget {
     QMap<QString, quint64> m_pinnedShortcutBindings;
     QHash<QString, QString> m_pinnedShortcutDisplays;
     std::shared_ptr<ScreenshotExportArtifact> m_exportArtifact;
+    ScreenshotClipboardService::PublicationId m_copyPublicationId = 0;
     struct PinnedRenderCache;
     std::unique_ptr<PinnedRenderCache> m_pinnedRenderCache;
     std::shared_ptr<ScreenshotExportArtifact> m_nativeExportArtifact;
@@ -718,6 +738,9 @@ class ScreenshotPinnedWindow final : public QWidget {
     ScreenshotExportJobHandle m_contentReplacementJob;
     quint64 m_contentReplacementGeneration = 0;
     ScreenshotExportJobHandle m_fileSaveJob;
+    ScreenshotExportJobHandle m_recognitionSaveJob;
+    quint64 m_recognitionSaveGeneration = 0;
+    bool m_recognitionSavePending = false;
     std::shared_ptr<ScreenshotExportArtifact> m_quickSaveArtifact;
     bool m_quickSavePending = false;
     QPointer<ScreenshotCloudUploadJob> m_cloudUploadJob;
@@ -877,9 +900,11 @@ class ScreenshotPinnedWindow final : public QWidget {
     std::function<bool(const snow_shot::storage::PinnedWindowRecord&)> m_persistenceHider;
     std::function<void()> m_showAllWindowsRequested;
     std::function<void(const QString&)> m_hideOtherWindowsRequested;
-    std::function<HideOtherWindowsResult(const QString&)> m_shakeHideOtherWindowsRequested;
+    std::function<OtherWindowsVisibilityResult(const QString&)> m_shakeToggleOtherWindowsRequested;
     std::unique_ptr<ScreenshotPinnedShakeGesture> m_shakeGesture;
     QPointer<adqt::widgets::AdMessageHandle> m_shakeMessage;
+    OtherWindowsVisibilityResult::Action m_shakeMessageAction =
+        OtherWindowsVisibilityResult::Action::Hide;
     QDeadlineTimer m_shakeMessageDeadline{0};
     snow_shot::storage::PinnedWindowCreationSource m_creationSource =
         snow_shot::storage::PinnedWindowCreationSource::Other;
