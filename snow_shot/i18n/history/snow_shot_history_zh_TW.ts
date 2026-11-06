@@ -2,6 +2,17 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="zh_TW" sourcelanguage="en_US">
     <context>
+        <name>CaptureHistoryRepository</name>
+        <message>
+            <source>Unable to create the screenshot history entry folder</source>
+            <translation>無法建立截圖歷史記錄資料夾</translation>
+        </message>
+        <message>
+            <source>Unable to write screenshot history file %1: %2</source>
+            <translation>無法寫入截圖歷史檔案 %1：%2</translation>
+        </message>
+    </context>
+    <context>
         <name>CollageDocument</name>
         <message>
             <source>Enter a nonnegative image spacing</source>
@@ -1828,7 +1839,7 @@ Files:
         </message>
         <message>
             <source>A pinned window is no longer available to save</source>
-            <translation>一個貼圖視窗已無法儲存</translation>
+            <translation>一個固定到螢幕視窗已無法儲存</translation>
         </message>
         <message>
             <source>AirDrop</source>
