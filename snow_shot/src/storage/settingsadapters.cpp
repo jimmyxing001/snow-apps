@@ -672,11 +672,12 @@ bool ShortcutSettings::setScreenshotDelay(const shortcuts::ShortcutBindingList& 
     return setShortcutValue(QStringLiteral("global_shortcuts/screenshot_delay"), bindings);
 }
 
-shortcuts::ShortcutBindingList ShortcutSettings::screenshotFixed() const {
+shortcuts::ShortcutBindingList ShortcutSettings::screenshotPinToScreen() const {
     return shortcutValue(QStringLiteral("global_shortcuts/screenshot_fixed"));
 }
 
-bool ShortcutSettings::setScreenshotFixed(const shortcuts::ShortcutBindingList& bindings) const {
+bool ShortcutSettings::setScreenshotPinToScreen(
+    const shortcuts::ShortcutBindingList& bindings) const {
     return setShortcutValue(QStringLiteral("global_shortcuts/screenshot_fixed"), bindings);
 }
 
@@ -847,11 +848,11 @@ bool ShortcutSettings::setOpenSettings(const shortcuts::ShortcutBindingList& bin
     return setShortcutValue(QStringLiteral("global_shortcuts/open_settings"), bindings);
 }
 
-shortcuts::ShortcutBindingList ShortcutSettings::toggleGlobalHotkeys() const {
+shortcuts::ShortcutBindingList ShortcutSettings::toggleGlobalShortcuts() const {
     return shortcutValue(QStringLiteral("global_shortcuts/toggle_global_hotkeys"));
 }
 
-bool ShortcutSettings::setToggleGlobalHotkeys(
+bool ShortcutSettings::setToggleGlobalShortcuts(
     const shortcuts::ShortcutBindingList& bindings) const {
     return setShortcutValue(QStringLiteral("global_shortcuts/toggle_global_hotkeys"), bindings);
 }
@@ -2898,6 +2899,14 @@ QString NetworkSettings::proxy() const {
 
 bool NetworkSettings::setProxy(const QString& proxy) const {
     return cache().setValue(QStringLiteral("network/proxy"), proxy);
+}
+
+QString NetworkSettings::httpProxy() const {
+    return cache().value(QStringLiteral("network/http_proxy")).toString();
+}
+
+bool NetworkSettings::setHttpProxy(const QString& address) const {
+    return cache().setValue(QStringLiteral("network/http_proxy"), address);
 }
 
 } // namespace snow_shot::storage
