@@ -331,6 +331,18 @@ SettingsItemDefinition splitSelectedImagesItem() {
         []() { return custom_outlined_icons::ImageSplitting(); });
 }
 
+SettingsItemDefinition editSelectedImagesItem() {
+    return quickActionItem(
+        QStringLiteral("quick.edit-selected-images"),
+        QT_TRANSLATE_NOOP("SettingsCatalog", "Edit selected images"),
+        QT_TRANSLATE_NOOP("SettingsCatalog",
+                          "Open image editing for each selected image file, or an empty window "
+                          "if no images are selected"),
+        {}, GlobalShortcutAction::EditSelectedImages,
+        QStringLiteral("global_shortcuts/edit_selected_images"),
+        []() { return custom_outlined_icons::ImageEditing(); });
+}
+
 SettingsItemDefinition themeItem() {
     SettingsSelectDefinition payload;
     payload.options = {
@@ -3161,24 +3173,21 @@ SettingsItemDefinition storageStatusItem() {
     };
 }
 
-SettingsItemDefinition clearThumbnailCacheItem() {
+SettingsItemDefinition exportLogsItem() {
     SettingsActionDefinition payload;
-    payload.binding = SettingsActionBinding::ClearThumbnailCache;
-    payload.buttonText = settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Clear"));
-    payload.iconFactory = []() { return outlined_icons::Clear(); };
-    payload.confirmation = {
-        settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Clear the thumbnail cache?")),
-        settingsText(QT_TRANSLATE_NOOP(
-            "SettingsCatalog", "Cached history thumbnails will be removed and rebuilt on demand")),
-        settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Clear cache")),
-        settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Cancel")),
-    };
+    payload.binding = SettingsActionBinding::ExportLogs;
+    payload.buttonText = settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Copy"));
+    payload.iconFactory = []() { return outlined_icons::Copy(); };
+    payload.successMessage =
+        settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Logs archive copied to the clipboard"));
     return {
-        QStringLiteral("storage.clear-thumbnails"),
-        settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Clear thumbnail cache")),
+        QStringLiteral("storage.export-logs"),
+        settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Export logs")),
         settingsText(
-            QT_TRANSLATE_NOOP("SettingsCatalog", "Remove cached screenshot-history thumbnails")),
-        {settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Thumbnail cache"))},
+            QT_TRANSLATE_NOOP("SettingsCatalog",
+                              "Copy all logs and crash reports as a ZIP archive to the clipboard")),
+        {settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Diagnostics")),
+         settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Crash reports"))},
         {},
         payload,
     };
@@ -3906,6 +3915,7 @@ constexpr CatalogItemFactory catalogPageGlobalHotkeysSectionOtherItems[] = {
     {globalCanvasItem},
     {stitchSelectedImagesItem},
     {splitSelectedImagesItem},
+    {editSelectedImagesItem},
 #if SNOW_SHOT_ENABLE_TEXT_TRANSLATION
     {translateSelectedTextItem},
 #endif
@@ -4802,7 +4812,7 @@ constexpr CatalogItemFactory catalogPageFilesHistorySectionPinnedHistoryItems[] 
 
 constexpr CatalogItemFactory catalogPageFilesHistorySectionStorageStatusItems[] = {
     {exportConfigurationItem}, {importConfigurationItem}, {storageStatusItem},
-    {clearThumbnailCacheItem}, {clearRecordingTempItem},
+    {exportLogsItem},          {clearRecordingTempItem},
 };
 
 constexpr CatalogSectionRecord catalogPageFilesHistorySections[] = {
@@ -5449,6 +5459,8 @@ QString shortcutConfigurationKey(GlobalShortcutAction action) {
         return QStringLiteral("global_shortcuts/stitch_selected_images");
     case GlobalShortcutAction::SplitSelectedImages:
         return QStringLiteral("global_shortcuts/split_selected_images");
+    case GlobalShortcutAction::EditSelectedImages:
+        return QStringLiteral("global_shortcuts/edit_selected_images");
     case GlobalShortcutAction::OpenPinToScreenManagement:
         return QStringLiteral("global_shortcuts/open_pin_to_screen_management");
     case GlobalShortcutAction::OpenSettings:
@@ -5859,6 +5871,10 @@ TrayCommandManifest buildBuiltInTrayCommandManifest() {
                 QT_TRANSLATE_NOOP("SettingsCatalog", "Split selected images"),
                 GlobalShortcutAction::SplitSelectedImages,
                 []() { return custom_outlined_icons::ImageSplitting(); }),
+          quick(QStringLiteral("quick.edit-selected-images"),
+                QT_TRANSLATE_NOOP("SettingsCatalog", "Edit selected images"),
+                GlobalShortcutAction::EditSelectedImages,
+                []() { return custom_outlined_icons::ImageEditing(); }),
           quick(QStringLiteral("quick.translate-selected-text"),
                 QT_TRANSLATE_NOOP("SettingsCatalog", "Translate selected text"),
                 GlobalShortcutAction::TranslateSelectedText,

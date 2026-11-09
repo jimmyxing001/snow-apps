@@ -1089,6 +1089,10 @@
     <context>
         <name>SettingsBackend</name>
         <message>
+            <source>Another clipboard operation replaced the log export</source>
+            <translation>Another clipboard operation replaced the log export</translation>
+        </message>
+        <message>
             <source>Could not restore the Windows context menu preference</source>
             <translation>Could not restore the Windows context menu preference</translation>
         </message>
@@ -1584,10 +1588,6 @@
             <translation>Brush highlight</translation>
         </message>
         <message>
-            <source>Cached history thumbnails will be removed and rebuilt on demand</source>
-            <translation>Cached history thumbnails will be removed and rebuilt on demand</translation>
-        </message>
-        <message>
             <source>Cancel</source>
             <translation>Cancel</translation>
         </message>
@@ -1868,10 +1868,6 @@
             <translation>Clear</translation>
         </message>
         <message>
-            <source>Clear cache</source>
-            <translation>Clear cache</translation>
-        </message>
-        <message>
             <source>Clear closed records</source>
             <translation>Clear closed records</translation>
         </message>
@@ -1890,14 +1886,6 @@
         <message>
             <source>Clear screenshot history?</source>
             <translation>Clear screenshot history?</translation>
-        </message>
-        <message>
-            <source>Clear the thumbnail cache?</source>
-            <translation>Clear the thumbnail cache?</translation>
-        </message>
-        <message>
-            <source>Clear thumbnail cache</source>
-            <translation>Clear thumbnail cache</translation>
         </message>
         <message>
             <source>Click-through</source>
@@ -2000,12 +1988,20 @@
             <translation>Control when the screenshot color picker is visible</translation>
         </message>
         <message>
+            <source>Copy</source>
+            <translation>Copy</translation>
+        </message>
+        <message>
             <source>Copy after pinning to screen</source>
             <translation>Copy after pinning to screen</translation>
         </message>
         <message>
             <source>Copy after text recognition</source>
             <translation>Copy after text recognition</translation>
+        </message>
+        <message>
+            <source>Copy all logs and crash reports as a ZIP archive to the clipboard</source>
+            <translation>Copy all logs and crash reports as a ZIP archive to the clipboard</translation>
         </message>
         <message>
             <source>Copy application settings as a zip archive to the clipboard</source>
@@ -2086,6 +2082,10 @@
         <message>
             <source>Core application settings</source>
             <translation>Core application settings</translation>
+        </message>
+        <message>
+            <source>Crash reports</source>
+            <translation>Crash reports</translation>
         </message>
         <message>
             <source>Current monitor</source>
@@ -2276,6 +2276,10 @@
             <translation>Destroy</translation>
         </message>
         <message>
+            <source>Diagnostics</source>
+            <translation>Diagnostics</translation>
+        </message>
+        <message>
             <source>Disable global shortcuts</source>
             <translation>Disable global shortcuts</translation>
         </message>
@@ -2362,6 +2366,10 @@
         <message>
             <source>Duplicate latest region</source>
             <translation>Duplicate latest region</translation>
+        </message>
+        <message>
+            <source>Edit selected images</source>
+            <translation>Edit selected images</translation>
         </message>
         <message>
             <source>Edit selection</source>
@@ -2462,6 +2470,10 @@
         <message>
             <source>Export configuration</source>
             <translation>Export configuration</translation>
+        </message>
+        <message>
+            <source>Export logs</source>
+            <translation>Export logs</translation>
         </message>
         <message>
             <source>Export recording</source>
@@ -2936,6 +2948,10 @@
             <translation>Locked shadow color</translation>
         </message>
         <message>
+            <source>Logs archive copied to the clipboard</source>
+            <translation>Logs archive copied to the clipboard</translation>
+        </message>
+        <message>
             <source>Loop animated images</source>
             <translation>Loop animated images</translation>
         </message>
@@ -3194,6 +3210,10 @@
         <message>
             <source>Open a canvas on the current display or toggle click-through</source>
             <translation>Open a canvas on the current display or toggle click-through</translation>
+        </message>
+        <message>
+            <source>Open image editing for each selected image file, or an empty window if no images are selected</source>
+            <translation>Open image editing for each selected image file, or an empty window if no images are selected</translation>
         </message>
         <message>
             <source>Open image splitting for each selected image file, or an empty window if no images are selected</source>
@@ -3594,10 +3614,6 @@
         <message>
             <source>Remember last used tool</source>
             <translation>Remember last used tool</translation>
-        </message>
-        <message>
-            <source>Remove cached screenshot-history thumbnails</source>
-            <translation>Remove cached screenshot-history thumbnails</translation>
         </message>
         <message>
             <source>Remove closed windows</source>
@@ -4528,10 +4544,6 @@
             <translation>Theme, font, skins and toolbar size</translation>
         </message>
         <message>
-            <source>Thumbnail cache</source>
-            <translation>Thumbnail cache</translation>
-        </message>
-        <message>
             <source>Thumbnail mode</source>
             <translation>Thumbnail mode</translation>
         </message>
@@ -5095,6 +5107,10 @@ Unavailable: %2</translation>
             <translation>Choose an absolute storage directory path</translation>
         </message>
         <message>
+            <source>Could not change the storage directory</source>
+            <translation>Could not change the storage directory</translation>
+        </message>
+        <message>
             <source>Could not copy %1</source>
             <translation>Could not copy %1</translation>
         </message>
@@ -5174,14 +5190,6 @@ Unavailable: %2</translation>
             <translation>Choose storage directory</translation>
         </message>
         <message>
-            <source>Copy today's log file</source>
-            <translation>Copy today's log file</translation>
-        </message>
-        <message>
-            <source>Could not copy the log file: %1</source>
-            <translation>Could not copy the log file: %1</translation>
-        </message>
-        <message>
             <source>Current storage location: %1</source>
             <translation>Current storage location: %1</translation>
         </message>
@@ -5236,10 +5244,6 @@ Unavailable: %2</translation>
         <message>
             <source>Latest storage error</source>
             <translation>Latest storage error</translation>
-        </message>
-        <message>
-            <source>Log file copied</source>
-            <translation>Log file copied</translation>
         </message>
         <message>
             <source>Log location</source>
@@ -5380,14 +5384,6 @@ Unavailable: %2</translation>
         <message>
             <source>Switching storage directory…</source>
             <translation>Switching storage directory…</translation>
-        </message>
-        <message>
-            <source>Thumbnail cache</source>
-            <translation>Thumbnail cache</translation>
-        </message>
-        <message>
-            <source>Thumbnail cache disk usage</source>
-            <translation>Thumbnail cache disk usage</translation>
         </message>
         <message>
             <source>Total app storage</source>

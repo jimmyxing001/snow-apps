@@ -23,9 +23,11 @@
 #include "snow_shot/storage/applicationstorage.h"
 #include "snow_shot/update/startupupdate.h"
 #include "snow_shot/diagnostics/diagnostics.h"
+#include "snow_shot/diagnostics/diagnosticspaths.h"
 #include "snow_shot/diagnostics/ffmpegdiagnostics.h"
 #include "diagnosticsbridge.h"
 #include "startupregistrationreport.h"
+#include "updateprobe.h"
 #include "snow_shot/storage/settingsadapters.h"
 #include "snow_shot/presentation/capture/screenshotcapturepolicy.h"
 #include "../presentation/capture/screenshotcaptureperfinstrumentation.h"
@@ -60,6 +62,7 @@
 #include "snow_shot/storage/capturehistoryrepository.h"
 #include "snow_draw_engine_qt/snow_canvas_runtime.h"
 int runMcpApplicationLifecycleTests(int argc, char** argv);
+int runMcpSourceResolverTests(int argc, char** argv);
 #endif
 #ifdef Q_OS_MACOS
 #include "snow_recording_macos.h"
@@ -88,32 +91,21 @@ int runOcrProxyStartupTests(int argc, char** argv);
 namespace {
 snow_shot::diagnostics::DiagnosticsOptions
 startupDiagnosticsOptions(const QString& selectedDirectory, const QString& applicationName) {
-    snow_shot::diagnostics::DiagnosticsOptions options;
     const bool storeManaged = snow_shot::app::distribution::isStoreManaged();
+    bool unifiedApplicationData = false;
+#ifdef Q_OS_WIN
+    unifiedApplicationData = !storeManaged;
+#endif
     const QString stableRoot =
         storeManaged ? snow_shot::app::distribution::writableDataDirectory()
-                     : QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
-    // A missing package data root must never turn a relative path into a writable log
-    // directory in the current working directory or the standalone application's state.
-    if (storeManaged && !QDir::isAbsolutePath(stableRoot))
-        return options;
-    if (!selectedDirectory.isEmpty())
-        options.directories.append(QDir(selectedDirectory).filePath(QStringLiteral("logs")));
-    options.directories.append(QDir(stableRoot).filePath(QStringLiteral("logs")));
-    // Crashpad registers process-wide exception resources once. Its live database must
-    // stay at a stable path while the user-selected data/log directory is migrated.
-    options.crashCaptureDirectory = QDir(stableRoot).filePath(QStringLiteral("logs/crashes"));
+                     : QStandardPaths::writableLocation(unifiedApplicationData
+                                                            ? QStandardPaths::AppDataLocation
+                                                            : QStandardPaths::AppLocalDataLocation);
     const QString temporaryRoot =
         QDir(QStandardPaths::writableLocation(QStandardPaths::TempLocation)).canonicalPath();
-    if (!storeManaged || QDir::isAbsolutePath(temporaryRoot)) {
-        const QString relative =
-            storeManaged
-                ? QStringLiteral("SnowShot/%1/%2/logs")
-                      .arg(applicationName, snow_shot::app::distribution::packageFamilyName())
-                : QStringLiteral("SnowShot/%1/logs").arg(applicationName);
-        options.directories.append(QDir(temporaryRoot).filePath(relative));
-    }
-    return options;
+    return snow_shot::diagnostics::diagnosticsOptionsForPaths(
+        {unifiedApplicationData, selectedDirectory, stableRoot, temporaryRoot, applicationName,
+         storeManaged ? snow_shot::app::distribution::packageFamilyName() : QString()});
 }
 
 #ifndef Q_OS_MACOS
@@ -212,6 +204,8 @@ int main(int argc, char* argv[]) {
     }
 #endif
 #ifdef SNOW_SHOT_MCP_TEST_FIXTURE
+    if (argc == 2 && QString::fromLocal8Bit(argv[1]) == u"--mcp-source-resolver-tests")
+        return runMcpSourceResolverTests(argc, argv);
     if (argc == 2 && QString::fromLocal8Bit(argv[1]) == u"--mcp-lifecycle-tests")
         return runMcpApplicationLifecycleTests(argc, argv);
     // Only test builds expose this isolated production-router fixture. It bypasses
@@ -435,25 +429,14 @@ int main(int argc, char* argv[]) {
         qputenv("QT_QPA_PLATFORM", "offscreen");
         QApplication probe(argc, argv);
         adqt::widgets::initializePlatformCompatibility(probe);
-        QTemporaryDir directory;
-        if (!directory.isValid()) {
-            return 4;
-        }
         auto& storage = snow_shot::storage::ApplicationStorage::instance();
-        if (!storage.initialize({directory.path(), directory.path(), 8000}).success) {
-            return 5;
-        }
-        snow_shot::presentation::LanguageManager::instance().initialize();
-        const auto startupSettings = snow_shot::storage::SystemSettings();
-        const auto startupResult = snow_shot::platform::windows::reconcileStartupMode(
-            !startupSettings.autoStartAtBoot() ? snow_shot::platform::windows::StartupMode::Off
-            : startupSettings.launchAsAdministrator()
-                ? snow_shot::platform::windows::StartupMode::ElevatedTask
-                : snow_shot::platform::windows::StartupMode::Registry);
-
-        snow_shot::presentation::styles::ThemeManager::instance().initialize(probe);
-        storage.shutdown();
-        return 0;
+        return snow_shot::app::runIsolatedUpdateProbe(
+            {[&](const QString& root) { return storage.initialize({root, root, 8000}).success; },
+             [&] {
+                 snow_shot::presentation::LanguageManager::instance().initialize();
+                 snow_shot::presentation::styles::ThemeManager::instance().initialize(probe);
+             },
+             [&] { storage.shutdown(); }});
     }
 #ifdef Q_OS_MACOS
     // Exercise normal pre-application startup without touching live user state.

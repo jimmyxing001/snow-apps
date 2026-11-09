@@ -330,6 +330,10 @@ so every moment on screen can be expressed clearly and shared easily</source>
     <context>
         <name>DiagnosticsService</name>
         <message>
+            <source>A diagnostics file could not be read</source>
+            <translation>無法讀取診斷檔案</translation>
+        </message>
+        <message>
             <source>A log file could not be read</source>
             <translation>無法讀取記錄檔</translation>
         </message>
@@ -366,6 +370,14 @@ so every moment on screen can be expressed clearly and shared easily</source>
             <translation>無法初始化本機當機資料庫</translation>
         </message>
         <message>
+            <source>The log archive could not be saved</source>
+            <translation>無法儲存記錄壓縮檔</translation>
+        </message>
+        <message>
+            <source>The log archive directory could not be created</source>
+            <translation>無法建立記錄壓縮檔目錄</translation>
+        </message>
+        <message>
             <source>The log directory is not writable</source>
             <translation>無法寫入記錄目錄</translation>
         </message>
@@ -384,6 +396,10 @@ so every moment on screen can be expressed clearly and shared easily</source>
         <message>
             <source>The preferred log directory is unavailable; a fallback is in use</source>
             <translation>首選記錄目錄無法使用，目前使用備用目錄</translation>
+        </message>
+        <message>
+            <source>There is not enough space for a log archive</source>
+            <translation>沒有足夠的空間儲存記錄壓縮檔</translation>
         </message>
         <message>
             <source>There is not enough space for a log snapshot</source>
@@ -420,6 +436,14 @@ so every moment on screen can be expressed clearly and shared easily</source>
             <translation>自訂工具列</translation>
         </message>
         <message>
+            <source>Edit selected images</source>
+            <translation>編輯選取的影像</translation>
+        </message>
+        <message>
+            <source>Full-screen canvas</source>
+            <translation>全螢幕畫布</translation>
+        </message>
+        <message>
             <source>Hide during screenshots</source>
             <translation>截圖時隱藏</translation>
         </message>
@@ -448,8 +472,20 @@ so every moment on screen can be expressed clearly and shared easily</source>
             <translation>截圖</translation>
         </message>
         <message>
+            <source>Screenshot history</source>
+            <translation>截圖歷史</translation>
+        </message>
+        <message>
             <source>Show toolbar</source>
             <translation>顯示工具列</translation>
+        </message>
+        <message>
+            <source>Split selected images</source>
+            <translation>分割選取的影像</translation>
+        </message>
+        <message>
+            <source>Stitch selected images</source>
+            <translation>拼接選取的影像</translation>
         </message>
         <message>
             <source>Toolbar mode</source>
@@ -867,10 +903,6 @@ so every moment on screen can be expressed clearly and shared easily</source>
         <message>
             <source>Could not pin selected files to screen</source>
             <translation>無法將所選檔案固定到螢幕</translation>
-        </message>
-        <message>
-            <source>Feature unavailable</source>
-            <translation>功能暫時無法使用</translation>
         </message>
         <message>
             <source>Finish capturing, recording, exporting, recognizing text, or updating before changing storage</source>

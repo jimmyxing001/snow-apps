@@ -1089,6 +1089,10 @@
     <context>
         <name>SettingsBackend</name>
         <message>
+            <source>Another clipboard operation replaced the log export</source>
+            <translation>其他剪貼簿操作取代了記錄匯出</translation>
+        </message>
+        <message>
             <source>Could not restore the Windows context menu preference</source>
             <translation>無法還原 Windows 右鍵選單偏好設定</translation>
         </message>
@@ -1313,15 +1317,15 @@
         </message>
         <message>
             <source>Animated image clarity</source>
-            <translation>動態圖片清晰度</translation>
+            <translation>動態影像清晰度</translation>
         </message>
         <message>
             <source>Animated image frame rate</source>
-            <translation>動態圖片影格率</translation>
+            <translation>動態影像影格率</translation>
         </message>
         <message>
             <source>Animated images</source>
-            <translation>動態圖片</translation>
+            <translation>動態影像</translation>
         </message>
         <message>
             <source>Annotate selected canvas text when text selection is set to always</source>
@@ -1525,7 +1529,7 @@
         </message>
         <message>
             <source>Batch actions: image stitching</source>
-            <translation>批次操作：圖片拼接</translation>
+            <translation>批次操作：影像拼接</translation>
         </message>
         <message>
             <source>Batch actions: save as file</source>
@@ -1582,10 +1586,6 @@
         <message>
             <source>Brush highlight</source>
             <translation>畫筆醒目提示</translation>
-        </message>
-        <message>
-            <source>Cached history thumbnails will be removed and rebuilt on demand</source>
-            <translation>已快取的歷史縮圖將被刪除，並在需要時重新產生</translation>
         </message>
         <message>
             <source>Cancel</source>
@@ -1868,10 +1868,6 @@
             <translation>清除</translation>
         </message>
         <message>
-            <source>Clear cache</source>
-            <translation>清除快取</translation>
-        </message>
-        <message>
             <source>Clear closed records</source>
             <translation>清除已關閉記錄</translation>
         </message>
@@ -1890,14 +1886,6 @@
         <message>
             <source>Clear screenshot history?</source>
             <translation>清除截圖歷史？</translation>
-        </message>
-        <message>
-            <source>Clear the thumbnail cache?</source>
-            <translation>清除縮圖快取？</translation>
-        </message>
-        <message>
-            <source>Clear thumbnail cache</source>
-            <translation>清除縮圖快取</translation>
         </message>
         <message>
             <source>Click-through</source>
@@ -2000,12 +1988,20 @@
             <translation>控制截圖顏色選擇器的顯示時機</translation>
         </message>
         <message>
+            <source>Copy</source>
+            <translation>複製</translation>
+        </message>
+        <message>
             <source>Copy after pinning to screen</source>
             <translation>固定到螢幕後複製</translation>
         </message>
         <message>
             <source>Copy after text recognition</source>
             <translation>文字辨識後複製</translation>
+        </message>
+        <message>
+            <source>Copy all logs and crash reports as a ZIP archive to the clipboard</source>
+            <translation>將所有記錄與當機報告打包為 ZIP 壓縮檔並複製到剪貼簿</translation>
         </message>
         <message>
             <source>Copy application settings as a zip archive to the clipboard</source>
@@ -2073,7 +2069,7 @@
         </message>
         <message>
             <source>Copy the full translation result as an image when no text is selected</source>
-            <translation>未選取文字時，將完整翻譯結果複製為圖片</translation>
+            <translation>未選取文字時，將完整翻譯結果複製為影像</translation>
         </message>
         <message>
             <source>Copy to clipboard</source>
@@ -2081,11 +2077,15 @@
         </message>
         <message>
             <source>Copy translation results as an image</source>
-            <translation>將翻譯結果複製為圖片</translation>
+            <translation>將翻譯結果複製為影像</translation>
         </message>
         <message>
             <source>Core application settings</source>
             <translation>核心應用程式設定</translation>
+        </message>
+        <message>
+            <source>Crash reports</source>
+            <translation>當機報告</translation>
         </message>
         <message>
             <source>Current monitor</source>
@@ -2276,6 +2276,10 @@
             <translation>銷毀</translation>
         </message>
         <message>
+            <source>Diagnostics</source>
+            <translation>診斷</translation>
+        </message>
+        <message>
             <source>Disable global shortcuts</source>
             <translation>停用全域快速鍵</translation>
         </message>
@@ -2362,6 +2366,10 @@
         <message>
             <source>Duplicate latest region</source>
             <translation>複製最新選取範圍</translation>
+        </message>
+        <message>
+            <source>Edit selected images</source>
+            <translation>編輯選取的影像</translation>
         </message>
         <message>
             <source>Edit selection</source>
@@ -2462,6 +2470,10 @@
         <message>
             <source>Export configuration</source>
             <translation>匯出設定</translation>
+        </message>
+        <message>
+            <source>Export logs</source>
+            <translation>匯出記錄</translation>
         </message>
         <message>
             <source>Export recording</source>
@@ -2936,8 +2948,12 @@
             <translation>鎖定陰影顏色</translation>
         </message>
         <message>
+            <source>Logs archive copied to the clipboard</source>
+            <translation>記錄壓縮檔已複製到剪貼簿</translation>
+        </message>
+        <message>
             <source>Loop animated images</source>
-            <translation>循環播放動態圖片</translation>
+            <translation>循環播放動態影像</translation>
         </message>
         <message>
             <source>Low</source>
@@ -3196,12 +3212,16 @@
             <translation>在目前顯示器上開啟畫布或切換滑鼠穿透</translation>
         </message>
         <message>
+            <source>Open image editing for each selected image file, or an empty window if no images are selected</source>
+            <translation>為每個選取的影像檔案開啟影像編輯視窗；未選取影像時開啟空白視窗</translation>
+        </message>
+        <message>
             <source>Open image splitting for each selected image file, or an empty window if no images are selected</source>
-            <translation>為每個選取的圖片檔案開啟圖片分割；未選取圖片時開啟空白視窗</translation>
+            <translation>為每個選取的影像檔案開啟影像分割；未選取影像時開啟空白視窗</translation>
         </message>
         <message>
             <source>Open image stitching with selected image files, or an empty window if no images are selected</source>
-            <translation>使用選取的圖片檔案開啟圖片拼接；未選取圖片時開啟空白視窗</translation>
+            <translation>使用選取的影像檔案開啟影像拼接；未選取影像時開啟空白視窗</translation>
         </message>
         <message>
             <source>Open pin to screen management</source>
@@ -3596,10 +3616,6 @@
             <translation>記住上次使用的工具</translation>
         </message>
         <message>
-            <source>Remove cached screenshot-history thumbnails</source>
-            <translation>刪除已快取的截圖歷史縮圖</translation>
-        </message>
-        <message>
             <source>Remove closed windows</source>
             <translation>移除已關閉視窗</translation>
         </message>
@@ -3745,7 +3761,7 @@
         </message>
         <message>
             <source>Save recognition result as image</source>
-            <translation>將辨識結果儲存為圖片</translation>
+            <translation>將辨識結果儲存為影像</translation>
         </message>
         <message>
             <source>Save system audio and microphone audio as separate MP4 tracks for independent editing. Most players play one track at a time</source>
@@ -3785,7 +3801,7 @@
         </message>
         <message>
             <source>Screen recording and animated image export settings</source>
-            <translation>螢幕錄製與動態圖片匯出設定</translation>
+            <translation>螢幕錄製與動態影像匯出設定</translation>
         </message>
         <message>
             <source>Screen recording behavior</source>
@@ -4009,7 +4025,7 @@
         </message>
         <message>
             <source>Set the frame rate of exported animated images</source>
-            <translation>設定匯出動態圖片的影格率</translation>
+            <translation>設定匯出動態影像的影格率</translation>
         </message>
         <message>
             <source>Set the generated filename used by automatic image file saves</source>
@@ -4025,7 +4041,7 @@
         </message>
         <message>
             <source>Set the maximum resolution of exported animated images</source>
-            <translation>設定匯出動態圖片的最大解析度</translation>
+            <translation>設定匯出動態影像的最大解析度</translation>
         </message>
         <message>
             <source>Set the overall opacity of screenshot shortcut hints</source>
@@ -4333,7 +4349,7 @@
         </message>
         <message>
             <source>Split selected images</source>
-            <translation>分割選取影像</translation>
+            <translation>分割選取的影像</translation>
         </message>
         <message>
             <source>Spotlight</source>
@@ -4393,7 +4409,7 @@
         </message>
         <message>
             <source>Stitch selected images</source>
-            <translation>拼接選取的圖片</translation>
+            <translation>拼接選取的影像</translation>
         </message>
         <message>
             <source>Storage and privacy</source>
@@ -4526,10 +4542,6 @@
         <message>
             <source>Theme, font, skins and toolbar size</source>
             <translation>主題、字型、佈景與工具列尺寸</translation>
-        </message>
-        <message>
-            <source>Thumbnail cache</source>
-            <translation>縮圖快取</translation>
         </message>
         <message>
             <source>Thumbnail mode</source>
@@ -4789,7 +4801,7 @@
         </message>
         <message>
             <source>Video, audio and animated-image recording preferences</source>
-            <translation>影片、音訊與動態圖片錄製偏好</translation>
+            <translation>影片、音訊與動態影像錄製偏好</translation>
         </message>
         <message>
             <source>View connection status and configure your MCP client</source>
@@ -5095,6 +5107,10 @@ Unavailable: %2</source>
             <translation>請輸入儲存目錄的絕對路徑</translation>
         </message>
         <message>
+            <source>Could not change the storage directory</source>
+            <translation>無法變更儲存目錄</translation>
+        </message>
+        <message>
             <source>Could not copy %1</source>
             <translation>無法複製 %1</translation>
         </message>
@@ -5174,14 +5190,6 @@ Unavailable: %2</source>
             <translation>選擇儲存目錄</translation>
         </message>
         <message>
-            <source>Copy today's log file</source>
-            <translation>複製今日記錄檔</translation>
-        </message>
-        <message>
-            <source>Could not copy the log file: %1</source>
-            <translation>無法複製記錄檔：%1</translation>
-        </message>
-        <message>
             <source>Current storage location: %1</source>
             <translation>目前儲存位置：%1</translation>
         </message>
@@ -5236,10 +5244,6 @@ Unavailable: %2</source>
         <message>
             <source>Latest storage error</source>
             <translation>最近的儲存錯誤</translation>
-        </message>
-        <message>
-            <source>Log file copied</source>
-            <translation>已複製記錄檔</translation>
         </message>
         <message>
             <source>Log location</source>
@@ -5380,14 +5384,6 @@ Unavailable: %2</source>
         <message>
             <source>Switching storage directory…</source>
             <translation>正在切換儲存目錄…</translation>
-        </message>
-        <message>
-            <source>Thumbnail cache</source>
-            <translation>縮圖快取</translation>
-        </message>
-        <message>
-            <source>Thumbnail cache disk usage</source>
-            <translation>縮圖快取磁碟用量</translation>
         </message>
         <message>
             <source>Total app storage</source>

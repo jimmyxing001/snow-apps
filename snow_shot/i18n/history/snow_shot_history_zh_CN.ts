@@ -64,7 +64,7 @@
         </message>
         <message>
             <source>Image editing</source>
-            <translation>图片编辑</translation>
+            <translation>图像编辑</translation>
         </message>
         <message>
             <source>Loading preview…</source>
@@ -108,7 +108,7 @@
         </message>
         <message>
             <source>Stitch images</source>
-            <translation>图片拼接</translation>
+            <translation>图像拼接</translation>
         </message>
         <message>
             <source>This action cannot be undone</source>
@@ -153,6 +153,14 @@
             <translation>%1 像素</translation>
         </message>
         <message>
+            <source>Allow Snow Shot to access Finder in System Settings &gt; Privacy &amp; Security &gt; Automation, then try again</source>
+            <translation>请在“系统设置 &gt; 隐私与安全性 &gt; 自动化”中允许 Snow Shot 访问访达，然后重试</translation>
+        </message>
+        <message>
+            <source>Could not read the selected image files. Please try again</source>
+            <translation>无法读取选中的图像文件，请重试</translation>
+        </message>
+        <message>
             <source>No available output filename was found</source>
             <translation>未找到可用的输出文件名</translation>
         </message>
@@ -161,8 +169,20 @@
             <translation>无法准备要导出的编辑内容</translation>
         </message>
         <message>
+            <source>The file manager is unavailable. Open it and try again</source>
+            <translation>文件管理器不可用，请打开后重试</translation>
+        </message>
+        <message>
+            <source>The file manager took too long to return the selected files. Please try again</source>
+            <translation>文件管理器返回选中文件的时间过长，请重试</translation>
+        </message>
+        <message>
             <source>The image could not be loaded</source>
             <translation>无法加载图像</translation>
+        </message>
+        <message>
+            <source>The image is too large or there is not enough memory to load it</source>
+            <translation>图像过大，或内存不足，无法加载</translation>
         </message>
         <message>
             <source>The save directory is not available</source>
@@ -244,7 +264,7 @@
         </message>
         <message>
             <source>Each image extends this many pixels past each split line</source>
-            <translation>每张图片在每条分割线外额外保留指定像素宽度的区域</translation>
+            <translation>每张图像在每条分割线外额外保留指定像素宽度的区域</translation>
         </message>
         <message>
             <source>Enter a non-negative integer</source>
@@ -386,7 +406,7 @@
         </message>
         <message>
             <source>Image splitting preview</source>
-            <translation>图片分割预览</translation>
+            <translation>图像分割预览</translation>
         </message>
         <message>
             <source>X: %1 px</source>
@@ -409,7 +429,7 @@
         </message>
         <message>
             <source>Could not read the selected image files. Please try again</source>
-            <translation>无法读取选中的图片文件，请重试</translation>
+            <translation>无法读取选中的图像文件，请重试</translation>
         </message>
         <message>
             <source>Discard</source>
@@ -417,7 +437,7 @@
         </message>
         <message>
             <source>Discard these image splits?</source>
-            <translation>放弃当前图片分割？</translation>
+            <translation>放弃当前图像分割？</translation>
         </message>
         <message>
             <source>Drop one image file at a time</source>
@@ -441,11 +461,11 @@
         </message>
         <message>
             <source>Image splitting</source>
-            <translation>图片分割</translation>
+            <translation>图像分割</translation>
         </message>
         <message>
             <source>Image stitching is busy. Try again when it finishes</source>
-            <translation>图片拼接正忙。请等待完成后重试</translation>
+            <translation>图像拼接正忙。请等待完成后重试</translation>
         </message>
         <message>
             <source>Images</source>
@@ -532,7 +552,7 @@
         </message>
         <message>
             <source>Image stitching requires too much temporary memory. Try fewer images or smaller image sizes</source>
-            <translation>此图片拼接需要过多临时内存。请减少图像数量或使用较小的图像</translation>
+            <translation>此图像拼接需要过多临时内存。请减少图像数量或使用较小的图像</translation>
         </message>
         <message>
             <source>Select a paper orientation</source>
@@ -564,11 +584,11 @@
         </message>
         <message>
             <source>The image stitching export was canceled</source>
-            <translation>图片拼接导出已取消</translation>
+            <translation>图像拼接导出已取消</translation>
         </message>
         <message>
             <source>The image stitching layout settings are invalid</source>
-            <translation>图片拼接布局设置无效</translation>
+            <translation>图像拼接布局设置无效</translation>
         </message>
         <message>
             <source>The margins must leave a usable content area</source>
@@ -580,19 +600,19 @@
         </message>
         <message>
             <source>The stitched image could not be prepared for export</source>
-            <translation>无法准备图片拼接图像以供导出</translation>
+            <translation>无法准备图像拼接图像以供导出</translation>
         </message>
         <message>
             <source>The stitched image exceeds the 8 GiB image limit. Try fewer images or smaller layout settings</source>
-            <translation>图片拼接超过了 8 GiB 图像限制。请减少图像数量或调小布局设置</translation>
+            <translation>图像拼接超过了 8 GiB 图像限制。请减少图像数量或调小布局设置</translation>
         </message>
         <message>
             <source>The stitched image is too large for the clipboard. Save it to a file instead</source>
-            <translation>图片拼接过大，无法复制到剪贴板。请保存为文件</translation>
+            <translation>图像拼接过大，无法复制到剪贴板。请保存为文件</translation>
         </message>
         <message>
             <source>There is not enough available memory for image stitching. Try fewer images or close other image stitching windows</source>
-            <translation>可用内存不足，无法执行此图片拼接操作。请减少图像数量或关闭其他图片拼接窗口</translation>
+            <translation>可用内存不足，无法执行此图像拼接操作。请减少图像数量或关闭其他图像拼接窗口</translation>
         </message>
     </context>
     <context>
@@ -615,11 +635,11 @@
         </message>
         <message>
             <source>Add images to start image stitching</source>
-            <translation>添加图像以创建图片拼接</translation>
+            <translation>添加图像以创建图像拼接</translation>
         </message>
         <message>
             <source>Add multiple image files at once</source>
-            <translation>可一次添加多张图片</translation>
+            <translation>可一次添加多张图像</translation>
         </message>
         <message>
             <source>Background color</source>
@@ -663,7 +683,7 @@
         </message>
         <message>
             <source>Drop images to stitch</source>
-            <translation>松开鼠标，将图片添加到图片拼接</translation>
+            <translation>松开鼠标，将图像添加到图像拼接</translation>
         </message>
         <message>
             <source>Fit to canvas</source>
@@ -694,6 +714,10 @@
             <translation>图像 %1：%2</translation>
         </message>
         <message>
+            <source>Image preview was cancelled</source>
+            <translation>图像预览已取消</translation>
+        </message>
+        <message>
             <source>Image sizing</source>
             <translation>图像尺寸</translation>
         </message>
@@ -715,7 +739,7 @@
         </message>
         <message>
             <source>Image stitching preview</source>
-            <translation>图片拼接预览</translation>
+            <translation>图像拼接预览</translation>
         </message>
         <message>
             <source>Image type</source>
@@ -770,6 +794,10 @@
             <translation>像素</translation>
         </message>
         <message>
+            <source>Preview original image</source>
+            <translation>预览原图</translation>
+        </message>
+        <message>
             <source>Purple</source>
             <translation>紫色</translation>
         </message>
@@ -808,6 +836,10 @@
         <message>
             <source>Static image</source>
             <translation>静态图像</translation>
+        </message>
+        <message>
+            <source>The original image is unavailable</source>
+            <translation>原图不可用</translation>
         </message>
         <message>
             <source>Total: %1 images</source>
@@ -885,7 +917,7 @@
         </message>
         <message>
             <source>Add multiple image files at once</source>
-            <translation>可一次添加多张图片</translation>
+            <translation>可一次添加多张图像</translation>
         </message>
         <message>
             <source>Clear</source>
@@ -1130,8 +1162,16 @@
             <translation>删除图像</translation>
         </message>
         <message>
-            <source>Drag an image to move or swap it; drag its selection handles to scale proportionally around its center</source>
-            <translation>拖动图像可移动或交换位置；拖动选框控制点可围绕中心等比例缩放</translation>
+            <source>Drag an image to move or swap it; drag its selection handles to scale proportionally around its center. Drag with the middle mouse button to pan; scroll to zoom</source>
+            <translation>拖动图像可移动或交换位置；拖动选框控制点可围绕中心等比例缩放。按住鼠标中键拖动可平移；滚动鼠标滚轮可缩放</translation>
+        </message>
+        <message>
+            <source>Drag image files here, or choose add images</source>
+            <translation>将图像文件拖到此处，或选择“添加图像”</translation>
+        </message>
+        <message>
+            <source>Fit to canvas</source>
+            <translation>适应画布</translation>
         </message>
         <message>
             <source>Flip horizontally</source>
@@ -1222,7 +1262,7 @@
         </message>
         <message>
             <source>All images will be removed from this stitching session</source>
-            <translation>将从此图片拼接中移除全部图像</translation>
+            <translation>将从此图像拼接中移除全部图像</translation>
         </message>
         <message>
             <source>Allow Snow Shot to access Finder in System Settings &gt; Privacy &amp; Security &gt; Automation, then try again</source>
@@ -1258,11 +1298,11 @@
         </message>
         <message>
             <source>Copying stitched image…</source>
-            <translation>正在复制图片拼接…</translation>
+            <translation>正在复制图像拼接…</translation>
         </message>
         <message>
             <source>Could not read the selected image files. Please try again</source>
-            <translation>无法读取选中的图片文件，请重试</translation>
+            <translation>无法读取选中的图像文件，请重试</translation>
         </message>
         <message>
             <source>Discard</source>
@@ -1270,7 +1310,7 @@
         </message>
         <message>
             <source>Discard this stitching session?</source>
-            <translation>放弃此图片拼接？</translation>
+            <translation>放弃此图像拼接？</translation>
         </message>
         <message>
             <source>Export could not be started. Try again</source>
@@ -1286,7 +1326,7 @@
         </message>
         <message>
             <source>Image stitching</source>
-            <translation>图片拼接</translation>
+            <translation>图像拼接</translation>
         </message>
         <message>
             <source>Images</source>
@@ -1318,11 +1358,11 @@
         </message>
         <message>
             <source>Preparing stitched image…</source>
-            <translation>正在准备图片拼接…</translation>
+            <translation>正在准备图像拼接…</translation>
         </message>
         <message>
             <source>Reading selected image files…</source>
-            <translation>正在读取选中的图片文件…</translation>
+            <translation>正在读取选中的图像文件…</translation>
         </message>
         <message>
             <source>Replace image</source>
@@ -1356,7 +1396,7 @@ Files:
         </message>
         <message>
             <source>Saving stitched image…</source>
-            <translation>正在保存图片拼接…</translation>
+            <translation>正在保存图像拼接…</translation>
         </message>
         <message>
             <source>Screenshot %1</source>
@@ -1394,7 +1434,7 @@ Files:
         </message>
         <message>
             <source>The images and edits in this stitching session will be discarded</source>
-            <translation>将放弃此图片拼接中的图像和编辑</translation>
+            <translation>将放弃此图像拼接中的图像和编辑</translation>
         </message>
         <message>
             <source>The layout settings could not be remembered: %1</source>
@@ -1583,11 +1623,11 @@ Files:
         </message>
         <message>
             <source>Image editing</source>
-            <translation>图片编辑</translation>
+            <translation>图像编辑</translation>
         </message>
         <message>
             <source>Image splitting</source>
-            <translation>图片分割</translation>
+            <translation>图像分割</translation>
         </message>
         <message>
             <source>More</source>
@@ -1623,11 +1663,11 @@ Files:
         </message>
         <message>
             <source>Pinned images and text will appear here</source>
-            <translation>固定到屏幕的图片和文字将显示在这里</translation>
+            <translation>固定到屏幕的图像和文字将显示在这里</translation>
         </message>
         <message>
             <source>Pinned window image</source>
-            <translation>固定到屏幕窗口的图片</translation>
+            <translation>固定到屏幕窗口的图像</translation>
         </message>
         <message>
             <source>Refresh pinned windows</source>
@@ -1689,7 +1729,7 @@ Files:
         </message>
         <message>
             <source>Stitch images</source>
-            <translation>图片拼接</translation>
+            <translation>图像拼接</translation>
         </message>
         <message>
             <source>The saved record and its open window will be removed</source>
@@ -1838,7 +1878,7 @@ Files:
         </message>
         <message>
             <source>Stitch images</source>
-            <translation>图片拼接</translation>
+            <translation>图像拼接</translation>
         </message>
         <message>
             <source>This action cannot be undone</source>
@@ -1923,7 +1963,7 @@ Files:
         </message>
         <message>
             <source>Convert to image</source>
-            <translation>转换为图片</translation>
+            <translation>转换为图像</translation>
         </message>
         <message numerus="yes">
             <source>Copied %n file(s)</source>
@@ -2045,7 +2085,7 @@ Files:
         </message>
         <message>
             <source>Image editing</source>
-            <translation>图片编辑</translation>
+            <translation>图像编辑</translation>
         </message>
         <message>
             <source>Image file</source>
@@ -2057,7 +2097,7 @@ Files:
         </message>
         <message>
             <source>Image stitching</source>
-            <translation>图片拼接</translation>
+            <translation>图像拼接</translation>
         </message>
         <message>
             <source>Increase 10%</source>
@@ -2267,7 +2307,7 @@ Files:
         </message>
         <message>
             <source>The window changed while preparing the image. Please try again</source>
-            <translation>准备图片时窗口发生了变化，请重试</translation>
+            <translation>准备图像时窗口发生了变化，请重试</translation>
         </message>
         <message>
             <source>The window is closed. The latest content cannot be displayed</source>
@@ -2332,6 +2372,14 @@ Files:
     <context>
         <name>snow_shot::presentation::ImageEditingWindow</name>
         <message>
+            <source>Add images</source>
+            <translation>添加图像</translation>
+        </message>
+        <message>
+            <source>Add images to start image editing</source>
+            <translation>添加图像以开始图像编辑</translation>
+        </message>
+        <message>
             <source>Configure cloud upload before uploading an image</source>
             <translation>上传图像前请先配置云上传</translation>
         </message>
@@ -2346,6 +2394,14 @@ Files:
         <message>
             <source>Discard changes?</source>
             <translation>放弃更改？</translation>
+        </message>
+        <message>
+            <source>Drag image files here, or choose add images</source>
+            <translation>将图像文件拖到此处，或选择“添加图像”</translation>
+        </message>
+        <message>
+            <source>Drop images to edit</source>
+            <translation>拖放图像以进行编辑</translation>
         </message>
         <message>
             <source>Export completed</source>
@@ -2365,7 +2421,11 @@ Files:
         </message>
         <message>
             <source>Image editing</source>
-            <translation>图片编辑</translation>
+            <translation>图像编辑</translation>
+        </message>
+        <message>
+            <source>Images</source>
+            <translation>图像</translation>
         </message>
         <message>
             <source>Loading image…</source>
@@ -2374,6 +2434,10 @@ Files:
         <message>
             <source>No recognition result is available to export</source>
             <translation>没有可导出的识别结果</translation>
+        </message>
+        <message>
+            <source>Open each image in its own window</source>
+            <translation>在独立窗口中打开每张图像</translation>
         </message>
         <message>
             <source>Printing is unavailable</source>
@@ -2390,6 +2454,10 @@ Files:
         <message>
             <source>The image could not be loaded</source>
             <translation>无法加载图像</translation>
+        </message>
+        <message>
+            <source>The image is too large or there is not enough memory to load it</source>
+            <translation>图像过大，或内存不足，无法加载</translation>
         </message>
         <message>
             <source>This editing window has unsaved changes</source>
@@ -2569,7 +2637,7 @@ Files:
         </message>
         <message>
             <source>Image stitching</source>
-            <translation>图片拼接</translation>
+            <translation>图像拼接</translation>
         </message>
         <message>
             <source>Lock</source>

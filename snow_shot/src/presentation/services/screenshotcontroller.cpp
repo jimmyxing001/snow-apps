@@ -2075,6 +2075,7 @@ void ScreenshotController::Impl::createOverlayInputPipeline() {
         },
         [this]() {
             resetPendingCaptureRequest();
+            m_captureWorkflow->enableCaptureToolbar();
             if (auto* toolbar = m_overlayCoordinator->ensureToolbar()) {
                 toolbar->suppressRememberedDrawingTool();
             }
@@ -2082,6 +2083,13 @@ void ScreenshotController::Impl::createOverlayInputPipeline() {
     };
     actions.currentLogicalCursorPosition = [this] {
         return m_displaySession.logicalCursorPosition();
+    };
+    actions.prepareSelectionReplacement = [this] {
+        if (!m_captureWorkflow->suppressCaptureToolbar()) {
+            if (auto* toolbar = m_overlayCoordinator->ensureToolbar()) {
+                toolbar->suppressRememberedDrawingTool();
+            }
+        }
     };
     actions.toggleGuidesForCurrentSession = [this] { return toggleGuidesForCurrentSession(); };
     actions.cursorVisibilityAvailable = [this] { return screenshotCursorAvailable(); };
@@ -3638,8 +3646,9 @@ void ScreenshotController::Impl::pinSelectionToScreen() {
     const QPointer<ScreenshotController> receiver(&owner);
     const bool presented = m_selectionExportUiServices->presentPinnedArtifact(
         *request, artifact,
-        [receiver, artifact, historyCandidate, copyOutput,
-         generation = *exportGeneration](bool success, QImage) mutable {
+        [receiver, historyCandidate, copyOutput,
+         trackSave = automaticSave.has_value() && keepEditable, generation = *exportGeneration](
+            bool success, std::shared_ptr<ScreenshotExportArtifact> output) mutable {
             SNOW_SHOT_PIN_PERF_SCOPE("controller.pin_result_callback");
             SNOW_SHOT_PIN_PERF_FINISH(success);
             if (receiver.isNull() || receiver->m_impl == nullptr ||
@@ -3649,7 +3658,12 @@ void ScreenshotController::Impl::pinSelectionToScreen() {
             if (!success) {
                 qWarning("Screenshot pin export failed");
             }
-            receiver->m_impl->completePinExport(success, generation, artifact,
+            if (success && trackSave) {
+                auto& artifacts = receiver->m_impl->m_saveArtifacts;
+                std::erase_if(artifacts, [](const auto& weak) { return weak.expired(); });
+                artifacts.push_back(output);
+            }
+            receiver->m_impl->completePinExport(success, generation, std::move(output),
                                                 std::move(historyCandidate), std::move(copyOutput),
                                                 false);
         },
@@ -4723,7 +4737,7 @@ void ScreenshotController::Impl::printSelection() {
                 {{QStringLiteral("request_kind"), QStringLiteral("capture")},
                  {QStringLiteral("operation"), QString::number(epoch)},
                  {QStringLiteral("stage"), !snapshotSucceeded ? QStringLiteral("export_image")
-                                           : !printer ? QStringLiteral("service_destroyed")
+                                           : !printer         ? QStringLiteral("service_destroyed")
                                                       : QStringLiteral("service_rejected")}},
                 QtWarningMsg);
             finished({ScreenshotPrintService::Status::Failed,
@@ -7524,7 +7538,7 @@ bool ScreenshotController::mcpPinArtifact(std::shared_ptr<ScreenshotExportArtifa
         return false;
     return m_impl->m_selectionExportUiServices->presentPinnedArtifact(
         *request, std::move(artifact),
-        [completion = std::move(completion)](bool ok, QImage) { completion(ok); });
+        [completion = std::move(completion)](bool ok, auto) { completion(ok); });
 }
 
 bool ScreenshotController::mcpPresentDocument(ScreenshotHistoryEntry entry,

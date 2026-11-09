@@ -1089,6 +1089,10 @@
     <context>
         <name>SettingsBackend</name>
         <message>
+            <source>Another clipboard operation replaced the log export</source>
+            <translation>其他剪贴板操作取代了日志导出</translation>
+        </message>
+        <message>
             <source>Could not restore the Windows context menu preference</source>
             <translation>无法恢复 Windows 右键菜单偏好设置</translation>
         </message>
@@ -1525,7 +1529,7 @@
         </message>
         <message>
             <source>Batch actions: image stitching</source>
-            <translation>批量操作：图片拼接</translation>
+            <translation>批量操作：图像拼接</translation>
         </message>
         <message>
             <source>Batch actions: save as file</source>
@@ -1582,10 +1586,6 @@
         <message>
             <source>Brush highlight</source>
             <translation>画笔高亮</translation>
-        </message>
-        <message>
-            <source>Cached history thumbnails will be removed and rebuilt on demand</source>
-            <translation>已缓存的历史缩略图将被删除，并在需要时重新生成</translation>
         </message>
         <message>
             <source>Cancel</source>
@@ -1868,10 +1868,6 @@
             <translation>清除</translation>
         </message>
         <message>
-            <source>Clear cache</source>
-            <translation>清除缓存</translation>
-        </message>
-        <message>
             <source>Clear closed records</source>
             <translation>清除已关闭记录</translation>
         </message>
@@ -1890,14 +1886,6 @@
         <message>
             <source>Clear screenshot history?</source>
             <translation>清除截图历史？</translation>
-        </message>
-        <message>
-            <source>Clear the thumbnail cache?</source>
-            <translation>清除缩略图缓存？</translation>
-        </message>
-        <message>
-            <source>Clear thumbnail cache</source>
-            <translation>清除缩略图缓存</translation>
         </message>
         <message>
             <source>Click-through</source>
@@ -2000,12 +1988,20 @@
             <translation>控制截图颜色拾取器何时显示</translation>
         </message>
         <message>
+            <source>Copy</source>
+            <translation>复制</translation>
+        </message>
+        <message>
             <source>Copy after pinning to screen</source>
             <translation>固定到屏幕后复制</translation>
         </message>
         <message>
             <source>Copy after text recognition</source>
             <translation>文本识别后复制</translation>
+        </message>
+        <message>
+            <source>Copy all logs and crash reports as a ZIP archive to the clipboard</source>
+            <translation>将所有日志和崩溃报告打包为 ZIP 压缩包并复制到剪贴板</translation>
         </message>
         <message>
             <source>Copy application settings as a zip archive to the clipboard</source>
@@ -2073,7 +2069,7 @@
         </message>
         <message>
             <source>Copy the full translation result as an image when no text is selected</source>
-            <translation>未选中文本时，将完整翻译结果复制为图片</translation>
+            <translation>未选中文本时，将完整翻译结果复制为图像</translation>
         </message>
         <message>
             <source>Copy to clipboard</source>
@@ -2081,11 +2077,15 @@
         </message>
         <message>
             <source>Copy translation results as an image</source>
-            <translation>将翻译结果复制为图片</translation>
+            <translation>将翻译结果复制为图像</translation>
         </message>
         <message>
             <source>Core application settings</source>
             <translation>核心应用程序设置</translation>
+        </message>
+        <message>
+            <source>Crash reports</source>
+            <translation>崩溃报告</translation>
         </message>
         <message>
             <source>Current monitor</source>
@@ -2276,6 +2276,10 @@
             <translation>销毁</translation>
         </message>
         <message>
+            <source>Diagnostics</source>
+            <translation>诊断</translation>
+        </message>
+        <message>
             <source>Disable global shortcuts</source>
             <translation>禁用全局快捷键</translation>
         </message>
@@ -2362,6 +2366,10 @@
         <message>
             <source>Duplicate latest region</source>
             <translation>复制最新选区</translation>
+        </message>
+        <message>
+            <source>Edit selected images</source>
+            <translation>编辑选中的图像</translation>
         </message>
         <message>
             <source>Edit selection</source>
@@ -2462,6 +2470,10 @@
         <message>
             <source>Export configuration</source>
             <translation>导出配置</translation>
+        </message>
+        <message>
+            <source>Export logs</source>
+            <translation>导出日志</translation>
         </message>
         <message>
             <source>Export recording</source>
@@ -2936,6 +2948,10 @@
             <translation>锁定阴影颜色</translation>
         </message>
         <message>
+            <source>Logs archive copied to the clipboard</source>
+            <translation>日志压缩包已复制到剪贴板</translation>
+        </message>
+        <message>
             <source>Loop animated images</source>
             <translation>循环播放动图</translation>
         </message>
@@ -3196,12 +3212,16 @@
             <translation>在当前显示器上打开画布或切换鼠标穿透</translation>
         </message>
         <message>
+            <source>Open image editing for each selected image file, or an empty window if no images are selected</source>
+            <translation>为每个选中的图像文件打开图像编辑窗口；未选中图像时打开空窗口</translation>
+        </message>
+        <message>
             <source>Open image splitting for each selected image file, or an empty window if no images are selected</source>
-            <translation>为每个选中的图片文件打开图片分割；未选中图片时打开空白窗口</translation>
+            <translation>为每个选中的图像文件打开图像分割；未选中图像时打开空白窗口</translation>
         </message>
         <message>
             <source>Open image stitching with selected image files, or an empty window if no images are selected</source>
-            <translation>使用选中的图片文件打开图片拼接；未选中图片时打开空白窗口</translation>
+            <translation>使用选中的图像文件打开图像拼接；未选中图像时打开空白窗口</translation>
         </message>
         <message>
             <source>Open pin to screen management</source>
@@ -3596,10 +3616,6 @@
             <translation>记住上次使用的工具</translation>
         </message>
         <message>
-            <source>Remove cached screenshot-history thumbnails</source>
-            <translation>删除已缓存的截图历史缩略图</translation>
-        </message>
-        <message>
             <source>Remove closed windows</source>
             <translation>移除已关闭窗口</translation>
         </message>
@@ -3745,7 +3761,7 @@
         </message>
         <message>
             <source>Save recognition result as image</source>
-            <translation>将识别结果保存为图片</translation>
+            <translation>将识别结果保存为图像</translation>
         </message>
         <message>
             <source>Save system audio and microphone audio as separate MP4 tracks for independent editing. Most players play one track at a time</source>
@@ -4333,7 +4349,7 @@
         </message>
         <message>
             <source>Split selected images</source>
-            <translation>分割选中图像</translation>
+            <translation>分割选中的图像</translation>
         </message>
         <message>
             <source>Spotlight</source>
@@ -4393,7 +4409,7 @@
         </message>
         <message>
             <source>Stitch selected images</source>
-            <translation>拼接选中的图片</translation>
+            <translation>拼接选中的图像</translation>
         </message>
         <message>
             <source>Storage and privacy</source>
@@ -4526,10 +4542,6 @@
         <message>
             <source>Theme, font, skins and toolbar size</source>
             <translation>主题、字体、皮肤和工具栏尺寸</translation>
-        </message>
-        <message>
-            <source>Thumbnail cache</source>
-            <translation>缩略图缓存</translation>
         </message>
         <message>
             <source>Thumbnail mode</source>
@@ -5095,6 +5107,10 @@ Unavailable: %2</source>
             <translation>请输入存储目录的绝对路径</translation>
         </message>
         <message>
+            <source>Could not change the storage directory</source>
+            <translation>无法更改存储目录</translation>
+        </message>
+        <message>
             <source>Could not copy %1</source>
             <translation>无法复制 %1</translation>
         </message>
@@ -5174,14 +5190,6 @@ Unavailable: %2</source>
             <translation>选择存储目录</translation>
         </message>
         <message>
-            <source>Copy today's log file</source>
-            <translation>复制今日日志文件</translation>
-        </message>
-        <message>
-            <source>Could not copy the log file: %1</source>
-            <translation>无法复制日志文件：%1</translation>
-        </message>
-        <message>
             <source>Current storage location: %1</source>
             <translation>当前存储位置：%1</translation>
         </message>
@@ -5236,10 +5244,6 @@ Unavailable: %2</source>
         <message>
             <source>Latest storage error</source>
             <translation>最近的存储错误</translation>
-        </message>
-        <message>
-            <source>Log file copied</source>
-            <translation>日志文件已复制</translation>
         </message>
         <message>
             <source>Log location</source>
@@ -5380,14 +5384,6 @@ Unavailable: %2</source>
         <message>
             <source>Switching storage directory…</source>
             <translation>正在切换存储目录…</translation>
-        </message>
-        <message>
-            <source>Thumbnail cache</source>
-            <translation>缩略图缓存</translation>
-        </message>
-        <message>
-            <source>Thumbnail cache disk usage</source>
-            <translation>缩略图缓存磁盘用量</translation>
         </message>
         <message>
             <source>Total app storage</source>

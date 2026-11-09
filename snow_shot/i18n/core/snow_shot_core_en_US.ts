@@ -330,6 +330,10 @@ so every moment on screen can be expressed clearly and shared easily</translatio
     <context>
         <name>DiagnosticsService</name>
         <message>
+            <source>A diagnostics file could not be read</source>
+            <translation>A diagnostics file could not be read</translation>
+        </message>
+        <message>
             <source>A log file could not be read</source>
             <translation>A log file could not be read</translation>
         </message>
@@ -366,6 +370,14 @@ so every moment on screen can be expressed clearly and shared easily</translatio
             <translation>The local crash database could not be initialized</translation>
         </message>
         <message>
+            <source>The log archive could not be saved</source>
+            <translation>The log archive could not be saved</translation>
+        </message>
+        <message>
+            <source>The log archive directory could not be created</source>
+            <translation>The log archive directory could not be created</translation>
+        </message>
+        <message>
             <source>The log directory is not writable</source>
             <translation>The log directory is not writable</translation>
         </message>
@@ -384,6 +396,10 @@ so every moment on screen can be expressed clearly and shared easily</translatio
         <message>
             <source>The preferred log directory is unavailable; a fallback is in use</source>
             <translation>The preferred log directory is unavailable; a fallback is in use</translation>
+        </message>
+        <message>
+            <source>There is not enough space for a log archive</source>
+            <translation>There is not enough space for a log archive</translation>
         </message>
         <message>
             <source>There is not enough space for a log snapshot</source>
@@ -420,6 +436,14 @@ so every moment on screen can be expressed clearly and shared easily</translatio
             <translation>Customize toolbar</translation>
         </message>
         <message>
+            <source>Edit selected images</source>
+            <translation>Edit selected images</translation>
+        </message>
+        <message>
+            <source>Full-screen canvas</source>
+            <translation>Full-screen canvas</translation>
+        </message>
+        <message>
             <source>Hide during screenshots</source>
             <translation>Hide during screenshots</translation>
         </message>
@@ -448,8 +472,20 @@ so every moment on screen can be expressed clearly and shared easily</translatio
             <translation>Screenshot</translation>
         </message>
         <message>
+            <source>Screenshot history</source>
+            <translation>Screenshot history</translation>
+        </message>
+        <message>
             <source>Show toolbar</source>
             <translation>Show toolbar</translation>
+        </message>
+        <message>
+            <source>Split selected images</source>
+            <translation>Split selected images</translation>
+        </message>
+        <message>
+            <source>Stitch selected images</source>
+            <translation>Stitch selected images</translation>
         </message>
         <message>
             <source>Toolbar mode</source>
@@ -867,10 +903,6 @@ so every moment on screen can be expressed clearly and shared easily</translatio
         <message>
             <source>Could not pin selected files to screen</source>
             <translation>Could not pin selected files to screen</translation>
-        </message>
-        <message>
-            <source>Feature unavailable</source>
-            <translation>Feature unavailable</translation>
         </message>
         <message>
             <source>Finish capturing, recording, exporting, recognizing text, or updating before changing storage</source>
