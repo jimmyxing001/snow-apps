@@ -2148,6 +2148,10 @@
             <translation>自定义标注填充颜色的快捷设置按钮</translation>
         </message>
         <message>
+            <source>Customize the quick-set buttons for annotation highlight colors</source>
+            <translation>自定义标注高亮颜色的快捷设置按钮</translation>
+        </message>
+        <message>
             <source>Customize the quick-set buttons for annotation stroke colors</source>
             <translation>自定义标注描边颜色的快捷设置按钮</translation>
         </message>
@@ -2326,6 +2330,10 @@
         <message>
             <source>Download automatically</source>
             <translation>自动下载</translation>
+        </message>
+        <message>
+            <source>Downscale copied and saved screenshots. Auto preserves selections spanning displays with different scaling factors</source>
+            <translation>缩小复制和保存的截图。自动模式保留跨越不同缩放比例显示器的选区</translation>
         </message>
         <message>
             <source>Drag annotation tools to reorder them or stack them in the same toolbar position</source>
@@ -2668,6 +2676,10 @@
             <translation>硬件加速</translation>
         </message>
         <message>
+            <source>HiDPI image scaling</source>
+            <translation>HiDPI 图像缩放</translation>
+        </message>
+        <message>
             <source>Hidden tools</source>
             <translation>隐藏的工具</translation>
         </message>
@@ -2698,6 +2710,14 @@
         <message>
             <source>Highlight</source>
             <translation>高亮</translation>
+        </message>
+        <message>
+            <source>Highlight color preset %1</source>
+            <translation>高亮颜色预设 %1</translation>
+        </message>
+        <message>
+            <source>Highlight color presets</source>
+            <translation>高亮颜色预设</translation>
         </message>
         <message>
             <source>Icon</source>
@@ -3780,6 +3800,46 @@
             <translation>已保存截图</translation>
         </message>
         <message>
+            <source>Scale down to 28.6% (350%)</source>
+            <translation>缩小至 28.6% (350%)</translation>
+        </message>
+        <message>
+            <source>Scale down to 30.8% (325%)</source>
+            <translation>缩小至 30.8% (325%)</translation>
+        </message>
+        <message>
+            <source>Scale down to 33.3% (300%)</source>
+            <translation>缩小至 33.3% (300%)</translation>
+        </message>
+        <message>
+            <source>Scale down to 36.4% (275%)</source>
+            <translation>缩小至 36.4% (275%)</translation>
+        </message>
+        <message>
+            <source>Scale down to 40% (250%)</source>
+            <translation>缩小至 40% (250%)</translation>
+        </message>
+        <message>
+            <source>Scale down to 44.4% (225%)</source>
+            <translation>缩小至 44.4% (225%)</translation>
+        </message>
+        <message>
+            <source>Scale down to 50% (200%)</source>
+            <translation>缩小至 50% (200%)</translation>
+        </message>
+        <message>
+            <source>Scale down to 57.1% (175%)</source>
+            <translation>缩小至 57.1% (175%)</translation>
+        </message>
+        <message>
+            <source>Scale down to 66.7% (150%)</source>
+            <translation>缩小至 66.7% (150%)</translation>
+        </message>
+        <message>
+            <source>Scale down to 80% (125%)</source>
+            <translation>缩小至 80% (125%)</translation>
+        </message>
+        <message>
             <source>Scale recordings that exceed the selected maximum resolution</source>
             <translation>缩放超过所选最大分辨率的录制内容</translation>
         </message>
@@ -4440,6 +4500,10 @@
             <translation>切换窗口分组</translation>
         </message>
         <message>
+            <source>Sync tool colors</source>
+            <translation>同步工具颜色</translation>
+        </message>
+        <message>
             <source>System</source>
             <translation>系统</translation>
         </message>
@@ -4734,6 +4798,10 @@
         <message>
             <source>Use one letter (A–Z) or digit (0–9) when the classic Windows context menu is open</source>
             <translation>在经典 Windows 右键菜单打开时，使用一个字母（A–Z）或数字（0–9）</translation>
+        </message>
+        <message>
+            <source>Use one shared stroke, fill, and highlight color for newly created annotations</source>
+            <translation>为新建标注使用统一的描边、填充和高亮颜色</translation>
         </message>
         <message>
             <source>Use regular icon settings</source>

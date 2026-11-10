@@ -358,6 +358,14 @@ bool ScreenshotColorPresetSettings::setFillColors(const QVector<QColor>& colors)
     return setColorPresetValues(QStringLiteral("screenshot/fill_color_presets"), colors);
 }
 
+QVector<QColor> ScreenshotColorPresetSettings::highlightColors() const {
+    return colorPresetValues(QStringLiteral("screenshot/highlight_color_presets"));
+}
+
+bool ScreenshotColorPresetSettings::setHighlightColors(const QVector<QColor>& colors) const {
+    return setColorPresetValues(QStringLiteral("screenshot/highlight_color_presets"), colors);
+}
+
 CloudUploadSettings CloudUploadConfigurationSettings::settings() const {
     return cloudUploadSettingsFromJson(cache().value(QStringLiteral("cloud_upload/configuration")));
 }
@@ -1115,6 +1123,14 @@ bool ScreenshotSettings::setQuickSelectionModification(bool enabled) const {
     return cache().setValue(QStringLiteral("screenshot/quick_selection_modification"), enabled);
 }
 
+QString ScreenshotSettings::hiDpiImageScaling() const {
+    return cache().value(QStringLiteral("screenshot/hidpi_image_scaling")).toString();
+}
+
+bool ScreenshotSettings::setHiDpiImageScaling(const QString& mode) const {
+    return cache().setValue(QStringLiteral("screenshot/hidpi_image_scaling"), mode);
+}
+
 QString ScreenshotSettings::selectionResizeMode() const {
     return cache().value(QStringLiteral("screenshot/selection_resize_mode")).toString();
 }
@@ -1333,6 +1349,65 @@ bool DrawingSettings::setDeleteTextAfterCursor(bool enabled) const {
 
 bool DrawingSettings::rememberLastUsedTool() const {
     return cache().value(QStringLiteral("drawing/remember_last_used_tool")).toBool();
+}
+
+bool DrawingSettings::syncToolColors() const {
+    return cache().value(QStringLiteral("drawing/sync_tool_colors")).toBool();
+}
+
+QColor DrawingSettings::sharedToolColor() const {
+    const auto remembered = colorValue(QStringLiteral("drawing/shared_tool_color"));
+    if (remembered.isValid())
+        return remembered;
+    const auto stroke = colorFromRgbaString(cache()
+                                                .value(QStringLiteral("drawing/shape_style"))
+                                                .toObject()
+                                                .value(QStringLiteral("stroke"))
+                                                .toString());
+    return stroke.isValid() ? stroke : QColor(0xf5, 0x22, 0x2d);
+}
+
+bool DrawingSettings::setSyncToolColors(bool enabled) const {
+    return setDrawingStyleValues({{QStringLiteral("drawing/sync_tool_colors"), enabled}});
+}
+
+bool setDrawingStyleValues(QMap<QString, QJsonValue> values) {
+    auto& configuration = cache();
+    const QString enabledKey = QStringLiteral("drawing/sync_tool_colors");
+    const QString colorKey = QStringLiteral("drawing/shared_tool_color");
+    const bool wasEnabled = configuration.value(enabledKey).toBool();
+    const bool enabled = values.value(enabledKey, configuration.value(enabledKey)).toBool();
+    if (enabled || wasEnabled) {
+        const QColor previous = DrawingSettings().sharedToolColor();
+        QColor color = previous;
+        if (enabled && values.contains(colorKey)) {
+            color = colorFromRgbaString(values.value(colorKey).toString());
+            if (!color.isValid())
+                return false;
+        }
+        const QString rgba = colorToRgbaString(color);
+        if (enabled)
+            values.insert(colorKey, rgba);
+        const auto patch = [&](const char* tool, std::initializer_list<const char*> fields) {
+            const QString key = QStringLiteral("drawing/%1_style").arg(QLatin1String(tool));
+            auto object = values.value(key, configuration.value(key)).toObject();
+            for (const char* field : fields) {
+                if (enabled)
+                    object.remove(QLatin1String(field));
+                else
+                    object.insert(QLatin1String(field), rgba);
+            }
+            values.insert(key, object);
+        };
+        for (const char* tool : {"shape", "speech_bubble", "line", "free_draw",
+                                 "rectangle_highlight", "pen_highlight"})
+            patch(tool, {"stroke", "fill"});
+        for (const char* tool : {"arrow", "distance", "angle", "bracket", "magnifier"})
+            patch(tool, {"stroke"});
+        patch("text", {"color", "stroke", "fill"});
+        patch("serial_number", {"color", "fill"});
+    }
+    return configuration.setValues(values);
 }
 
 bool DrawingSettings::setRememberLastUsedTool(bool enabled) const {

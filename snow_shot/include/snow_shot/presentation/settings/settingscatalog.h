@@ -115,6 +115,7 @@ enum class SettingsSelectBinding {
     TranslationSecondaryTargetLanguage,
     TranslationService,
     ScreenshotSelectionResizeMode,
+    ScreenshotHiDpiImageScaling,
     SkinDisplayMode,
     SkinPosition,
     ToolbarSkinPosition,
@@ -188,6 +189,7 @@ enum class SettingsSwitchBinding {
     DrawingAutomaticallySelectNewlyCreatedElements,
     DrawingDeleteTextAfterCursor,
     DrawingRememberLastUsedTool,
+    DrawingSyncToolColors,
     DrawingAlwaysShowFirstToolbarGroupButton,
 };
 
@@ -271,6 +273,7 @@ struct SettingsColorDefinition {
 enum class SettingsColorPaletteBinding {
     StrokeColors,
     FillColors,
+    HighlightColors,
 };
 
 struct SettingsColorPaletteDefinition {

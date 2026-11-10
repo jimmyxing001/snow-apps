@@ -616,6 +616,17 @@ SettingsItemDefinition screenshotColorItem(const QString& id, const char* title,
             SettingsColorDefinition{binding, true}};
 }
 
+SettingsItemDefinition syncToolColorsItem() {
+    return {QStringLiteral("drawing.sync-tool-colors"),
+            settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Sync tool colors")),
+            settingsText(QT_TRANSLATE_NOOP(
+                "SettingsCatalog",
+                "Use one shared stroke, fill, and highlight color for newly created annotations")),
+            {},
+            QStringLiteral("drawing/sync_tool_colors"),
+            SettingsSwitchDefinition{SettingsSwitchBinding::DrawingSyncToolColors}};
+}
+
 SettingsItemDefinition strokeColorPresetsItem() {
     return {QStringLiteral("drawing.stroke-color-presets"),
             settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Stroke color presets")),
@@ -638,6 +649,19 @@ SettingsItemDefinition fillColorPresetsItem() {
             SettingsColorPaletteDefinition{
                 SettingsColorPaletteBinding::FillColors, 5,
                 settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Fill color preset %1"))}};
+}
+
+SettingsItemDefinition highlightColorPresetsItem() {
+    return {
+        QStringLiteral("drawing.highlight-color-presets"),
+        settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Highlight color presets")),
+        settingsText(QT_TRANSLATE_NOOP(
+            "SettingsCatalog", "Customize the quick-set buttons for annotation highlight colors")),
+        {},
+        QStringLiteral("screenshot/highlight_color_presets"),
+        SettingsColorPaletteDefinition{
+            SettingsColorPaletteBinding::HighlightColors, 5,
+            settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Highlight color preset %1"))}};
 }
 
 SettingsItemDefinition shortcutHintOpacityItem() {
@@ -1691,6 +1715,42 @@ SettingsItemDefinition quickSelectionModificationItem() {
             "Allow resizing the selection from its borders while non-move tools are active"),
         QStringLiteral("screenshot/quick_selection_modification"),
         SettingsSwitchBinding::ScreenshotQuickSelectionModification);
+}
+
+SettingsItemDefinition hiDpiImageScalingItem() {
+    return fixedSelectItem(
+        QStringLiteral("screenshot.hidpi-image-scaling"),
+        QT_TRANSLATE_NOOP("SettingsCatalog", "HiDPI image scaling"),
+        QT_TRANSLATE_NOOP("SettingsCatalog",
+                          "Downscale copied and saved screenshots. Auto preserves selections "
+                          "spanning displays with different scaling factors"),
+        QStringLiteral("screenshot/hidpi_image_scaling"),
+        SettingsSelectBinding::ScreenshotHiDpiImageScaling,
+        {
+            {QStringLiteral("disabled"),
+             settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Disabled"))},
+            {QStringLiteral("auto"), settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Auto"))},
+            {QStringLiteral("125"),
+             settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Scale down to 80% (125%)"))},
+            {QStringLiteral("150"),
+             settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Scale down to 66.7% (150%)"))},
+            {QStringLiteral("175"),
+             settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Scale down to 57.1% (175%)"))},
+            {QStringLiteral("200"),
+             settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Scale down to 50% (200%)"))},
+            {QStringLiteral("225"),
+             settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Scale down to 44.4% (225%)"))},
+            {QStringLiteral("250"),
+             settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Scale down to 40% (250%)"))},
+            {QStringLiteral("275"),
+             settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Scale down to 36.4% (275%)"))},
+            {QStringLiteral("300"),
+             settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Scale down to 33.3% (300%)"))},
+            {QStringLiteral("325"),
+             settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Scale down to 30.8% (325%)"))},
+            {QStringLiteral("350"),
+             settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Scale down to 28.6% (350%)"))},
+        });
 }
 
 SettingsItemDefinition selectionResizeModeItem() {
@@ -4164,6 +4224,7 @@ constexpr CatalogItemFactory catalogPageScreenshotsSectionScreenshotSettingsItem
     {screenshotDoubleClickActionItem},
     {screenshotMiddleClickActionItem},
     {quickSelectionModificationItem},
+    {hiDpiImageScalingItem},
     {nullptr, &catalogItemScreenshotCopyAfterPinningToScreen},
     {nullptr, &catalogItemScreenshotKeepAnnotationsEditableAfterPinningToScreen},
     {screenshotShutterSoundNotificationItem},
@@ -4200,8 +4261,10 @@ constexpr CatalogItemFactory catalogPageScreenshotsSectionDrawingSettingsItems[]
     {drawingDeleteTextAfterCursorItem},
     {drawingRememberLastUsedToolItem},
     {drawingAlwaysShowFirstToolbarGroupButtonItem},
+    {syncToolColorsItem},
     {strokeColorPresetsItem},
     {fillColorPresetsItem},
+    {highlightColorPresetsItem},
 };
 
 constexpr CatalogItemFactory catalogPageScreenshotsSectionDrawingItems[] = {
@@ -6245,6 +6308,9 @@ QStringList SettingsCatalog::validationErrors() const {
                         expectedKey = QStringLiteral("screenshot_translation/model");
                         expectedSource = SettingsSelectSource::TranslationServices;
                         break;
+                    case SettingsSelectBinding::ScreenshotHiDpiImageScaling:
+                        expectedKey = QStringLiteral("screenshot/hidpi_image_scaling");
+                        break;
                     case SettingsSelectBinding::ScreenshotSelectionResizeMode:
                         expectedKey = QStringLiteral("screenshot/selection_resize_mode");
                         break;
@@ -6487,6 +6553,9 @@ QStringList SettingsCatalog::validationErrors() const {
                         break;
                     case SettingsSwitchBinding::DrawingRememberLastUsedTool:
                         expectedKey = QStringLiteral("drawing/remember_last_used_tool");
+                        break;
+                    case SettingsSwitchBinding::DrawingSyncToolColors:
+                        expectedKey = QStringLiteral("drawing/sync_tool_colors");
                         break;
                     case SettingsSwitchBinding::DrawingAlwaysShowFirstToolbarGroupButton:
                         expectedKey =
@@ -6784,10 +6853,18 @@ QStringList SettingsCatalog::validationErrors() const {
                 }
                 if (const auto* palette =
                         std::get_if<SettingsColorPaletteDefinition>(&itemDefinition.payload)) {
-                    const QString expectedKey =
-                        palette->binding == SettingsColorPaletteBinding::StrokeColors
-                            ? QStringLiteral("screenshot/stroke_color_presets")
-                            : QStringLiteral("screenshot/fill_color_presets");
+                    QString expectedKey;
+                    switch (palette->binding) {
+                    case SettingsColorPaletteBinding::StrokeColors:
+                        expectedKey = QStringLiteral("screenshot/stroke_color_presets");
+                        break;
+                    case SettingsColorPaletteBinding::FillColors:
+                        expectedKey = QStringLiteral("screenshot/fill_color_presets");
+                        break;
+                    case SettingsColorPaletteBinding::HighlightColors:
+                        expectedKey = QStringLiteral("screenshot/highlight_color_presets");
+                        break;
+                    }
                     if (itemDefinition.configurationKey != expectedKey || schemaEntry == nullptr ||
                         schemaEntry->valueKind != storage::ConfigurationValueKind::StringList ||
                         palette->colorCount <= 0 || !palette->buttonLabel.isValid() ||

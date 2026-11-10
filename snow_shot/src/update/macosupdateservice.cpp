@@ -190,7 +190,7 @@ struct UpdateService::Impl {
         const QString tag = QStringLiteral("v%1_snow-shot").arg(text);
         const QString root =
             source == Source::GitHub
-                ? QStringLiteral("https://github.com/mg-chao/snow-apps/releases/tag/")
+                ? QStringLiteral("https://github.com/mg-chao/snow-shot/releases/tag/")
                 : QStringLiteral("https://gitee.com/mg-chao/snow-apps/releases/tag/");
         resetAll();
         status = {available ? UpdateState::Available : UpdateState::Idle,
@@ -228,7 +228,7 @@ struct UpdateService::Impl {
                 if (source == Source::GitHub) {
                     const QUrl expected(
                         QStringLiteral(
-                            "https://github.com/mg-chao/snow-apps/releases/download/%1/%2")
+                            "https://github.com/mg-chao/snow-shot/releases/download/%1/%2")
                             .arg(tag, assetName));
                     if (url != expected)
                         return false;
@@ -456,6 +456,7 @@ UpdateCapabilities UpdateService::capabilities() const {
     return {true, false, false};
 }
 void UpdateService::setHandoffApproval(QObject*, std::function<bool()>) {}
+void UpdateService::setHandoffValidation(QObject*, std::function<bool()>) {}
 bool UpdateService::managedByStore() const {
     return false;
 }
@@ -513,7 +514,12 @@ void UpdateService::beginApply() {
 void UpdateService::applyAtStartup() {
     emit operationFinished(QStringLiteral("apply"), QStringLiteral("unsupported"));
 }
-void UpdateService::setRelaunchArguments(const QStringList&) {}
+bool UpdateService::setRelaunchArguments(const QStringList&) {
+    return true;
+}
+bool UpdateService::acceptsRelaunchArguments(const QStringList&) const {
+    return true;
+}
 void UpdateService::clearRelaunchArguments() {}
 bool UpdateService::handoffPending() const {
     return false;

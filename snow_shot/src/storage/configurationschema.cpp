@@ -453,6 +453,8 @@ constexpr SchemaString kSchemaStrings0[] = {u"#F5222DFF", u"#52C41AFF", u"#1677F
                                             u"#000000FF"};
 constexpr SchemaString kSchemaStrings1[] = {u"#FFFFFF00", u"#FFCCC7FF", u"#D9F7BEFF", u"#BAE0FFFF",
                                             u"#FFF1B8FF"};
+constexpr SchemaString kHighlightColorPresets[] = {u"#FF7875FF", u"#D3F261FF", u"#69B1FFFF",
+                                                   u"#FFF566FF", u"#B37FEBFF"};
 constexpr SchemaString kSchemaStrings2[] = {u"Ctrl+U"};
 constexpr ConfigurationIntegerRange kSchemaRange0{10, 100, 1};
 constexpr SchemaString kSchemaStrings3[] = {u"icon", u"toolbar"};
@@ -785,6 +787,12 @@ constexpr SchemaAllowedValues kSchemaAllowed56 = {kSchemaStrings125, std::size(k
 constexpr SchemaString kSchemaStrings126[] = {u"copy", u"save",     u"quick_save", u"pin",
                                               u"ocr",  u"ocr_copy", u"cancel",     u"none"};
 constexpr SchemaAllowedValues kSchemaAllowed57 = {kSchemaStrings126, std::size(kSchemaStrings126)};
+constexpr SchemaString kHiDpiImageScalingValues[] = {u"disabled", u"auto", u"125", u"150",
+                                                     u"175",      u"200",  u"225", u"250",
+                                                     u"275",      u"300",  u"325", u"350"};
+constexpr SchemaAllowedValues kHiDpiImageScalingAllowed = {kHiDpiImageScalingValues,
+                                                           std::size(kHiDpiImageScalingValues)};
+
 constexpr SchemaString kSchemaStrings127[] = {u"follow_mouse_movement", u"follow_mouse_position"};
 constexpr SchemaAllowedValues kSchemaAllowed58 = {kSchemaStrings127, std::size(kSchemaStrings127)};
 constexpr SchemaString kSchemaStrings128[] = {
@@ -834,6 +842,8 @@ constexpr SchemaEntryDescriptor kEntryDescriptors[] = {
     {u"screenshot/stroke_color_presets", stringsDefault(kSchemaStrings0),
      ConfigurationValueKind::StringList},
     {u"screenshot/fill_color_presets", stringsDefault(kSchemaStrings1),
+     ConfigurationValueKind::StringList},
+    {u"screenshot/highlight_color_presets", stringsDefault(kHighlightColorPresets),
      ConfigurationValueKind::StringList},
     {u"cloud_upload/configuration", factoryDefault(SchemaDefaultFactory::CloudUpload),
      ConfigurationValueKind::Structured},
@@ -1204,6 +1214,8 @@ constexpr SchemaEntryDescriptor kEntryDescriptors[] = {
      ConfigurationValueKind::StringList, nullptr, &kSchemaAllowed30},
     {u"drawing/delete_text_after_cursor", booleanDefault(true), ConfigurationValueKind::Boolean},
     {u"drawing/remember_last_used_tool", booleanDefault(false), ConfigurationValueKind::Boolean},
+    {u"drawing/sync_tool_colors", booleanDefault(false), ConfigurationValueKind::Boolean},
+    {u"drawing/shared_tool_color", stringDefault(u""), ConfigurationValueKind::String},
     {u"drawing/always_show_first_toolbar_group_button", booleanDefault(false),
      ConfigurationValueKind::Boolean},
     {u"drawing/shape_style", emptyObjectDefault(), ConfigurationValueKind::Structured},
@@ -1628,6 +1640,8 @@ constexpr SchemaEntryDescriptor kEntryDescriptors[] = {
      ConfigurationValueKind::String, nullptr, &kSchemaAllowed57},
     {u"screenshot/quick_selection_modification", booleanDefault(true),
      ConfigurationValueKind::Boolean},
+    {u"screenshot/hidpi_image_scaling", stringDefault(u"disabled"), ConfigurationValueKind::String,
+     nullptr, &kHiDpiImageScalingAllowed},
     {u"screenshot/selection_resize_mode", stringDefault(u"follow_mouse_movement"),
      ConfigurationValueKind::String, nullptr, &kSchemaAllowed58},
     {u"screenshot/auto_save_after_execution_actions", emptyArrayDefault(),
@@ -2876,11 +2890,16 @@ ConfigurationNormalization ConfigurationSchema::normalize(const QString& key,
         (!value.isString() || value.toString().size() > 1024)) {
         return {};
     }
+    if (key == QStringLiteral("drawing/shared_tool_color")) {
+        return value == QJsonValue(QString()) ? ConfigurationNormalization{value, true, false}
+                                              : normalizeRgbaColor(value);
+    }
     if (isRgbaColorKey(key)) {
         return normalizeRgbaColor(value);
     }
     if (key == QStringLiteral("screenshot/stroke_color_presets") ||
-        key == QStringLiteral("screenshot/fill_color_presets")) {
+        key == QStringLiteral("screenshot/fill_color_presets") ||
+        key == QStringLiteral("screenshot/highlight_color_presets")) {
         return normalizeColorPresets(value);
     }
     if (isFilenameFormatKey(key)) {

@@ -32,6 +32,9 @@ struct StorageInitializationOptions {
     QString appDataDirectory;
     int debounceMilliseconds = 1000;
     std::shared_ptr<const StorageDirectorySelection> resolvedDirectory{};
+    // Health probes use only their temporary repository root. Do not scan or clean
+    // application-global thumbnail, recording-temp, or diagnostics directories.
+    bool isolateAuxiliaryStorage = false;
 };
 
 enum class StorageMode {
@@ -72,6 +75,18 @@ struct StorageStatus {
     diagnostics::DiagnosticsStatus diagnostics;
 };
 
+struct StorageCheckpointResult {
+    StorageResult configuration;
+    StorageResult pinnedWindows;
+    // Draining history waits for admitted operations. Its last operation error is
+    // informational, not a failure to persist work newly requested by this checkpoint.
+    QString historyError;
+
+    [[nodiscard]] StorageResult result() const {
+        return pinnedWindows.success ? configuration : pinnedWindows;
+    }
+};
+
 class ApplicationStorage final : public QObject {
     Q_OBJECT
 
@@ -89,6 +104,10 @@ class ApplicationStorage final : public QObject {
 
     [[nodiscard]] StorageResult initialize(const StorageInitializationOptions& options = {});
     [[nodiscard]] bool isInitialized() const;
+    // Owner-thread checkpoint: snapshot GUI metadata, drain existing history/cache work,
+    // and attempt both independent writes. No cross-repository atomicity is promised.
+    [[nodiscard]] StorageCheckpointResult checkpoint();
+    // Compatibility aggregate: pin failure takes precedence, then configuration failure.
     [[nodiscard]] StorageResult flushNow();
     // Suspend/resume run on the owner thread; drain runs on the worker. A failed suspend
     // leaves participants unchanged. Suspend and resume must not throw. Resume receives
@@ -131,13 +150,16 @@ class ApplicationStorage final : public QObject {
     bool requestPinnedWindowClear();
     void requestPinnedWindowRetentionCleanup(bool restartsQuiet = true);
     void requestPinnedWindowShow(const QString& id) {
-        emit pinnedWindowShowRequested(id);
+        if (!directoryChangeBlocksWork())
+            emit pinnedWindowShowRequested(id);
     }
     void requestPinnedWindowsShow(const QStringList& ids) {
-        emit pinnedWindowsShowRequested(ids);
+        if (!directoryChangeBlocksWork())
+            emit pinnedWindowsShowRequested(ids);
     }
     void requestPinnedWindowDelete(const QVector<QString>& ids) {
-        emit pinnedWindowDeleteRequested(ids);
+        if (!directoryChangeBlocksWork())
+            emit pinnedWindowDeleteRequested(ids);
     }
     bool requestCaptureHistoryClear();
     [[nodiscard]] std::shared_future<StorageResult> requestCaptureHistoryClearAsync();
@@ -156,6 +178,8 @@ class ApplicationStorage final : public QObject {
     // Synchronous GUI-thread checkpoint before repositories are drained. Worker flushes
     // consume already captured metadata and never call window-system APIs.
     void checkpointRequested();
+    // Latest UI snapshot; intermediate progress may be coalesced while the owner is busy.
+    // The last pending snapshot is delivered before directoryChangeFinished, never after it.
     void directoryChangeProgress(const snow_shot::storage::StorageDirectoryProgress& progress);
     void directoryChangeFinished(const snow_shot::storage::StorageDirectoryChangeResult& result);
     void captureHistoryChanged();
@@ -181,16 +205,21 @@ class ApplicationStorage final : public QObject {
     void finishCacheClear(StorageCacheKind kind, const StorageResult& result);
     void emitStatusChanged();
     void createUsageTracker();
+    void refreshStorageUsage();
     void finishDirectoryChange();
+    [[nodiscard]] bool directoryChangeBlocksWork() const;
     struct DirectoryChange;
+    quint64 m_storageGeneration = 0;
     quint64 m_usageGeneration = 0;
     QString m_bootstrapDirectory;
     QString m_executableDirectory;
+    bool m_isolateAuxiliaryStorage = false;
     std::function<StorageResult()> m_suspendForDirectoryChange;
     std::function<void()> m_drainForDirectoryChange;
     std::function<void(const QString&)> m_resumeAfterDirectoryChange;
     DirectoryChangeExecutor m_directoryChangeExecutor;
     std::unique_ptr<DirectoryChange> m_directoryChange;
+    bool m_checkpointInProgress = false;
     bool m_preparingDirectoryChange = false;
     bool m_finishingDirectoryChange = false;
 

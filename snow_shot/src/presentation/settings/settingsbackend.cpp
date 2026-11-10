@@ -667,6 +667,8 @@ QVariant BuiltInSettingsBackend::selectValue(SettingsSelectBinding binding) cons
         return storage::ScreenshotSettings().middleMouseButtonAction();
     case SettingsSelectBinding::ScreenshotSelectionResizeMode:
         return storage::ScreenshotSettings().selectionResizeMode();
+    case SettingsSelectBinding::ScreenshotHiDpiImageScaling:
+        return storage::ScreenshotSettings().hiDpiImageScaling();
     case SettingsSelectBinding::PinDoubleClickAction:
         return storage::PinToScreenSettings().doubleClickAction();
     case SettingsSelectBinding::PinMiddleClickAction:
@@ -916,6 +918,8 @@ bool BuiltInSettingsBackend::applySelectValue(SettingsSelectBinding binding,
         return storage::ScreenshotSettings().setMiddleMouseButtonAction(value.toString());
     case SettingsSelectBinding::ScreenshotSelectionResizeMode:
         return storage::ScreenshotSettings().setSelectionResizeMode(value.toString());
+    case SettingsSelectBinding::ScreenshotHiDpiImageScaling:
+        return storage::ScreenshotSettings().setHiDpiImageScaling(value.toString());
     case SettingsSelectBinding::PinDoubleClickAction:
         return storage::PinToScreenSettings().setDoubleClickAction(value.toString());
     case SettingsSelectBinding::PinMiddleClickAction:
@@ -1126,6 +1130,8 @@ bool BuiltInSettingsBackend::switchValue(SettingsSwitchBinding binding) const {
         return storage::DrawingSettings().deleteTextAfterCursor();
     case SettingsSwitchBinding::DrawingRememberLastUsedTool:
         return storage::DrawingSettings().rememberLastUsedTool();
+    case SettingsSwitchBinding::DrawingSyncToolColors:
+        return storage::DrawingSettings().syncToolColors();
     case SettingsSwitchBinding::DrawingAlwaysShowFirstToolbarGroupButton:
         return storage::DrawingSettings().alwaysShowFirstToolbarGroupButton();
     }
@@ -1379,6 +1385,9 @@ bool BuiltInSettingsBackend::applySwitchValue(SettingsSwitchBinding binding, boo
     if (binding == SettingsSwitchBinding::DrawingRememberLastUsedTool) {
         return storage::DrawingSettings().setRememberLastUsedTool(value);
     }
+    if (binding == SettingsSwitchBinding::DrawingSyncToolColors) {
+        return storage::DrawingSettings().setSyncToolColors(value);
+    }
     if (binding == SettingsSwitchBinding::DrawingAlwaysShowFirstToolbarGroupButton) {
         return storage::DrawingSettings().setAlwaysShowFirstToolbarGroupButton(value);
     }
@@ -1585,6 +1594,7 @@ bool BuiltInSettingsBackend::applySwitchValue(SettingsSwitchBinding binding, boo
     case SettingsSwitchBinding::DrawingAutomaticallySelectNewlyCreatedElements:
     case SettingsSwitchBinding::DrawingDeleteTextAfterCursor:
     case SettingsSwitchBinding::DrawingRememberLastUsedTool:
+    case SettingsSwitchBinding::DrawingSyncToolColors:
     case SettingsSwitchBinding::DrawingAlwaysShowFirstToolbarGroupButton:
         return false;
     }
@@ -1801,6 +1811,8 @@ BuiltInSettingsBackend::colorPaletteValue(SettingsColorPaletteBinding binding) c
         return settings.strokeColors();
     case SettingsColorPaletteBinding::FillColors:
         return settings.fillColors();
+    case SettingsColorPaletteBinding::HighlightColors:
+        return settings.highlightColors();
     }
     return {};
 }
@@ -1813,6 +1825,8 @@ bool BuiltInSettingsBackend::applyColorPaletteValue(SettingsColorPaletteBinding 
         return settings.setStrokeColors(value);
     case SettingsColorPaletteBinding::FillColors:
         return settings.setFillColors(value);
+    case SettingsColorPaletteBinding::HighlightColors:
+        return settings.setHighlightColors(value);
     }
     return false;
 }
@@ -2906,6 +2920,9 @@ SettingsResetResult BuiltInSettingsBackend::resetSectionWithResults(SettingsSect
                    {QStringLiteral("screenshot/quick_selection_modification"),
                     storage::ConfigurationSchema::defaultValue(
                         QStringLiteral("screenshot/quick_selection_modification"))},
+                   {QStringLiteral("screenshot/hidpi_image_scaling"),
+                    storage::ConfigurationSchema::defaultValue(
+                        QStringLiteral("screenshot/hidpi_image_scaling"))},
                    {QStringLiteral("screenshot/selection_resize_mode"),
                     storage::ConfigurationSchema::defaultValue(
                         QStringLiteral("screenshot/selection_resize_mode"))},
@@ -2982,13 +2999,18 @@ SettingsResetResult BuiltInSettingsBackend::resetSectionWithResults(SettingsSect
                  QStringLiteral("screenshot_toolbar/layout"))},
         });
     case SettingsSectionReset::DrawingQuickSelection:
-        return storage::ApplicationStorage::instance().configuration().setValues({
+        return storage::setDrawingStyleValues({
+            {QStringLiteral("drawing/sync_tool_colors"), false},
+            {QStringLiteral("drawing/shared_tool_color"), QString()},
             {QStringLiteral("screenshot/stroke_color_presets"),
              storage::ConfigurationSchema::defaultValue(
                  QStringLiteral("screenshot/stroke_color_presets"))},
             {QStringLiteral("screenshot/fill_color_presets"),
              storage::ConfigurationSchema::defaultValue(
                  QStringLiteral("screenshot/fill_color_presets"))},
+            {QStringLiteral("screenshot/highlight_color_presets"),
+             storage::ConfigurationSchema::defaultValue(
+                 QStringLiteral("screenshot/highlight_color_presets"))},
             {QStringLiteral("drawing/automatically_select_newly_created_elements"),
              storage::ConfigurationSchema::defaultValue(
                  QStringLiteral("drawing/automatically_select_newly_created_elements"))},

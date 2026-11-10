@@ -95,6 +95,8 @@ class ScreenshotColorPresetSettings final {
     bool setStrokeColors(const QVector<QColor>& colors) const;
     [[nodiscard]] QVector<QColor> fillColors() const;
     bool setFillColors(const QVector<QColor>& colors) const;
+    [[nodiscard]] QVector<QColor> highlightColors() const;
+    bool setHighlightColors(const QVector<QColor>& colors) const;
 };
 
 #if SNOW_SHOT_ENABLE_API_CONFIGURATION
@@ -277,6 +279,8 @@ class ScreenshotSettings final {
     bool setMiddleMouseButtonAction(const QString& action) const;
     [[nodiscard]] bool quickSelectionModification() const;
     bool setQuickSelectionModification(bool enabled) const;
+    [[nodiscard]] QString hiDpiImageScaling() const;
+    bool setHiDpiImageScaling(const QString& mode) const;
     [[nodiscard]] QString selectionResizeMode() const;
     bool setSelectionResizeMode(const QString& mode) const;
     [[nodiscard]] QStringList autoSaveAfterExecutionActions() const;
@@ -319,6 +323,10 @@ class ScreenshotSettings final {
 
 class DrawingSettings final {
   public:
+    [[nodiscard]] bool syncToolColors() const;
+    bool setSyncToolColors(bool enabled) const;
+    // The remembered shared color, or the Shape creation stroke before first use.
+    [[nodiscard]] QColor sharedToolColor() const;
     [[nodiscard]] bool automaticallySelectNewlyCreatedElements() const;
     bool setAutomaticallySelectNewlyCreatedElements(bool enabled) const;
     [[nodiscard]] QStringList automaticSelectionExcludedTools() const;
@@ -336,6 +344,10 @@ class DrawingSettings final {
 // Applies partial updates across local shortcut scopes in one commit. Each affected
 // scope is validated against its complete resulting assignment before any values change.
 [[nodiscard]] bool setLocalShortcutValuesAtomic(const QMap<QString, QJsonValue>& values);
+
+// Keeps the shared color and per-tool appearance preferences consistent in one commit.
+// Also accepts drawing section reset values; disabling materializes the current color.
+[[nodiscard]] bool setDrawingStyleValues(QMap<QString, QJsonValue> values);
 
 class ScreenshotShortcutSettings final {
   public:
