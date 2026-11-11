@@ -254,6 +254,10 @@ so every moment on screen can be expressed clearly and shared easily</source>
             <translation>更新由 Microsoft Store 管理</translation>
         </message>
         <message>
+            <source>User agreement</source>
+            <translation>使用者協議</translation>
+        </message>
+        <message>
             <source>Verifying update…</source>
             <translation>正在驗證更新…</translation>
         </message>
@@ -760,6 +764,10 @@ so every moment on screen can be expressed clearly and shared easily</source>
             <translation>沒有可用的翻譯服務</translation>
         </message>
         <message>
+            <source>Paid calls are paused because your account has an outstanding balance. Your free allowance remains available</source>
+            <translation>帳號存在欠款，付費呼叫已暫停。免費額度仍可使用</translation>
+        </message>
+        <message>
             <source>Table recognition failed</source>
             <translation>表格辨識失敗</translation>
         </message>
@@ -839,6 +847,14 @@ so every moment on screen can be expressed clearly and shared easily</source>
             <source>Translation stream ended unexpectedly</source>
             <translation>翻譯串流意外結束</translation>
         </message>
+        <message>
+            <source>Your available free allowance and credits cannot cover this request. Purchase credits from Account to continue</source>
+            <translation>可用免費額度和帳號餘額不足以支付本次請求。請前往「帳號」儲值後繼續</translation>
+        </message>
+        <message>
+            <source>Your credits are reserved by other calls that are still running. Wait for them to finish and try again</source>
+            <translation>餘額已被其他進行中的呼叫預留，請等待這些呼叫結束後重試</translation>
+        </message>
     </context>
     <context>
         <name>SystemTrayController</name>
@@ -885,20 +901,12 @@ so every moment on screen can be expressed clearly and shared easily</source>
             <translation>%1 %2 已發布。請開啟「關於」查看更新選項</translation>
         </message>
         <message>
-            <source>%1 will close and restart to install the update. Continue?</source>
-            <translation>%1 將關閉並重新啟動以安裝更新。是否繼續？</translation>
-        </message>
-        <message>
             <source>An update is ready. Open About to restart and update %1</source>
             <translation>更新已就緒。請開啟「關於」重新啟動並更新 %1</translation>
         </message>
         <message>
             <source>An update is ready. Open About to restart and update Snow Shot</source>
             <translation>更新已準備就緒。請開啟「關於」頁面，重新啟動並更新 Snow Shot</translation>
-        </message>
-        <message>
-            <source>Cancel</source>
-            <translation>取消</translation>
         </message>
         <message>
             <source>Could not open the selected file: %1</source>
@@ -917,20 +925,12 @@ so every moment on screen can be expressed clearly and shared easily</source>
             <translation>請先完成截圖、螢幕錄製或匯出，再進行更新</translation>
         </message>
         <message>
-            <source>Restart and update</source>
-            <translation>重新啟動並更新</translation>
-        </message>
-        <message>
             <source>Restart failed</source>
             <translation>重新啟動失敗</translation>
         </message>
         <message>
             <source>Snow Shot %1 is available. Open About for update options</source>
             <translation>Snow Shot %1 已推出。開啟「關於」查看更新選項</translation>
-        </message>
-        <message>
-            <source>Snow Shot will close and restart to install the update. Continue?</source>
-            <translation>Snow Shot 將關閉並重新啟動以安裝更新。是否繼續？</translation>
         </message>
         <message>
             <source>The selected file path is invalid</source>
