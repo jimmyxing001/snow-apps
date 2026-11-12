@@ -11944,8 +11944,15 @@ void pinnedClickThroughGeometry() {
                 QRect(328, 28, 48, 48),
             "fractional-DPR placement must round size and inset independently");
     require(exitButtonGeometry(QRect(-1920, 0, 200, 120), QRect(-1920, 0, 1920, 1080), 1.0) ==
-                QRect(-1720, 0, 32, 32),
-            "top-edge clamping must work on a display with a negative origin");
+                QRect(-1720, 136, 32, 32),
+            "a pin at the top of a display must place the controls below it");
+    const QRect workArea(-2560, -1440, 2560, 1440);
+    require(exitButtonGeometry(QRect(-2000, -1430, 600, 1358), workArea, 1.5) ==
+                QRect(-1472, -48, 48, 48),
+            "the controls must fit below when their bottom meets the work area edge");
+    require(exitButtonGeometry(QRect(-2000, -1430, 600, 1359), workArea, 1.5) ==
+                QRect(-1472, -1406, 48, 48),
+            "when neither outside position fits, use the pin's top-right corner");
     require(exitButtonGeometry(QRect(-100, 100, 2500, 120), QRect(-1920, 0, 1920, 1080), 1.0) ==
                 QRect(-32, 52, 32, 32),
             "right-edge clamping must keep the complete button on its display");
@@ -12007,9 +12014,13 @@ void pinnedClickThroughStationaryControls() {
             return QObject::eventFilter(watched, event);
         }
     };
-    for (const int top : {0, 120}) {
+    const auto monitor = screenshot_pinned_hide_to_top::screenGeometry(screen);
+    const QRect workArea = monitor.workArea;
+    for (const bool overlaps : {false, true}) {
         auto config = clickThroughTestConfig(*screen);
-        config.nativeGeometry = physicalPinGeometry(*screen, QPoint(100, top), QSize(400, 400));
+        const int height = overlaps ? workArea.height() : std::min(400, workArea.height() / 2);
+        config.nativeGeometry =
+            QRect(workArea.left() + qRound(100 * monitor.dpi), workArea.top(), 400, height);
         ScreenshotPinnedWindow window;
         window.setAttribute(Qt::WA_DeleteOnClose, false);
         if (QGuiApplication::platformName() == QStringLiteral("windows")) {
@@ -12018,14 +12029,23 @@ void pinnedClickThroughStationaryControls() {
             Access::restoreOffscreen(window, config);
             window.show();
         }
+        Access::shadowState(window, true, true);
         require(Access::setClickThrough(window, true), "enter stationary controls fixture");
         waitForUi(20);
         auto* editor = Access::clickThroughOpacityEditor(window);
         auto* exit = Access::clickThroughExitButton(window);
         auto* slider = editor->findChild<adqt::widgets::AdSlider*>();
         require(slider != nullptr, "stationary controls need a slider");
-        require(editor->geometry().intersects(window.geometry()) == (top == 0),
-                "only the screen-clamped fixture must overlap the pinned image");
+        const QRect content = Access::contentGeometry(window);
+        const QRect expectedExit =
+            screenshot_pinned_click_through::exitButtonGeometry(content, workArea, monitor.dpi);
+        require(exit->pos() ==
+                    snow_shot::presentation::pinnedLogicalRect(expectedExit, screen).topLeft(),
+                "click-through controls must align to the content edge with the shadow visible");
+        const QRect logicalContent = snow_shot::presentation::pinnedLogicalRect(content, screen);
+        require(overlaps ? editor->geometry().intersects(logicalContent)
+                         : editor->geometry().top() > logicalContent.bottom(),
+                "stationary controls must use the space below or overlap a full-height pin");
         PlacementProbe probe;
         editor->installEventFilter(&probe);
         exit->installEventFilter(&probe);
@@ -12829,11 +12849,11 @@ void pinnedClickThroughOffscreen() {
     require(persistenceWrites > 0 && lastPersisted.clickThroughMode,
             "entry must schedule durable click-through state");
 
-    const QRect physicalBounds = ScreenshotGeometryMapper::physicalRectForScreen(*screen);
-    const QRect expectedPhysicalGeometry = screenshot_pinned_click_through::exitButtonGeometry(
-        window.currentNativeGeometry(), physicalBounds, screen->devicePixelRatio());
+    const auto monitor = screenshot_pinned_hide_to_top::screenGeometry(screen);
+    const QRect expectedNativeGeometry = screenshot_pinned_click_through::exitButtonGeometry(
+        ScreenshotPinnedWindowTestAccess::contentGeometry(window), monitor.workArea, monitor.dpi);
     const QRect expectedLogicalGeometry =
-        ScreenshotGeometryMapper::logicalRectForPhysicalRect(expectedPhysicalGeometry, screen);
+        snow_shot::presentation::pinnedLogicalRect(expectedNativeGeometry, screen);
     exitButton->move(QPoint(-10000, -10000));
     QEvent screenChanged(QEvent::ScreenChangeInternal);
     QCoreApplication::sendEvent(&window, &screenChanged);

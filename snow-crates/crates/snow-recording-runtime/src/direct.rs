@@ -141,6 +141,7 @@ pub struct DirectRecordingConfig {
     pub region: RecordingRegion,
     /// Follow the desktop pointer within its monitor, preserving the encoded size.
     pub follow_mouse: bool,
+    pub follow_mouse_options: snow_media::follow_mouse::FollowMouseOptions,
     /// Preferred recording backend on Windows; other backends remain available as fallbacks.
     pub capture_backend: CaptureBackendKind,
     pub output_path: PathBuf,
@@ -524,6 +525,7 @@ pub struct DirectRecordingSession {
     runtime: Mutex<Option<RuntimeHandles>>,
     audio_control: AudioControlHandle,
     exclusion_generation: AtomicU64,
+    capture_viewport: crate::capture_viewport::CaptureViewportState,
 }
 
 impl DirectRecordingSession {
@@ -603,7 +605,12 @@ impl DirectRecordingSession {
             runtime: Mutex::new(None),
             audio_control,
             exclusion_generation: AtomicU64::new(0),
+            capture_viewport: Default::default(),
         })
+    }
+
+    pub fn capture_viewport(&self) -> Option<crate::CaptureViewport> {
+        self.capture_viewport.snapshot()
     }
 
     pub fn audio_control(&self) -> AudioControlHandle {
@@ -962,6 +969,7 @@ impl DirectRecordingSession {
         let stop_boundary = Arc::clone(&self.stop_boundary);
         let cancel_requested = Arc::clone(&self.cancel_requested);
         let control_clock = Arc::clone(&self.control_clock);
+        let capture_viewport = self.capture_viewport.clone();
         #[cfg(feature = "bench-synthetic-input")]
         let bench_partial = self.bench_partial;
         #[cfg(feature = "bench-synthetic-input")]
@@ -1148,6 +1156,7 @@ impl DirectRecordingSession {
                     }
                     let _ = ready_tx.send(());
                     run_direct_worker(DirectWorkerInputs {
+                        capture_viewport,
                         stop_boundary,
                         cancel_requested,
                         include_cursor,
@@ -1479,6 +1488,7 @@ fn direct_termination(
 }
 
 struct DirectWorkerInputs {
+    capture_viewport: crate::capture_viewport::CaptureViewportState,
     stop_boundary: Arc<Mutex<Option<Instant>>>,
     cancel_requested: Arc<AtomicBool>,
     include_cursor: bool,
@@ -1507,6 +1517,7 @@ struct DirectWorkerInputs {
 fn run_direct_worker(inputs: DirectWorkerInputs) -> Result<DirectRecordingReport> {
     let mut webcam_capture = crate::webcam::CaptureLease::new(&inputs.config);
     let DirectWorkerInputs {
+        capture_viewport,
         stop_boundary,
         cancel_requested,
         include_cursor,
@@ -2019,6 +2030,7 @@ fn run_direct_worker(inputs: DirectWorkerInputs) -> Result<DirectRecordingReport
                     pipeline_timings.synthetic_overlay_frames += 1;
                 }
             }
+            capture_viewport.publish(frame.metadata().capture_transform());
             overlay_was_active = active;
         }
     }
@@ -3705,6 +3717,7 @@ mod tests {
     fn config() -> DirectRecordingConfig {
         DirectRecordingConfig {
             follow_mouse: false,
+            follow_mouse_options: Default::default(),
             keyboard_filter: Default::default(),
             webcam: None,
             audio_mode: Default::default(),

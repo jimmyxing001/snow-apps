@@ -77,6 +77,47 @@ pub struct SnowRecordingSessionImpl {
 }
 
 #[repr(C)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct SnowRecordingCaptureViewport {
+    pub revision: u64,
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn snow_recording_session_capture_viewport(
+    session: *const SnowRecordingSessionImpl,
+    viewport: *mut SnowRecordingCaptureViewport,
+) -> u8 {
+    if viewport.is_null() {
+        return 0;
+    }
+    let Some(session) = (unsafe { session.as_ref() }) else {
+        return 0;
+    };
+    let snapshot = match session.recording.as_ref() {
+        Some(RecordingSessionKind::Direct(recording)) => recording.capture_viewport(),
+        Some(RecordingSessionKind::Deferred(recording)) => recording.capture_viewport(),
+        _ => None,
+    };
+    let Some(snapshot) = snapshot else {
+        return 0;
+    };
+    unsafe {
+        *viewport = SnowRecordingCaptureViewport {
+            revision: snapshot.revision,
+            x: snapshot.source.x,
+            y: snapshot.source.y,
+            width: snapshot.source.width,
+            height: snapshot.source.height,
+        };
+    }
+    1
+}
+
+#[repr(C)]
 #[derive(Clone, Copy, Default)]
 pub struct SnowRecordingAudioLevel {
     pub peak: f32,
@@ -546,6 +587,8 @@ pub struct SnowCaptureDirectRecordingConfig {
     record_control_keys: u32,
     preserve_keyboard_shortcuts: u32,
     follow_mouse: u32,
+    follow_mouse_smooth_movement: u32,
+    follow_mouse_reduce_jitter: u32,
 }
 
 #[repr(C)]
@@ -555,7 +598,15 @@ struct SnowCaptureDirectRecordingConfigHeader {
     struct_size: u32,
 }
 
-pub const DIRECT_RECORDING_CONFIG_VERSION: u32 = 18;
+pub const DIRECT_RECORDING_CONFIG_VERSION: u32 = 19;
+const DIRECT_RECORDING_CONFIG_V18_FIELDS_SIZE: usize = std::mem::offset_of!(
+    SnowCaptureDirectRecordingConfig,
+    follow_mouse_smooth_movement
+);
+const DIRECT_RECORDING_CONFIG_V18_SIZE: u32 = (DIRECT_RECORDING_CONFIG_V18_FIELDS_SIZE
+    .div_ceil(std::mem::align_of::<SnowCaptureDirectRecordingConfig>())
+    * std::mem::align_of::<SnowCaptureDirectRecordingConfig>())
+    as u32;
 const DIRECT_RECORDING_CONFIG_V17_FIELDS_SIZE: usize =
     std::mem::offset_of!(SnowCaptureDirectRecordingConfig, follow_mouse);
 const DIRECT_RECORDING_CONFIG_V17_SIZE: u32 = (DIRECT_RECORDING_CONFIG_V17_FIELDS_SIZE
@@ -614,6 +665,7 @@ fn direct_config_size(version: u32) -> Result<u32, String> {
         15 => Ok(DIRECT_RECORDING_CONFIG_V15_SIZE),
         16 => Ok(DIRECT_RECORDING_CONFIG_V16_SIZE),
         17 => Ok(DIRECT_RECORDING_CONFIG_V17_SIZE),
+        18 => Ok(DIRECT_RECORDING_CONFIG_V18_SIZE),
         DIRECT_RECORDING_CONFIG_VERSION => Ok(DIRECT_RECORDING_CONFIG_SIZE),
         _ => Err(format!(
             "unsupported direct recording config version: {version}"
@@ -1045,6 +1097,11 @@ fn parse_direct_recording_config(
     if config.version >= 18 && config.follow_mouse > 1 {
         return Err("follow mouse must be zero or one".to_string());
     }
+    if config.version >= 19
+        && (config.follow_mouse_smooth_movement > 1 || config.follow_mouse_reduce_jitter > 1)
+    {
+        return Err("follow mouse motion options must be zero or one".to_string());
+    }
     if config.version >= 17
         && [
             config.record_number_keys,
@@ -1165,6 +1222,10 @@ fn parse_direct_recording_config(
         loop_animated_images,
         region: RecordingRegion::new(config.x, config.y, config.width, config.height),
         follow_mouse: config.version >= 18 && config.follow_mouse != 0,
+        follow_mouse_options: snow_media::follow_mouse::FollowMouseOptions {
+            smooth_movement: config.version >= 19 && config.follow_mouse_smooth_movement != 0,
+            reduce_jitter: config.version >= 19 && config.follow_mouse_reduce_jitter != 0,
+        },
         capture_backend,
         output_path,
         format,
@@ -1242,6 +1303,9 @@ unsafe fn read_direct_recording_config(
     } else if header.version == 15 {
         // Do not import the old caller's uninitialized tail padding as orientation.
         DIRECT_RECORDING_CONFIG_V15_FIELDS_SIZE
+    } else if header.version == 18 {
+        // The first v19 flag occupies v18's tail padding.
+        DIRECT_RECORDING_CONFIG_V18_FIELDS_SIZE
     } else {
         required_size as usize
     };
@@ -1749,16 +1813,41 @@ pub extern "C" fn snow_recording_last_error_message() -> *const c_char {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn read_config_from_exact_prefix(
+        config: &SnowCaptureDirectRecordingConfig,
+    ) -> Result<SnowCaptureDirectRecordingConfig, String> {
+        let size = config.struct_size as usize;
+        assert!(size >= std::mem::size_of::<SnowCaptureDirectRecordingConfigHeader>());
+        assert!(size <= std::mem::size_of_val(config));
+        let mut prefix = vec![std::mem::MaybeUninit::<u8>::uninit(); size];
+        // Preserve padding without reading it as initialized bytes.
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                std::ptr::from_ref(config).cast(),
+                prefix.as_mut_ptr(),
+                size,
+            );
+            read_direct_recording_config(prefix.as_ptr().cast())
+        }
+    }
+
     #[test]
     fn follow_mouse_v18_validates_flag_and_preserves_every_legacy_prefix() {
         for value in [0, 1, 2, u32::MAX] {
             let mut raw = direct_config(c"follow-mouse.mp4");
+            raw.version = 18;
+            raw.struct_size = direct_config_size(raw.version).unwrap();
             raw.follow_mouse = value;
-            let result = parse_direct_recording_config(
-                &unsafe { read_direct_recording_config(&raw) }.unwrap(),
-            );
+            raw.follow_mouse_smooth_movement = u32::MAX;
+            let copied = read_config_from_exact_prefix(&raw).unwrap();
+            assert_eq!(copied.follow_mouse_smooth_movement, 0);
+            assert_eq!(copied.follow_mouse_reduce_jitter, 0);
+            let result = parse_direct_recording_config(&copied);
             if value <= 1 {
-                assert_eq!(result.unwrap().follow_mouse, value == 1);
+                let config = result.unwrap();
+                assert_eq!(config.follow_mouse, value == 1);
+                assert_eq!(config.follow_mouse_options, Default::default());
             } else {
                 assert!(result.unwrap_err().contains("follow mouse"));
             }
@@ -1771,19 +1860,40 @@ mod tests {
             if version == 2 {
                 raw.mouse_trail_duration_ms = 0;
             }
-            let prefix = unsafe {
-                std::slice::from_raw_parts((&raw const raw).cast::<u8>(), raw.struct_size as usize)
-            }
-            .to_vec();
-            let copied = unsafe { read_direct_recording_config(prefix.as_ptr().cast()) }.unwrap();
+            let copied = read_config_from_exact_prefix(&raw).unwrap();
             assert!(
                 !parse_direct_recording_config(&copied).unwrap().follow_mouse,
                 "legacy version {version}"
             );
         }
-        let mut raw = direct_config(c"follow-mouse.mp4");
-        raw.struct_size -= 1;
-        assert!(unsafe { read_direct_recording_config(&raw) }.is_err());
+        for version in [18, 19] {
+            let mut raw = direct_config(c"follow-mouse.mp4");
+            raw.version = version;
+            raw.struct_size = direct_config_size(version).unwrap() - 1;
+            assert!(read_config_from_exact_prefix(&raw).is_err());
+        }
+    }
+
+    #[test]
+    fn follow_mouse_v19_validates_and_preserves_independent_motion_flags() {
+        for smooth in [0, 1, 2, u32::MAX] {
+            for jitter in [0, 1, 2, u32::MAX] {
+                let mut raw = direct_config(c"follow-mouse.mp4");
+                raw.follow_mouse = 1;
+                raw.follow_mouse_smooth_movement = smooth;
+                raw.follow_mouse_reduce_jitter = jitter;
+                let copied = unsafe { read_direct_recording_config(&raw) }.unwrap();
+                let result = parse_direct_recording_config(&copied);
+                if smooth <= 1 && jitter <= 1 {
+                    let config = result.unwrap();
+                    assert!(config.follow_mouse);
+                    assert_eq!(config.follow_mouse_options.smooth_movement, smooth != 0);
+                    assert_eq!(config.follow_mouse_options.reduce_jitter, jitter != 0);
+                } else {
+                    assert!(result.unwrap_err().contains("follow mouse motion options"));
+                }
+            }
+        }
     }
     #[test]
     fn keyboard_filter_flags_round_trip_and_validate() {
@@ -1965,6 +2075,53 @@ mod tests {
     }
 
     #[test]
+    fn capture_viewport_ffi_is_unavailable_until_output_accepts_a_frame() {
+        let config = direct_config(c"viewport.mp4");
+        for deferred in [false, true] {
+            let config = parse_direct_recording_config(&config).unwrap();
+            let recording = if deferred {
+                RecordingSessionKind::Deferred(Box::new(
+                    snow_screen_recorder::DeferredRecordingSession::create(
+                        config,
+                        Default::default(),
+                    )
+                    .unwrap(),
+                ))
+            } else {
+                RecordingSessionKind::Direct(Box::new(
+                    DirectRecordingSession::create(config).unwrap(),
+                ))
+            };
+            let session = SnowRecordingSessionImpl {
+                recording: Some(recording),
+                state: RecordingState::Created,
+            };
+            let sentinel = SnowRecordingCaptureViewport {
+                revision: 99,
+                x: -0.5,
+                y: 12.25,
+                width: 300.5,
+                height: 150.75,
+            };
+            let mut viewport = sentinel;
+            assert_eq!(
+                unsafe { snow_recording_session_capture_viewport(&session, &mut viewport) },
+                0
+            );
+            assert_eq!(viewport, sentinel);
+            assert_eq!(
+                unsafe { snow_recording_session_capture_viewport(&session, ptr::null_mut()) },
+                0
+            );
+            assert_eq!(
+                unsafe { snow_recording_session_capture_viewport(ptr::null(), &mut viewport) },
+                0
+            );
+            assert_eq!(viewport, sentinel);
+        }
+    }
+
+    #[test]
     fn audio_ffi_controls_validate_and_share_recording_targets() {
         let _guard = SESSION_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let mut config = direct_config(c"recording.mp4");
@@ -2095,12 +2252,13 @@ mod tests {
 
     #[test]
     fn direct_recording_exclusion_abi_layout() {
-        assert_eq!(DIRECT_RECORDING_CONFIG_VERSION, 18);
+        assert_eq!(DIRECT_RECORDING_CONFIG_VERSION, 19);
         assert_eq!(
             std::mem::offset_of!(SnowCaptureDirectRecordingConfig, exclusions),
             192
         );
-        assert_eq!(DIRECT_RECORDING_CONFIG_SIZE, 328);
+        assert_eq!(DIRECT_RECORDING_CONFIG_SIZE, 336);
+        assert_eq!(direct_config_size(18).unwrap(), 328);
         assert_eq!(direct_config_size(17).unwrap(), 320);
         assert_eq!(direct_config_size(16).unwrap(), 304);
         assert_eq!(direct_config_size(15).unwrap(), 304);
@@ -2515,6 +2673,8 @@ mod tests {
             record_control_keys: 1,
             preserve_keyboard_shortcuts: 1,
             follow_mouse: 0,
+            follow_mouse_smooth_movement: 0,
+            follow_mouse_reduce_jitter: 0,
             exclusions: Default::default(),
             audio_mode: 0,
             system_audio_gain_db: 0,

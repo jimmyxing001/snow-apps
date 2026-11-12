@@ -591,6 +591,18 @@ void recordingCursorOptionsAreIndependentAndLazy() {
             "busy recording must dismiss and disable cursor options");
 }
 
+class RecordingOptionsTranslator final : public QTranslator {
+  public:
+    bool isEmpty() const override {
+        return false;
+    }
+    QString translate(const char* context, const char* source, const char*, int) const override {
+        return qstrcmp(context, "ScreenshotToolPalette") == 0
+                   ? QStringLiteral("Translated ") + QString::fromUtf8(source)
+                   : QString();
+    }
+};
+
 void recordingKeyboardOptionsAreIndependentAndLazy() {
     ScreenshotToolPalette::Options options;
     options.showShapeTool = true;
@@ -688,18 +700,7 @@ void recordingKeyboardOptionsAreIndependentAndLazy() {
     require(palette.setPhysicalScale(1.5) && layout->spacing() == 12 &&
                 number->font().pixelSize() == 21,
             "materialized keyboard options must follow the toolbar scale");
-    class KeyboardOptionsTranslator final : public QTranslator {
-      public:
-        bool isEmpty() const override {
-            return false;
-        }
-        QString translate(const char* context, const char* source, const char*,
-                          int) const override {
-            return qstrcmp(context, "ScreenshotToolPalette") == 0
-                       ? QStringLiteral("Translated ") + QString::fromUtf8(source)
-                       : QString();
-        }
-    } translator;
+    RecordingOptionsTranslator translator;
     QCoreApplication::installTranslator(&translator);
     QCoreApplication::processEvents();
     require(number->text() == QStringLiteral("Translated Number keys") &&
@@ -741,6 +742,115 @@ void recordingKeyboardOptionsAreIndependentAndLazy() {
             "busy recording must disable and dismiss keyboard options");
     palette.setRecordingSession(ScreenshotToolPalette::RecordingSessionStatus::recording());
     require(!popover->isEnabled(), "active recording must keep keyboard filters disabled");
+}
+
+void recordingFollowMouseOptionsAreIndependentAndLazy() {
+    ScreenshotToolPalette::Options options;
+    options.showShapeTool = true;
+    options.showRecordingControls = true;
+    options.recordingDrawingMode = true;
+    ScreenshotToolPalette palette(options);
+    auto* exportSettings = palette.findChild<adqt::widgets::AdButton*>(
+        QStringLiteral("screenRecordingExportSettings"));
+    require(exportSettings, "Follow mouse options require the export settings row");
+    if (!palette.recordingExportSettingsVisible())
+        exportSettings->click();
+    palette.show();
+    palette.prepareForDisplay();
+    QCoreApplication::processEvents();
+    auto* trigger =
+        palette.findChild<adqt::widgets::AdButton*>(QStringLiteral("screenRecordingFollowMouse"));
+    auto* popover = palette.recordingFollowMousePopover();
+    require(trigger && popover && !popover->contentWidget() && popover->sourceWidget() == trigger &&
+                popover->triggers() == adqt::widgets::AdPopover::Trigger::Hover &&
+                popover->placement() == adqt::widgets::AdPopover::Placement::Bottom &&
+                popover->popupLayerMode() == adqt::widgets::AdPopover::PopupLayerMode::QtTool,
+            "Follow mouse exposes a lazy hover popover matching the recording controls");
+
+    const auto checkbox = [popover](const QString& name) {
+        return popover->contentWidget()->findChild<adqt::widgets::AdCheckbox*>(name);
+    };
+    const auto smoothName = QStringLiteral("screenRecordingFollowMouseSmoothMovement");
+    const auto jitterName = QStringLiteral("screenRecordingFollowMouseReduceJitter");
+    const QPoint previousCursor = QCursor::pos();
+    const auto restoreCursor = qScopeGuard([&] { QCursor::setPos(previousCursor); });
+    const QPoint local = trigger->rect().center();
+    QCursor::setPos(trigger->mapToGlobal(local));
+    QEventLoop loop;
+    QObject::connect(popover, &adqt::widgets::AdPopover::visibleChanged, &loop,
+                     [&loop](bool visible) {
+                         if (visible)
+                             loop.quit();
+                     });
+    QEnterEvent enter(local, trigger->mapTo(trigger->window(), local), trigger->mapToGlobal(local));
+    QCoreApplication::sendEvent(trigger, &enter);
+    QTimer::singleShot(2000, &loop, &QEventLoop::quit);
+    if (!popover->isVisible())
+        loop.exec();
+    require(popover->isVisible() && popover->contentWidget(),
+            "hovering Follow mouse opens its options without a click");
+    popover->show();
+    auto* smooth = checkbox(smoothName);
+    auto* jitter = checkbox(jitterName);
+    auto* layout = popover->contentWidget()->layout();
+    require(popover->isVisible() && !trigger->isChecked() && smooth && jitter && layout &&
+                layout->count() == 2 && layout->itemAt(0)->widget() == smooth &&
+                layout->itemAt(1)->widget() == jitter &&
+                smooth->text() == QStringLiteral("Smooth movement") &&
+                jitter->text() == QStringLiteral("Reduce jitter"),
+            "Follow mouse options can be configured with the main toggle off");
+    for (auto* option : {smooth, jitter}) {
+        require(option->isChecked() && option->isEnabled() &&
+                    option->accessibleName() == option->text() &&
+                    !option->accessibleDescription().isEmpty(),
+                "each Follow mouse option defaults to checked and exposes accessible text");
+    }
+    int smoothChanges = 0;
+    int jitterChanges = 0;
+    QObject::connect(&palette, &ScreenshotToolPalette::recordingFollowMouseSmoothMovementChanged,
+                     &palette, [&](bool) { ++smoothChanges; });
+    QObject::connect(&palette, &ScreenshotToolPalette::recordingFollowMouseReduceJitterChanged,
+                     &palette, [&](bool) { ++jitterChanges; });
+    smooth->click();
+    require(!smooth->isChecked() && jitter->isChecked() && !trigger->isChecked(),
+            "changing Smooth movement leaves Reduce jitter and Follow mouse untouched");
+    jitter->click();
+    trigger->click();
+    require(smoothChanges == 1 && jitterChanges == 1 && !smooth->isChecked() &&
+                !jitter->isChecked() && trigger->isChecked(),
+            "the options and main toggle act independently");
+    palette.setRecordingFollowMouseOptions(false, true);
+    require(!smooth->isChecked() && jitter->isChecked() && smoothChanges == 1 && jitterChanges == 1,
+            "programmatic preference changes update the options without emitting user signals");
+    require(palette.setPhysicalScale(1.5) && layout->spacing() == 12 &&
+                smooth->font().pixelSize() == 21,
+            "open Follow mouse options use the toolbar scale");
+    RecordingOptionsTranslator translator;
+    QCoreApplication::installTranslator(&translator);
+    QCoreApplication::processEvents();
+    require(popover->isVisible() &&
+                smooth->text() == QStringLiteral("Translated Smooth movement") &&
+                jitter->text() == QStringLiteral("Translated Reduce jitter") &&
+                smooth->accessibleName() == smooth->text() &&
+                jitter->accessibleName() == jitter->text() &&
+                smooth->accessibleDescription().startsWith(QStringLiteral("Translated ")) &&
+                jitter->accessibleDescription().startsWith(QStringLiteral("Translated ")),
+            "open Follow mouse options retranslate their labels and accessible descriptions");
+    QCoreApplication::removeTranslator(&translator);
+    QCoreApplication::processEvents();
+
+    trigger->click();
+    palette.setActiveTool(ScreenshotToolPalette::Tool::Shape);
+    require(!popover->isVisible() && !popover->contentWidget(),
+            "closing the export settings row releases Follow mouse options");
+    exportSettings->click();
+    popover->show();
+    require(popover->isVisible() && !checkbox(smoothName)->isChecked() &&
+                checkbox(jitterName)->isChecked(),
+            "recreated Follow mouse options restore their individual preferences");
+    palette.setRecordingSession(ScreenshotToolPalette::RecordingSessionStatus::starting());
+    require(!popover->isEnabled() && !popover->isVisible() && !trigger->isEnabled(),
+            "starting a recording disables and dismisses Follow mouse options");
 }
 
 void recordingPostProcessingOptionsBindState() {
@@ -909,10 +1019,11 @@ void recordingEffectSettingsModal() {
     require(webcam && !palette.recordingWebcamEnabled() && palette.recordingWebcamSize() == 150 &&
                 palette.recordingWebcamShape() == QStringLiteral("square"),
             "webcam controls default off at 150 px square");
-    require(webcam->parentWidget() == keyboard->parentWidget() &&
-                webcam->parentWidget()->layout()->indexOf(webcam) ==
-                    keyboard->parentWidget()->layout()->indexOf(keyboard) + 1,
-            "webcam toggle must be immediately after keystrokes");
+    auto* follow = palette.recordingFollowMousePopover()->sourceWidget();
+    auto* optionsRow = keyboard->parentWidget()->layout();
+    require(optionsRow->indexOf(follow) == optionsRow->indexOf(keyboard) + 1 &&
+                optionsRow->indexOf(webcam) == optionsRow->indexOf(follow) + 1,
+            "Follow mouse sits between keystrokes and the webcam toggle");
     int webcamChanges = 0;
     QObject::connect(&palette, &ScreenshotToolPalette::recordingWebcamEnabledChanged, &palette,
                      [&](bool enabled) {
@@ -10476,18 +10587,19 @@ void spotlightControlsMatchMaskConfigurationBehavior() {
                 opacitySlider->accessibleDescription() == QStringLiteral("55%"),
             "Spotlight opacity must commit a complete accessible configuration");
 
-    const QPoint local = opacitySlider->rect().center();
-    QWheelEvent wheel(QPointF(local), opacitySlider->mapToGlobal(local), QPoint(), QPoint(0, 120),
+    palette.show();
+    QCoreApplication::processEvents();
+    const QPointF local(opacitySlider->width() - 0.25, opacitySlider->height() / 2.0);
+    QWheelEvent wheel(local, opacitySlider->mapToGlobal(local), QPoint(), QPoint(0, 120),
                       Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
-    require(palette.handleToolbarWheel(&wheel) && wheel.isAccepted() &&
-                opacitySlider->value() == 60 && commits == 4,
+    QCoreApplication::sendEvent(opacitySlider, &wheel);
+    require(wheel.isAccepted() && opacitySlider->value() == 60 && commits == 4,
             "Spotlight opacity wheel input must commit five percentage point steps");
-    const QPoint outside(opacitySlider->width() + 20, local.y());
-    QWheelEvent outsideWheel(QPointF(outside), opacitySlider->mapToGlobal(outside), QPoint(),
-                             QPoint(0, 120), Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase,
-                             false);
-    require(!palette.handleToolbarWheel(&outsideWheel) && opacitySlider->value() == 60 &&
-                commits == 4,
+    const QPointF outside(local.x(), opacitySlider->height() + 20);
+    QWheelEvent outsideWheel(outside, opacitySlider->mapToGlobal(outside), QPoint(), QPoint(0, 120),
+                             Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
+    require(!palette.handleToolbarWheel(&outsideWheel, opacitySlider) &&
+                opacitySlider->value() == 60 && commits == 4,
             "Spotlight opacity wheel handling must reject points outside the slider");
     require(palette.stepSpotlightOpacity(-1) && opacitySlider->value() == 55 && commits == 5 &&
                 qFuzzyCompare(lastConfig.opacity + 1.0, 1.55),
@@ -11868,6 +11980,56 @@ void spotlightShapePreferencesRoundTripAndAcceptLegacySettings() {
     }
 }
 
+void shapeCornerRadiusWheelUsesTheReceiverPosition() {
+    using Tool = ScreenshotToolPalette::Tool;
+    ScreenshotToolPalette palette(ScreenshotToolPalette::Options{});
+    palette.setActiveTool(Tool::Shape);
+    palette.show();
+    QCoreApplication::processEvents();
+    auto* radius =
+        palette.findChild<QWidget*>(QStringLiteral("screenshotSelectionCornerRadiusButton"));
+    require(radius != nullptr && radius->isVisible(), "Shape must show the corner radius editor");
+
+    const auto initial = palette.rectangleStyle();
+    int edits = 0;
+    quint32 properties = 0;
+    observePaletteStyleEdit<SnowCanvasShapeEdit>(palette,
+                                                 [&](const SnowCanvasShapeStyle&, quint32 changed) {
+                                                     ++edits;
+                                                     properties = changed;
+                                                 });
+    const auto wheel = [](QWidget* receiver, const QPointF& local, const QPointF& global,
+                          int delta) {
+        QWheelEvent event(local, global, {}, QPoint(0, delta), Qt::NoButton, Qt::NoModifier,
+                          Qt::NoScrollPhase, false);
+        QCoreApplication::sendEvent(receiver, &event);
+        require(event.isAccepted(), "wheel over a shape style control must be consumed");
+    };
+    const QPointF edge(radius->width() - 0.25, radius->height() / 2.0);
+    wheel(radius, edge, radius->mapToGlobal(edge), 120);
+    require(edits == 1 && properties == SnowCanvasShapeStylePropertyCornerRadius &&
+                palette.rectangleStyle().cornerRadii.topLeft == initial.cornerRadii.topLeft + 1 &&
+                palette.rectangleStyle().strokeWidth == initial.strokeWidth,
+            "fractional wheel positions inside the radius editor must adjust only the radius");
+
+    auto* row = radius->parentWidget();
+    const QPointF radiusCenter = radius->rect().center();
+    wheel(row, radius->mapTo(row, radiusCenter), row->mapToGlobal(QPointF(0, 0)), -120);
+    require(edits == 2 && properties == SnowCanvasShapeStylePropertyCornerRadius &&
+                palette.rectangleStyle().cornerRadii == initial.cornerRadii &&
+                palette.rectangleStyle().strokeWidth == initial.strokeWidth,
+            "the receiver's local position must determine the editor when global mapping differs");
+
+    auto* width = styleEditorRoot(row, "outline-width");
+    require(width != nullptr && width->isVisible(), "Shape must show the stroke width editor");
+    const QPointF widthCenter = width->rect().center();
+    wheel(width, widthCenter, width->mapToGlobal(widthCenter), 120);
+    require(edits == 3 && properties == SnowCanvasShapeStylePropertyStrokeWidth &&
+                palette.rectangleStyle().strokeWidth == initial.strokeWidth + 1 &&
+                palette.rectangleStyle().cornerRadii == initial.cornerRadii,
+            "wheel over the stroke width editor must still adjust only stroke width");
+}
+
 void spotlightCornerRadiusEditorReusesShapeBehavior() {
     using Tool = ScreenshotToolPalette::Tool;
     ScreenshotToolPalette::Options options;
@@ -11913,15 +12075,16 @@ void spotlightCornerRadiusEditorReusesShapeBehavior() {
         require(edits == before && radius->valueText() == QStringLiteral("-") &&
                     radius->value() == 23,
                 "selected Spotlight radii must synchronize silently and display mixed state");
-        const QPoint local = radius->rect().center();
-        QWheelEvent wheel(QPointF(local), radius->mapToGlobal(local), QPoint(), QPoint(0, 120),
-                          Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
+        const QPointF local(radius->width() - 0.25, radius->height() / 2.0);
+        QWheelEvent wheel(local, radius->mapToGlobal(local), QPoint(), QPoint(0, 120), Qt::NoButton,
+                          Qt::NoModifier, Qt::NoScrollPhase, false);
         auto* selectedShape = qobject_cast<QAbstractButton*>(controlWithTooltip(
             palette,
             state.shapeStyle.shape == SnowCanvasRectangleShape::Diamond ? "Diamond" : "Rectangle"));
-        require(palette.handleToolbarWheel(&wheel) && edits == before + 1 &&
-                    radius->value() == 24 && radius->valueText() == QStringLiteral("24") &&
-                    selectedShape != nullptr && selectedShape->isChecked() &&
+        QCoreApplication::sendEvent(radius, &wheel);
+        require(wheel.isAccepted() && edits == before + 1 && radius->value() == 24 &&
+                    radius->valueText() == QStringLiteral("24") && selectedShape != nullptr &&
+                    selectedShape->isChecked() &&
                     lastStyle.cornerRadii == SnowCanvasCornerRadii{24, 24, 24, 24},
                 "Spotlight scrolling must adjust the radius one pixel and resolve mixed state");
         radius->click();
@@ -14249,10 +14412,11 @@ void arrowOutlineEditorMatchesTextStroke() {
             ++changes;
         });
     const auto wheel = [&](int delta) {
-        const QPoint local = picker->rect().center();
-        QWheelEvent event(QPointF(local), picker->mapToGlobal(local), QPoint(), QPoint(0, delta),
+        const QPointF local(picker->width() - 0.25, picker->height() / 2.0);
+        QWheelEvent event(local, picker->mapToGlobal(local), QPoint(), QPoint(0, delta),
                           Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
-        require(palette.handleToolbarWheel(&event), "outline consumes hover wheel");
+        QCoreApplication::sendEvent(picker, &event);
+        require(event.isAccepted(), "outline consumes hover wheel");
     };
     wheel(120);
     require(emitted.arrowOutlineWidth == 1 && emitted.strokeWidth == initial.strokeWidth &&
@@ -14288,12 +14452,12 @@ void arrowOutlineEditorMatchesTextStroke() {
     require(language.setLanguage(QStringLiteral("zh_CN")),
             "outline translates to Simplified Chinese");
     QCoreApplication::processEvents();
-    require(widthPreset->toolTip() == QStringLiteral("箭头描边宽度 4px"),
+    require(widthPreset->toolTip() == QStringLiteral("箭头描边宽度 4 像素"),
             "open outline popup retranslates");
     require(language.setLanguage(QStringLiteral("zh_TW")),
             "outline translates to Traditional Chinese");
     QCoreApplication::processEvents();
-    require(widthPreset->toolTip() == QStringLiteral("箭頭描邊寬度 4px"),
+    require(widthPreset->toolTip() == QStringLiteral("箭頭描邊寬度 4 像素"),
             "outline uses Traditional Chinese");
     require(language.setLanguage(QStringLiteral("en_US")), "restore English for mixed values");
     picker->setPopupVisible(false);
@@ -21016,6 +21180,7 @@ int main(int argc, char** argv) {
         recordingSessionStatusMakesInvalidCombinationsUnrepresentable();
         recordingCursorOptionsAreIndependentAndLazy();
         recordingKeyboardOptionsAreIndependentAndLazy();
+        recordingFollowMouseOptionsAreIndependentAndLazy();
         recordingPostProcessingOptionsBindState();
         recordingEffectSettingsModal();
         recordingControlsRemainLaidOutAcrossStateChanges();
@@ -21198,6 +21363,7 @@ int main(int argc, char** argv) {
     }
     if (application.arguments().contains(QStringLiteral("--spotlight-shape-only"))) {
         screenshotProductStyleProfileIsComplete();
+        shapeCornerRadiusWheelUsesTheReceiverPosition();
         spotlightCornerRadiusEditorReusesShapeBehavior();
         spotlightShapeSelectorMatchesShapeAndRebindsEdits();
         spotlightShapePreferencesRoundTripAndAcceptLegacySettings();
@@ -21380,6 +21546,7 @@ int main(int argc, char** argv) {
     shapeSelectorIsTheLeftmostStyleGroup();
     spotlightShapeSelectorMatchesShapeAndRebindsEdits();
     spotlightShapePreferencesRoundTripAndAcceptLegacySettings();
+    shapeCornerRadiusWheelUsesTheReceiverPosition();
     spotlightCornerRadiusEditorReusesShapeBehavior();
     shapeSelectorIsExclusiveToTheShapeTool();
     arrowStyleUsesScreenshotCreationColorOverride();
