@@ -1182,8 +1182,11 @@ Session* ImageEditingWindow::Impl::ensureSession() {
             active && busy && format == SnowShotImageConversionFormat::Html);
     };
     actions.setRecognitionModelState = [this](int mode, const auto& state) {
-        palette->setRecognitionModelState(
-            mode == int(Session::Mode::Table) ? Tool::Table : Tool::Latex, state);
+        const auto tool = mode == int(Session::Mode::Table)   ? Tool::Table
+                          : mode == int(Session::Mode::Latex) ? Tool::Latex
+                          : mode == int(Session::Mode::Html)  ? Tool::Html
+                                                              : Tool::Markdown;
+        palette->setRecognitionModelState(tool, state);
     };
     session = new Session(providers.recognition, providers.qrRecognition,
                           providers.tableRecognition, std::move(actions), &q);
@@ -1828,21 +1831,24 @@ void ImageEditingWindow::presentPinnedRecord(QString id) {
     if (d.services.pins)
         if (auto* pin = d.services.pins->liveWindow(id)) {
             const QPointer<ImageEditingWindow> guard(this);
-            pin->requestRenderedImageSnapshot([guard,
-                                               generation](ScreenshotPinnedImageSnapshot snapshot) {
-                if (!guard || guard->m_impl->closing || guard->m_impl->loadGeneration != generation)
-                    return;
-                if (!snapshot.error.isEmpty() || !snapshot.source.isValid()) {
-                    ImageEditingSource failure;
-                    failure.error = snapshot.error.isEmpty()
-                                        ? ImageEditingWindow::tr("The image could not be loaded")
-                                        : std::move(snapshot.error);
-                    guard->present(std::move(failure));
-                    return;
-                }
-                guard->presentSource(std::move(snapshot.source),
-                                     std::move(snapshot.originalFileName));
-            });
+            pin->requestRenderedImageSnapshot(
+                [guard, generation](ScreenshotPinnedImageSnapshot snapshot) {
+                    if (!guard || guard->m_impl->closing ||
+                        guard->m_impl->loadGeneration != generation)
+                        return;
+                    if (!snapshot.error.isEmpty() || !snapshot.source.isValid()) {
+                        ImageEditingSource failure;
+                        failure.error =
+                            snapshot.error.isEmpty()
+                                ? ImageEditingWindow::tr("The image could not be loaded")
+                                : std::move(snapshot.error);
+                        guard->present(std::move(failure));
+                        return;
+                    }
+                    guard->presentSource(std::move(snapshot.source),
+                                         std::move(snapshot.originalFileName));
+                },
+                ScreenshotPinnedRenderMode::SourceResolution);
             return;
         }
     const auto preparation = captureScreenshotPinnedRenderPreparation();
