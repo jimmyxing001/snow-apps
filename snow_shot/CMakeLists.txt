@@ -107,8 +107,6 @@ option(SNOW_SHOT_QT_STATIC "Link Snow Shot against a static Qt build." OFF)
 set(SNOW_SHOT_WEBSITE_URL "https://snowshot.top" CACHE STRING "Public Snow Shot website URL.")
 set(SNOW_SHOT_PROJECT_URL "https://github.com/mg-chao/snow-shot" CACHE STRING
     "Public Snow Shot source repository URL.")
-set(SNOW_SHOT_QQ_GROUP_3_URL "https://qm.qq.com/q/Ts3cwNdykW" CACHE STRING
-    "QQ group 3 join URL.")
 set(SNOW_SHOT_QQ_GROUP_4_URL "https://qm.qq.com/q/GfZvSHi6E" CACHE STRING
     "QQ group 4 join URL.")
 unset(SNOW_SHOT_CAMERA_SHUTTER_AUDIO_SOURCE CACHE)
@@ -1258,7 +1256,6 @@ qt_add_resources(snow_shot_settings "snow_shot_about_assets"
 target_compile_definitions(snow_shot_settings PRIVATE
     SNOW_SHOT_WEBSITE_URL="${SNOW_SHOT_WEBSITE_URL}"
     SNOW_SHOT_PROJECT_URL="${SNOW_SHOT_PROJECT_URL}"
-    SNOW_SHOT_QQ_GROUP_3_URL="${SNOW_SHOT_QQ_GROUP_3_URL}"
     SNOW_SHOT_QQ_GROUP_4_URL="${SNOW_SHOT_QQ_GROUP_4_URL}"
 )
 target_link_libraries(snow_shot_settings PRIVATE snow_shot_image_codec Qt6::Svg Qt6::Network snow_shot_administrator)
@@ -2070,6 +2067,8 @@ set(PROJECT_CXX_SOURCES
     src/presentation/ocr/screenshotrecognitionimage.cpp
     src/presentation/services/screenshotexportscrollingsource.cpp
     src/presentation/services/screenshotimagefileservice.cpp
+    src/presentation/services/screenshotdocumentexport.cpp
+    src/presentation/ocr/screenshotrecognizeddocument.cpp
     src/presentation/services/screenshotrecognitionfileexport.cpp
         src/presentation/services/screenshotpdfexport.cpp
     src/presentation/tools/screenshotfloatingtoolpalettenative.cpp
@@ -3279,7 +3278,6 @@ if(SNOW_SHOT_BUILD_TESTS)
         SNOW_SHOT_TEST_TRANSLATIONS_DIR="${CMAKE_CURRENT_BINARY_DIR}"
         SNOW_SHOT_TEST_WEBSITE_URL="${SNOW_SHOT_WEBSITE_URL}"
         SNOW_SHOT_TEST_PROJECT_URL="${SNOW_SHOT_PROJECT_URL}"
-        SNOW_SHOT_TEST_QQ_GROUP_3_URL="${SNOW_SHOT_QQ_GROUP_3_URL}"
         SNOW_SHOT_TEST_QQ_GROUP_4_URL="${SNOW_SHOT_QQ_GROUP_4_URL}"
     )
     add_dependencies(snow-shot-about-page-tests snow_shot_release_translations)
@@ -5479,7 +5477,9 @@ if(SNOW_SHOT_BUILD_TESTS)
         src/presentation/services/screenshotclipboarddibdecoder_avx2.cpp
         src/presentation/services/screenshotclipboardservice.cpp
         src/presentation/services/screenshotimagefileservice.cpp
-        src/presentation/services/screenshotrecognitionfileexport.cpp
+        src/presentation/services/screenshotdocumentexport.cpp
+    src/presentation/ocr/screenshotrecognizeddocument.cpp
+    src/presentation/services/screenshotrecognitionfileexport.cpp
         src/presentation/services/screenshotpdfexport.cpp
         src/presentation/services/screenshotmessageservice.cpp
         src/presentation/selection/screenshotselectiongeometry.cpp
@@ -6004,7 +6004,9 @@ if(SNOW_SHOT_BUILD_TESTS)
 
     add_executable(snow-shot-recognition-file-export-tests
         tests/screenshot_recognition_file_export_tests.cpp
-        src/presentation/services/screenshotrecognitionfileexport.cpp
+        src/presentation/services/screenshotdocumentexport.cpp
+    src/presentation/ocr/screenshotrecognizeddocument.cpp
+    src/presentation/services/screenshotrecognitionfileexport.cpp
         src/storage/exportfilename.cpp
         src/presentation/ocr/screenshottabledocument.cpp
     )
@@ -9576,7 +9578,9 @@ if(SNOW_SHOT_BUILD_TESTS)
     )
 
     add_executable(snow-shot-recognition-session-controller-tests
-        src/presentation/services/screenshotrecognitionfileexport.cpp
+        src/presentation/services/screenshotdocumentexport.cpp
+    src/presentation/ocr/screenshotrecognizeddocument.cpp
+    src/presentation/services/screenshotrecognitionfileexport.cpp
         src/presentation/ocr/screenshotrecognitionimage.cpp
         tests/screenshot_recognition_session_controller_tests.cpp
         tests/original_image_translation_tests.cpp
@@ -10836,7 +10840,9 @@ if(WIN32 AND SNOW_SHOT_BUILD_BENCHMARKS)
         src/presentation/services/screenshotclipboarddibdecoder_avx2.cpp
         src/presentation/services/screenshotclipboardservice.cpp
         src/presentation/services/screenshotimagefileservice.cpp
-        src/presentation/services/screenshotrecognitionfileexport.cpp
+        src/presentation/services/screenshotdocumentexport.cpp
+    src/presentation/ocr/screenshotrecognizeddocument.cpp
+    src/presentation/services/screenshotrecognitionfileexport.cpp
         src/presentation/services/screenshotpdfexport.cpp
         src/presentation/services/screenshotmessageservice.cpp
         src/presentation/selection/screenshotselectiongeometry.cpp
@@ -12051,6 +12057,11 @@ if(SNOW_SHOT_BUILD_TESTS)
     snow_shot_offscreen_qpa_environment(_snow_controller_clipboard_qpa_environment)
     add_test(NAME snow-shot-screenshot-controller-clipboard-tests
         COMMAND snow_shot --clipboard-pin-tests -platform offscreen)
+    add_test(NAME snow-shot-document-save-shutdown-tests
+        COMMAND snow_shot --clipboard-pin-tests --document-save-shutdown-tests -platform offscreen)
+    set_tests_properties(snow-shot-document-save-shutdown-tests PROPERTIES
+        LABELS unit SNOW_TEST_CROSS_PLATFORM TRUE TIMEOUT 30 RUN_SERIAL TRUE
+        ENVIRONMENT "${_snow_controller_clipboard_qpa_environment}")
     add_test(NAME snow-shot-clipboard-formula-pin-tests
         COMMAND snow_shot --clipboard-pin-tests --formula-only -platform offscreen)
     add_test(NAME snow-shot-history-pin-admission-tests
@@ -14630,4 +14641,51 @@ if(SNOW_SHOT_BUILD_BENCHMARKS)
     if(APPLE)
         target_link_libraries(snow-shot-pinned-window-stacking-performance-benchmark PRIVATE "-framework AppKit")
     endif()
+endif()
+
+# Focused fixtures also compile recognition surfaces outside the application target.
+get_property(_snow_document_consumers DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+foreach(_target IN LISTS _snow_document_consumers)
+    get_target_property(_sources ${_target} SOURCES)
+    if("${_sources}" MATCHES "screenshotrecognitionfileexport\.cpp")
+        target_link_libraries(${_target} PRIVATE snow_shot_clipboard_files snow_shot_export_scheduling)
+    endif()
+    if("${_sources}" MATCHES "screenshotrecognitionsessioncontroller\.cpp" AND
+       NOT "${_sources}" MATCHES "screenshotclipboardservice\.cpp")
+        target_sources(${_target} PRIVATE src/presentation/services/screenshotclipboardservice.cpp)
+        target_link_libraries(${_target} PRIVATE snow_shot_clipboard_placement)
+        if(APPLE)
+            target_link_libraries(${_target} PRIVATE snow_shot_macos_clipboard)
+        endif()
+    endif()
+    if("${_sources}" MATCHES "screenshotrecognitionwindow\.cpp" AND
+       NOT "${_sources}" MATCHES "screenshotrecognizeddocument\.cpp")
+        target_sources(${_target} PRIVATE src/presentation/ocr/screenshotrecognizeddocument.cpp)
+    endif()
+endforeach()
+
+if(SNOW_SHOT_BUILD_TESTS)
+    add_executable(snow-shot-document-recognition-tests
+        tests/screenshot_document_recognition_tests.cpp
+        src/storage/exportfilename.cpp
+        src/presentation/ocr/screenshotrecognizeddocument.cpp
+        src/presentation/ocr/screenshottabledocument.cpp
+        src/presentation/services/screenshotdocumentexport.cpp
+        src/presentation/services/screenshotrecognitionfileexport.cpp)
+    target_include_directories(snow-shot-document-recognition-tests PRIVATE include)
+    target_link_libraries(snow-shot-document-recognition-tests PRIVATE Qt6::Widgets MINIZIP::minizip-ng snow_shot_clipboard_files snow_shot_latex_renderer snow_shot_export_scheduling)
+    snow_shot_import_offscreen_platform(snow-shot-document-recognition-tests)
+    add_test(NAME snow-shot-document-recognition-tests COMMAND snow-shot-document-recognition-tests -platform offscreen)
+    set_tests_properties(snow-shot-document-recognition-tests PROPERTIES LABELS "unit" TIMEOUT 90)
+endif()
+
+if(SNOW_SHOT_BUILD_TESTS)
+    add_test(NAME snow-shot-document-api-client-tests COMMAND snow-shot-api-client-tests --document-only)
+    add_test(NAME snow-shot-document-toolbar-tests COMMAND snow-shot-screenshot-tool-palette-tests --document-only -platform offscreen)
+    set_tests_properties(snow-shot-document-api-client-tests snow-shot-document-toolbar-tests PROPERTIES LABELS "unit" TIMEOUT 90)
+endif()
+
+if(SNOW_SHOT_BUILD_TESTS)
+    add_test(NAME snow-shot-document-session-tests COMMAND snow-shot-recognition-session-controller-tests --document-only -platform offscreen)
+    set_tests_properties(snow-shot-document-session-tests PROPERTIES LABELS "unit" TIMEOUT 90)
 endif()

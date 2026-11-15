@@ -69,7 +69,7 @@ class ScreenshotOcrController final : public QObject {
     Q_OBJECT
 
   public:
-    enum class Mode { Text, Table, Qr, Markdown, Html, Latex };
+    enum class Mode { Text, Table, Qr, Markdown, Html, Latex, Document };
 
     explicit ScreenshotOcrController(ScreenshotOcrControllerContext context,
                                      QObject* parent = nullptr);
@@ -79,6 +79,7 @@ class ScreenshotOcrController final : public QObject {
     void activateAndCopy();
     void activateTextTranslation();
     void activateTable();
+    void activateDocument();
     void activateQr();
     void activateLatex();
     void setRecognitionModel(const QString& selection);
@@ -98,10 +99,12 @@ class ScreenshotOcrController final : public QObject {
     [[nodiscard]] bool qrModeActive() const;
     [[nodiscard]] bool latexModeActive() const;
     [[nodiscard]] bool copyRecognitionToClipboard(bool endCapture = true);
+    void scheduleCopyRecognitionAndEndCapture();
     void mergeTableSelection();
     void splitTableSelection();
     void resetTable();
     [[nodiscard]] bool openSpreadsheetFile();
+    [[nodiscard]] bool openDocumentFile(std::function<void()> opened = {});
     void undoTableEdit();
     void redoTableEdit();
     void undoTextEdit();

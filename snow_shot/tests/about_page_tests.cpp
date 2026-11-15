@@ -27,6 +27,7 @@
 #include <QClipboard>
 #include <QDir>
 #include <QEvent>
+#include <QEventLoop>
 #include <QFileInfo>
 #include <QImage>
 #include <QFontDatabase>
@@ -225,8 +226,8 @@ void projectLinkSurfacesMatchStandardButtons() {
     for (const auto appearance : {styles::ThemeAppearance::Light, styles::ThemeAppearance::Dark}) {
         manager.setThemeAppearance(appearance);
         flushEvents();
-        for (const char* name : {"aboutWebsite", "aboutSourceCode", "aboutFeedback",
-                                 "aboutQqGroup3", "aboutQqGroup4"}) {
+        for (const char* name :
+             {"aboutWebsite", "aboutSourceCode", "aboutFeedback", "aboutQqGroup4"}) {
             auto* button = child<AdButton>(page, name);
             require(button->buttonStyle() == AdButton::ButtonStyle::Outline &&
                         button->accentRole() == AdButton::AccentRole::Neutral,
@@ -304,6 +305,7 @@ void storeUpdatesOpenMicrosoftStore() {
                 child<QLabel>(page, "aboutUpdateStatus")->text() ==
                     QStringLiteral("Updates are managed by Microsoft Store") &&
                 !child<QProgressBar>(page, "aboutUpdateProgress")->isVisible() &&
+                !child<adqt::widgets::AdButton>(page, "aboutUpdateCheck")->isVisible() &&
                 !child<adqt::widgets::AdButton>(page, "aboutUpdateCancel")->isVisible(),
             "Store About exposes only the external update manager");
     action->click();
@@ -326,25 +328,23 @@ void projectLinksAreExplicitAccessibleAndRecoverable() {
     require(opened.isEmpty(), "About does not open links or check for updates on construction");
     require(page.findChild<QAbstractButton*>(QStringLiteral("aboutQqGroup2")) == nullptr,
             "About no longer offers QQ Group 2");
-    auto* group = child<QAbstractButton>(page, "aboutQqGroup3");
+    require(page.findChild<QAbstractButton*>(QStringLiteral("aboutQqGroup3")) == nullptr,
+            "About no longer offers QQ Group 3");
     auto* group4 = child<QAbstractButton>(page, "aboutQqGroup4");
     auto* website = child<QAbstractButton>(page, "aboutWebsite");
     auto* feedback = child<QAbstractButton>(page, "aboutFeedback");
-    require(group->geometry().left() == website->geometry().left() &&
+    require(group4->geometry().left() == website->geometry().left() &&
                 group4->geometry().right() == feedback->geometry().right() &&
-                group->geometry().top() == group4->geometry().top() &&
-                group->geometry().right() < group4->geometry().left() &&
-                qAbs(group->width() - group4->width()) <= 1,
-            "both QQ groups share the second project link row equally");
+                group4->geometry().top() > website->geometry().bottom(),
+            "QQ Group 4 spans the second project link row");
     snapshot(page, QStringLiteral("about-actions"));
     const QUrl websiteUrl(QStringLiteral(SNOW_SHOT_TEST_WEBSITE_URL));
     const QString project = QStringLiteral(SNOW_SHOT_TEST_PROJECT_URL);
-    const std::array<std::pair<const char*, QUrl>, 8> links{{
+    const std::array<std::pair<const char*, QUrl>, 7> links{{
         {"aboutWebsite", websiteUrl},
         {"aboutSourceCode", QUrl(project)},
         {"aboutFeedback", QUrl(project + QStringLiteral("/issues"))},
         {"aboutReleaseNotes", websiteUrl.resolved(QUrl(QStringLiteral("/changelog.html")))},
-        {"aboutQqGroup3", QUrl(QStringLiteral(SNOW_SHOT_TEST_QQ_GROUP_3_URL))},
         {"aboutQqGroup4", QUrl(QStringLiteral(SNOW_SHOT_TEST_QQ_GROUP_4_URL))},
         {"aboutPrivacyPolicy", QUrl(snow_shot::app::distribution::privacyPolicyUrl())},
         {"aboutUserAgreement", QUrl(QStringLiteral("https://snowshot.top/terms.html"))},
@@ -409,7 +409,7 @@ void largerTypeKeepsEveryActionReachable() {
     QCoreApplication::setApplicationVersion(QStringLiteral("12.34.56-beta.7+build.89"));
     snow_shot::update::UpdateService updates({});
     const_cast<snow_shot::update::UpdateStatus&>(updates.status()) = {
-        snow_shot::update::UpdateState::Ready,
+        snow_shot::update::UpdateState::Available,
         QStringLiteral("12.34.56-beta.8+build.90"),
         {},
         0,
@@ -428,9 +428,10 @@ void largerTypeKeepsEveryActionReachable() {
     auto* artwork = child<QWidget>(page, "aboutArtwork");
     require(artwork->width() <= scroll->viewport()->width() && artwork->height() > 0,
             "artwork scales down to the available width with larger fonts");
-    for (const char* name : {"aboutCopyVersion", "aboutReleaseNotes", "aboutUpdateAction",
-                             "aboutWebsite", "aboutSourceCode", "aboutFeedback", "aboutQqGroup3",
-                             "aboutQqGroup4", "aboutPrivacyPolicy", "aboutUserAgreement"}) {
+    for (const char* name :
+         {"aboutCopyVersion", "aboutReleaseNotes", "aboutUpdateCheck", "aboutUpdateAction",
+          "aboutWebsite", "aboutSourceCode", "aboutFeedback", "aboutQqGroup4", "aboutPrivacyPolicy",
+          "aboutUserAgreement"}) {
         auto* button = child<QAbstractButton>(page, name);
         scroll->ensureWidgetVisible(button);
         flushEvents();
@@ -524,14 +525,19 @@ void updateStatesFitTheVersionPanel() {
     AboutPageWidget page(nullptr, [](const QUrl&) { return true; }, &updates);
     auto* panel = child<QFrame>(page, "aboutVersionPanel");
     auto* label = child<QLabel>(page, "aboutUpdateStatus");
+    auto* check = child<AdButton>(page, "aboutUpdateCheck");
     auto* action = child<AdButton>(page, "aboutUpdateAction");
     auto* cancel = child<AdButton>(page, "aboutUpdateCancel");
     auto* progress = child<QProgressBar>(page, "aboutUpdateProgress");
     auto* scroll = child<adqt::widgets::AdScrollArea>(page, "pageScrollArea");
-    require(panel->isAncestorOf(label) && panel->isAncestorOf(action) &&
-                panel->isAncestorOf(cancel) && panel->isAncestorOf(progress),
+    require(panel->isAncestorOf(label) && panel->isAncestorOf(check) &&
+                panel->isAncestorOf(action) && panel->isAncestorOf(cancel) &&
+                panel->isAncestorOf(progress),
             "update feedback and actions belong to the current version surface");
-    require(action->sizeClass() == AdButton::SizeClass::Small &&
+    require(check->buttonStyle() == AdButton::ButtonStyle::Link &&
+                check->sizeClass() == AdButton::SizeClass::Small &&
+                check->focusPolicy() == Qt::StrongFocus &&
+                action->sizeClass() == AdButton::SizeClass::Small &&
                 cancel->sizeClass() == AdButton::SizeClass::Small &&
                 action->focusPolicy() == Qt::StrongFocus &&
                 cancel->focusPolicy() == Qt::StrongFocus,
@@ -569,6 +575,19 @@ void updateStatesFitTheVersionPanel() {
                         state == UpdateState::Ready || state == UpdateState::Failed;
                     require(action->isVisible() == actionable && action->isEnabled() == actionable,
                             "only actionable update states display a primary control");
+                    require(check->isVisible() == (state == UpdateState::Available),
+                            "the check link appears with the download action");
+                    if (check->isVisible()) {
+                        require(check->isEnabled() &&
+                                    check->text() == expectedTranslation(translator, locale,
+                                                                         "AboutPageWidget",
+                                                                         "Check for updates") &&
+                                    check->accessibleName() == check->text(),
+                                "the check link uses the active language");
+                        require(check->geometry().center().y() == action->geometry().center().y() &&
+                                    check->geometry().right() < action->geometry().left(),
+                                "the check link fits to the left of the download button");
+                    }
                     require(cancel->isVisible() == (state == UpdateState::Downloading) &&
                                 progress->isVisible() == (state == UpdateState::Downloading),
                             "download controls are confined to the downloading state");
@@ -604,7 +623,7 @@ void updateStatesFitTheVersionPanel() {
                     }
                     require(label->height() >= label->heightForWidth(label->width()),
                             "wrapped update status text is not clipped");
-                    for (auto* button : {action, cancel}) {
+                    for (auto* button : {check, action, cancel}) {
                         if (!button->isVisible()) {
                             continue;
                         }
@@ -661,6 +680,35 @@ void updateStatesFitTheVersionPanel() {
 #endif
     page.hide();
     styles::ThemeManager::instance().setThemeAppearance(styles::ThemeAppearance::Light);
+}
+
+void checkLinkStartsManualUpdateCheck() {
+    using namespace snow_shot::update;
+    QTemporaryDir directory;
+    require(directory.isValid(), "create isolated update directory");
+    UpdateService::Options options;
+    options.applicationDirectory = directory.path();
+    options.root = directory.path();
+    options.storeManaged = false;
+    UpdateService updates(std::move(options));
+    updates.setMode(QStringLiteral("manual"));
+    const_cast<UpdateStatus&>(updates.status()).state = UpdateState::Available;
+    AboutPageWidget page(nullptr, {}, &updates);
+
+    QString operation;
+    QEventLoop loop;
+    QObject::connect(&updates, &UpdateService::operationFinished, &loop,
+                     [&](const QString& finishedOperation, const QString&) {
+                         operation = finishedOperation;
+                         loop.quit();
+                     });
+    // The empty directory on Windows and unset installed version on macOS fail without networking.
+    child<adqt::widgets::AdButton>(page, "aboutUpdateCheck")->click();
+    if (operation.isEmpty()) {
+        QTimer::singleShot(5000, &loop, &QEventLoop::quit);
+        loop.exec();
+    }
+    require(operation == QStringLiteral("check"), "the check link begins a manual update check");
 }
 
 void updateModuleKeepsItsHeightAcrossStates() {
@@ -1050,29 +1098,18 @@ void mainNavigationSearchThemesAndLanguages() {
                             translator, locale, "AboutPageWidget",
                             "Screenshot selection, annotation tools, and recognized text"),
                 "resource and illustration accessibility copy follows the active language");
-        struct QqGroupCopy {
-            const char* objectName;
-            const char* title;
-            const char* number;
-        };
-        const std::array<QqGroupCopy, 2> qqGroups{{
-            {"aboutQqGroup3", "QQ group 3", "1037819112"},
-            {"aboutQqGroup4", "QQ group 4", "1131891935"},
-        }};
-        for (const auto& group : qqGroups) {
-            const QString title =
-                expectedTranslation(translator, locale, "AboutPageWidget", group.title);
-            const QString description = expectedTranslation(translator, locale, "AboutPageWidget",
-                                                            "Discussion and support · group no. %1")
-                                            .arg(QString::fromLatin1(group.number));
-            auto* button = child<QAbstractButton>(*page, group.objectName);
-            require(button->accessibleName() == title &&
-                        button->accessibleDescription() == description,
-                    "QQ group cards retranslate their title and description");
-            const QByteArray labelName = QByteArray(group.objectName) + "Description";
-            require(child<QLabel>(*button, labelName.constData())->text() == description,
-                    "QQ group cards display the translated description with the group number");
-        }
+        const QString groupTitle =
+            expectedTranslation(translator, locale, "AboutPageWidget", "QQ group 4");
+        const QString groupDescription =
+            expectedTranslation(translator, locale, "AboutPageWidget",
+                                "Discussion and support · group no. %1")
+                .arg(QStringLiteral("1131891935"));
+        auto* group = child<QAbstractButton>(*page, "aboutQqGroup4");
+        require(group->accessibleName() == groupTitle &&
+                    group->accessibleDescription() == groupDescription,
+                "the QQ group card retranslates its title and description");
+        require(child<QLabel>(*group, "aboutQqGroup4Description")->text() == groupDescription,
+                "the QQ group card displays the translated description with the group number");
         require(sidebar->currentRoute() == QStringLiteral("/about"),
                 "translated navigation preserves About selection");
         auto* scroll = page->findChild<adqt::widgets::AdScrollArea*>();
@@ -1143,6 +1180,7 @@ int main(int argc, char** argv) {
     storeUpdatesOpenMicrosoftStore();
     updatePolicyAndUnavailableCopy();
     updateStatesFitTheVersionPanel();
+    checkLinkStartsManualUpdateCheck();
     updateModuleKeepsItsHeightAcrossStates();
     dividersFollowTheComponentLibraryAndUpdatesBreathe();
     traySystemIconColorSettings();
