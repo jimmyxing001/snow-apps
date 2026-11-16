@@ -3549,6 +3549,8 @@ if(SNOW_SHOT_BUILD_TESTS)
         ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
     add_test(NAME snow-shot-settings-navigation-tests
         COMMAND snow-shot-settings-page-loading-tests --navigation-only)
+    add_test(NAME snow-shot-fullscreen-settings-tests
+        COMMAND snow-shot-settings-page-loading-tests --fullscreen-settings-only)
     add_test(NAME snow-shot-action-toolbar-settings-tests
         COMMAND snow-shot-settings-page-loading-tests --action-toolbar-settings-only)
     add_test(NAME snow-shot-settings-layout-stability-tests
@@ -3559,7 +3561,7 @@ if(SNOW_SHOT_BUILD_TESTS)
         COMMAND snow-shot-settings-page-loading-tests --catalog-resets-only)
     set_tests_properties(snow-shot-settings-navigation-tests snow-shot-action-toolbar-settings-tests
         snow-shot-settings-layout-stability-tests snow-shot-tray-selection-settings-tests
-        snow-shot-settings-catalog-reset-tests PROPERTIES
+        snow-shot-settings-catalog-reset-tests snow-shot-fullscreen-settings-tests PROPERTIES
         LABELS "unit" TIMEOUT 60
         ENVIRONMENT "${_SNOW_SHOT_OFFSCREEN_QPA_ENVIRONMENT}"
         ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
@@ -13890,7 +13892,7 @@ endif()
 get_property(_snow_readout_consumers DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
 foreach(_snow_target IN LISTS _snow_readout_consumers)
     get_target_property(_snow_sources ${_snow_target} SOURCES)
-    if("${_snow_sources}" MATCHES "(screenshot(pinnedwindow|savepreviewcanvas|overlaywindow|originalimagepreviewwindow)|recordingeffectpreview)\\.cpp")
+    if("${_snow_sources}" MATCHES "(screenshot(pinnedwindow|savepreviewcanvas|overlaywindow|originalimagepreviewwindow|recognitionwindow)|recordingeffectpreview)\\.cpp")
         target_link_libraries(${_snow_target} PRIVATE snow_shot_canvas_status_readout)
     endif()
     if("${_snow_sources}" MATCHES "(screenshot(pinnedwindow|overlaywindow|recognitionwindow|canvascolorsamplerwindow)|globalcanvascontroller|screenrecordingareawindow)\\.cpp")

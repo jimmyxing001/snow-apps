@@ -98,30 +98,42 @@ void fullscreenWindowFilterPersistsAndDefaultsToGames() {
     const QString key = QStringLiteral("global_shortcuts/fullscreen_window_filter");
     const QString enabledKey =
         QStringLiteral("global_shortcuts/disable_on_focused_fullscreen_window");
+    const QString scopeKey = QStringLiteral("global_shortcuts/fullscreen_disable_scope");
+    const QJsonArray defaultScope{QStringLiteral("global_shortcuts")};
+    const QJsonArray mouseScope{QStringLiteral("global_mouse")};
     QMap<QString, QJsonValue> exported;
     {
         storage::ConfigurationStore store(path, true, true, 60000);
         require(store.value(key) == QJsonValue(QStringLiteral("game_windows")) &&
-                    !store.value(enabledKey).toBool(),
+                    !store.value(enabledKey).toBool() && store.value(scopeKey) == defaultScope,
                 "new configurations default to game filtering without enabling suppression");
         require(store.setValue(key, QStringLiteral("all_windows")) &&
                     !store.setValue(key, QStringLiteral("unknown")) && !store.setValue(key, true) &&
                     store.value(key) == QJsonValue(QStringLiteral("all_windows")),
                 "only the two stable filter identifiers can be persisted");
+        require(store.setValue(scopeKey, mouseScope) && !store.setValue(scopeKey, true) &&
+                    store.value(scopeKey) == mouseScope,
+                "the fullscreen scope is stored as a list independently of the filter");
         exported = store.snapshot();
         require(store.flushNow().success, "persist the selected fullscreen filter");
     }
     storage::ConfigurationStore reloaded(path, true, true, 60000);
-    require(reloaded.value(key) == QJsonValue(QStringLiteral("all_windows")),
-            "fullscreen filter survives a storage restart");
+    require(reloaded.value(key) == QJsonValue(QStringLiteral("all_windows")) &&
+                reloaded.value(scopeKey) == mouseScope,
+            "fullscreen filter and scope survive a storage restart");
     storage::ConfigurationStore imported(temporary.filePath(QStringLiteral("import.json")), true,
                                          true, 60000);
     require(imported.applySnapshot(exported) &&
-                imported.value(key) == QJsonValue(QStringLiteral("all_windows")),
-            "configuration snapshots export and import the filter");
+                imported.value(key) == QJsonValue(QStringLiteral("all_windows")) &&
+                imported.value(scopeKey) == mouseScope,
+            "configuration snapshots export and import the filter and its scope");
     require(imported.applySnapshot({{enabledKey, true}}) && imported.value(enabledKey).toBool() &&
-                imported.value(key) == QJsonValue(QStringLiteral("game_windows")),
-            "older configurations retain suppression but adopt the game filter default");
+                imported.value(key) == QJsonValue(QStringLiteral("game_windows")) &&
+                imported.value(scopeKey) == defaultScope,
+            "older configurations retain suppression and adopt the default filter and scope");
+    require(imported.applySnapshot({{scopeKey, QJsonArray{}}}) &&
+                imported.value(scopeKey) == QJsonArray{},
+            "an explicitly empty fullscreen scope survives import");
     require(imported.applySnapshot({{key, QStringLiteral("unsupported")}}) &&
                 imported.value(key) == QJsonValue(QStringLiteral("game_windows")),
             "invalid imported filters recover to game windows");
@@ -1448,6 +1460,7 @@ void screenshotUiSchemaRepairsStructuredValues() {
                      QJsonArray{
                          QStringLiteral("convert-to-html"), QStringLiteral("convert-to-markdown"),
                          QStringLiteral("latex-recognition"), QStringLiteral("barcode-recognition"),
+                         QStringLiteral("document-recognition"),
                          QStringLiteral("table-recognition")},
                      QJsonArray{QStringLiteral("record-screen")},
                      QJsonArray{QStringLiteral("pin-window-to-screen"),
@@ -1599,8 +1612,9 @@ void screenshotUiSchemaRepairsStructuredValues() {
                     QJsonArray{
                         QStringLiteral("upload-to-cloud"), QStringLiteral("print"),
                         QStringLiteral("quick-save"), QStringLiteral("save-as-file"),
-                        QStringLiteral("table-recognition"), QStringLiteral("convert-to-markdown"),
-                        QStringLiteral("latex-recognition"), QStringLiteral("convert-to-html")},
+                        QStringLiteral("document-recognition"), QStringLiteral("table-recognition"),
+                        QStringLiteral("convert-to-markdown"), QStringLiteral("latex-recognition"),
+                        QStringLiteral("convert-to-html")},
                     QJsonArray{QStringLiteral("record-screen")},
                     QJsonArray{QStringLiteral("pin-window-to-screen"),
                                QStringLiteral("pin-to-screen")},
@@ -1620,14 +1634,14 @@ void screenshotUiSchemaRepairsStructuredValues() {
         {QStringLiteral("positions"), QJsonArray{}},
         {QStringLiteral("hidden"),
          QJsonArray{QStringLiteral("barcode-recognition"), QStringLiteral("table-recognition"),
-                    QStringLiteral("convert-to-markdown"), QStringLiteral("convert-to-html"),
-                    QStringLiteral("latex-recognition"), QStringLiteral("record-screen"),
-                    QStringLiteral("pin-window-to-screen"), QStringLiteral("pin-to-screen"),
-                    QStringLiteral("text-recognition"), QStringLiteral("text-translation"),
-                    QStringLiteral("scrolling-screenshot"), QStringLiteral("upload-to-cloud"),
-                    QStringLiteral("print"), QStringLiteral("quick-save"),
-                    QStringLiteral("save-as-file"), QStringLiteral("separator"),
-                    QStringLiteral("cancel"), QStringLiteral("copy")}},
+                    QStringLiteral("document-recognition"), QStringLiteral("convert-to-markdown"),
+                    QStringLiteral("convert-to-html"), QStringLiteral("latex-recognition"),
+                    QStringLiteral("record-screen"), QStringLiteral("pin-window-to-screen"),
+                    QStringLiteral("pin-to-screen"), QStringLiteral("text-recognition"),
+                    QStringLiteral("text-translation"), QStringLiteral("scrolling-screenshot"),
+                    QStringLiteral("upload-to-cloud"), QStringLiteral("print"),
+                    QStringLiteral("quick-save"), QStringLiteral("save-as-file"),
+                    QStringLiteral("separator"), QStringLiteral("cancel"), QStringLiteral("copy")}},
     };
     const auto normalizedAllHidden = storage::ConfigurationSchema::normalize(
         QStringLiteral("screenshot_toolbar/action_tools_layout"), allHiddenActionLayout);
@@ -1749,7 +1763,7 @@ void screenshotUiAdaptersRoundTripTypedValues() {
     const storage::ScreenshotToolbarLayout actionLayout{
         {{QStringLiteral("upload-to-cloud"), QStringLiteral("quick-save"),
           QStringLiteral("save-as-file"), QStringLiteral("record-screen")},
-         {QStringLiteral("table-recognition")}},
+         {QStringLiteral("document-recognition"), QStringLiteral("table-recognition")}},
         {QStringLiteral("barcode-recognition"), QStringLiteral("pin-window-to-screen"),
          QStringLiteral("pin-to-screen"), QStringLiteral("convert-to-markdown"),
          QStringLiteral("convert-to-html"), QStringLiteral("latex-recognition"),
@@ -1770,7 +1784,8 @@ void screenshotUiAdaptersRoundTripTypedValues() {
             "pinned defaults must expose configurable section dividers and Confirm Edit");
     // This valid layout resembles a historical screenshot default; pinned layouts must not migrate.
     const storage::ScreenshotToolbarLayout pinnedLayout{
-        {{QStringLiteral("barcode-recognition"), QStringLiteral("table-recognition")},
+        {{QStringLiteral("barcode-recognition"), QStringLiteral("document-recognition"),
+          QStringLiteral("table-recognition")},
          {QStringLiteral("convert-to-markdown"), QStringLiteral("latex-recognition")},
          {QStringLiteral("convert-to-html")},
          {QStringLiteral("text-recognition")},
@@ -3380,11 +3395,16 @@ void futureVersionIsReadOnly() {
     QTemporaryDir temporary;
     require(temporary.isValid(), "failed to create future-version directory");
     const QString config = QDir(temporary.path()).filePath(QStringLiteral("config.json"));
-    writeBytes(config, QByteArrayLiteral("{\n"
-                                         "  \"storage\": {\"schema_version\": 6},\n"
-                                         "  \"interface\": {\"theme_mode\": \"dark\"},\n"
-                                         "  \"future\": {\"value\": 42}\n"
-                                         "}\n"));
+    const int futureVersion = storage::ConfigurationStore::currentSchemaVersion() + 1;
+    writeBytes(
+        config,
+        QJsonDocument(
+            QJsonObject{{QStringLiteral("storage"),
+                         QJsonObject{{QStringLiteral("schema_version"), futureVersion}}},
+                        {QStringLiteral("interface"),
+                         QJsonObject{{QStringLiteral("theme_mode"), QStringLiteral("dark")}}},
+                        {QStringLiteral("future"), QJsonObject{{QStringLiteral("value"), 42}}}})
+            .toJson());
     const QByteArray original = readBytes(config);
     storage::ConfigurationStore store(config, true, true, 60000);
     bool rejected = false;

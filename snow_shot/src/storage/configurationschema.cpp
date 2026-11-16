@@ -461,7 +461,9 @@ constexpr SchemaString kSchemaStrings2[] = {u"Ctrl+U"};
 constexpr ConfigurationIntegerRange kSchemaRange0{10, 100, 1};
 constexpr SchemaString kSchemaStrings3[] = {u"icon", u"toolbar"};
 constexpr SchemaAllowedValues kSchemaAllowed0 = {kSchemaStrings3, std::size(kSchemaStrings3)};
-constexpr ConfigurationIntegerRange kSchemaRange1{5, 5, 1};
+constexpr int kConfigurationSchemaVersion = 6;
+constexpr ConfigurationIntegerRange kSchemaRange1{kConfigurationSchemaVersion,
+                                                  kConfigurationSchemaVersion, 1};
 constexpr SchemaString kSchemaStrings4[] = {u"system", u"light", u"dark"};
 constexpr SchemaAllowedValues kSchemaAllowed1 = {kSchemaStrings4, std::size(kSchemaStrings4)};
 constexpr ConfigurationIntegerRange kSchemaRange2{12, 32, 1};
@@ -515,6 +517,10 @@ constexpr SchemaString kSchemaStrings21[] = {u"Ctrl+F1"};
 constexpr SchemaString kSchemaStrings22[] = {u"F3"};
 constexpr SchemaString kSchemaStrings23[] = {u"Ctrl+F3"};
 constexpr SchemaString kSchemaStrings24[] = {u"all_windows", u"game_windows"};
+constexpr SchemaString kDefaultFullscreenDisableScope[] = {u"global_shortcuts"};
+constexpr SchemaString kFullscreenDisableScopeValues[] = {u"global_shortcuts", u"global_mouse"};
+constexpr SchemaAllowedValues kFullscreenDisableScopeAllowed = {
+    kFullscreenDisableScopeValues, std::size(kFullscreenDisableScopeValues)};
 constexpr SchemaAllowedValues kSchemaAllowed20 = {kSchemaStrings24, std::size(kSchemaStrings24)};
 [[maybe_unused]] constexpr SchemaProperty kSchemaProperties0[] = {{u"activation_key", u"windows"},
                                                                   {u"mouse_button", u"left_drag"}};
@@ -724,6 +730,7 @@ constexpr SchemaString kSchemaStrings119[] = {u"quick.screenshot",
                                               u"quick.translate-selected-text",
                                               u"quick.toggle-window-under-cursor-always-on-top",
                                               u"quick.toggle-global-hotkeys",
+                                              u"quick.toggle-global-mouse",
                                               u"quick.toggle-disable-on-focused-fullscreen-window",
                                               u"tray.window-grouping",
                                               u"tray.show-main-window",
@@ -758,6 +765,7 @@ constexpr SchemaString kSchemaStrings120[] = {u"quick.screenshot",
                                               u"quick.edit-selected-images",
                                               u"quick.translate-selected-text",
                                               u"quick.toggle-global-hotkeys",
+                                              u"quick.toggle-global-mouse",
                                               u"quick.toggle-disable-on-focused-fullscreen-window",
                                               u"tray.window-grouping",
                                               u"tray.show-main-window",
@@ -874,7 +882,8 @@ constexpr SchemaEntryDescriptor kEntryDescriptors[] = {
 #if SNOW_SHOT_ENABLE_API_CONFIGURATION
     {u"api_configuration/custom_models", emptyArrayDefault(), ConfigurationValueKind::Structured},
 #endif
-    {u"storage/schema_version", integerDefault(5), ConfigurationValueKind::Integer, &kSchemaRange1},
+    {u"storage/schema_version", integerDefault(kConfigurationSchemaVersion),
+     ConfigurationValueKind::Integer, &kSchemaRange1},
     {u"interface/theme_mode", stringDefault(u"system"), ConfigurationValueKind::String, nullptr,
      &kSchemaAllowed1},
     {u"interface/theme_primary_color", stringDefault(u"#1677FFFF"), ConfigurationValueKind::String},
@@ -953,10 +962,10 @@ constexpr SchemaEntryDescriptor kEntryDescriptors[] = {
     {u"screenshot_conversion/vision_model", stringDefault({}), ConfigurationValueKind::String},
 #endif
 #if SNOW_SHOT_ENABLE_TABLE_RECOGNITION
-    {u"screenshot_table/model", stringDefault(u"dedicated"), ConfigurationValueKind::String},
+    {u"screenshot_table/model", stringDefault(u"snow-shot:vision"), ConfigurationValueKind::String},
 #endif
 #if SNOW_SHOT_ENABLE_LATEX_RECOGNITION
-    {u"screenshot_latex/model", stringDefault(u"dedicated"), ConfigurationValueKind::String},
+    {u"screenshot_latex/model", stringDefault(u"snow-shot:vision"), ConfigurationValueKind::String},
 #endif
 #if SNOW_SHOT_ENABLE_EXTENDED_FEATURES
     {u"extended_features/standalone_translation_window", booleanDefault(false),
@@ -1070,12 +1079,16 @@ constexpr SchemaEntryDescriptor kEntryDescriptors[] = {
      ConfigurationValueKind::StringList, nullptr, nullptr, 2},
     {u"global_shortcuts/toggle_global_hotkeys", emptyArrayDefault(),
      ConfigurationValueKind::StringList, nullptr, nullptr, 2},
+    {u"global_shortcuts/toggle_global_mouse", emptyArrayDefault(),
+     ConfigurationValueKind::StringList, nullptr, nullptr, 2},
     {u"global_shortcuts/toggle_disable_on_focused_fullscreen_window", emptyArrayDefault(),
      ConfigurationValueKind::StringList, nullptr, nullptr, 2},
     {u"global_shortcuts/disable_on_focused_fullscreen_window", booleanDefault(false),
      ConfigurationValueKind::Boolean},
     {u"global_shortcuts/fullscreen_window_filter", stringDefault(u"game_windows"),
      ConfigurationValueKind::String, nullptr, &kSchemaAllowed20},
+    {u"global_shortcuts/fullscreen_disable_scope", stringsDefault(kDefaultFullscreenDisableScope),
+     ConfigurationValueKind::StringList, nullptr, &kFullscreenDisableScopeAllowed},
 
 #ifdef Q_OS_MACOS
     {u"global_mouse/screenshot_copy", emptyObjectDefault(), ConfigurationValueKind::Structured},
@@ -1832,6 +1845,8 @@ Q_NEVER_INLINE ConfigurationSchemaEntry materializeEntry(const SchemaEntryDescri
 }
 
 bool shortcutConfigurationKey(const QString& key) {
+    if (key == QStringLiteral("global_shortcuts/fullscreen_disable_scope"))
+        return false;
     return key.startsWith(QStringLiteral("global_shortcuts/")) ||
            key.startsWith(QStringLiteral("drawing_shortcuts/")) ||
            key.startsWith(QStringLiteral("screenshot_shortcuts/")) ||

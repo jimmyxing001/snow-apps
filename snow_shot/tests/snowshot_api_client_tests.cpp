@@ -650,12 +650,14 @@ void imageConversionUsesVisionAndRejectsIncompleteStreams() {
     const QByteArray delta =
         "data: {\"choices\":[{\"delta\":{\"content\":\"# Hello\\n\"}}]}\r\n\r\n";
     const QVector<QByteArray> streams{
-        delta + "data: [DONE]\n\n",
+        "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"private reasoning\"}}]}\n\n" +
+            delta + "data: [DONE]\n\n",
         "data: [DONE]\n\n",
         delta,
         delta +
             "data: {\"choices\":[{\"finish_reason\":\"length\",\"delta\":{}}]}\n\ndata: [DONE]\n\n",
         delta + "event: error\ndata: {\"code\":\"provider_failure\",\"detail\":\"failed\"}\n\n",
+        "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"private reasoning\"}}]}\n\n"
         "data: invalid-json\n\ndata: [DONE]\n\n",
         "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"private reasoning\"}}]}\n\ndata: "
         "[DONE]\n\n",
@@ -668,17 +670,23 @@ void imageConversionUsesVisionAndRejectsIncompleteStreams() {
         image.fill(Qt::white);
         bool finished = false;
         QString source;
+        QList<bool> reasoningProgress;
         SnowShotImageConversionResult result;
         QEventLoop loop;
         const auto format = index % 2 == 0 ? SnowShotImageConversionFormat::Markdown
                                            : SnowShotImageConversionFormat::Html;
+        const auto model =
+            index % 2 == 0 ? QStringLiteral("ai-model") : QStringLiteral("qwen3.8-flash");
         const auto token = client.streamImageConversion(
-            {QStringLiteral("vision-test"), image, format}, &client,
-            [&](const QString& text) { source += text; },
+            {model, image, format}, &client, [&](const QString& text) { source += text; },
             [&](SnowShotImageConversionResult value) {
                 result = value;
                 finished = true;
                 loop.quit();
+            },
+            [&](bool active) {
+                require(!finished, "reasoning settles before conversion completion");
+                reasoningProgress.append(active);
             });
         require(token != 0, "conversion starts asynchronously");
         const auto response =
@@ -694,12 +702,21 @@ void imageConversionUsesVisionAndRejectsIncompleteStreams() {
                 "conversion accepts only a nonempty completed stream");
         require(!source.contains(QStringLiteral("private reasoning")),
                 "reasoning is never displayed");
+        require(reasoningProgress == ((index == 0 || index == 5 || index == 6)
+                                          ? QList<bool>{true, false}
+                                          : QList<bool>{}),
+                "output, stream errors, and DONE each end a reported reasoning phase");
         const auto body =
             QJsonDocument::fromJson(request.mid(request.indexOf("\r\n\r\n") + 4)).object();
-        require(body.value(QStringLiteral("model")) == QStringLiteral("vision-test") &&
+        require(body.value(QStringLiteral("model")) == model &&
                     body.value(QStringLiteral("stream")).toBool() &&
                     body.value(QStringLiteral("max_tokens")).toInt() == 8192,
                 "conversion uses selected vision model and bounded streamed output");
+        require(body.value(QStringLiteral("thinking")).toObject().value(QStringLiteral("type")) ==
+                        QStringLiteral("enabled") &&
+                    body.value(QStringLiteral("reasoning_effort")) == QStringLiteral("low") &&
+                    !body.contains(QStringLiteral("enable_thinking")),
+                "Fast conversion requests GLM low reasoning");
         const auto messages = body.value(QStringLiteral("messages")).toArray();
         const QString prompt =
             messages.at(0).toObject().value(QStringLiteral("content")).toString();
@@ -2187,7 +2204,7 @@ void visionExtractionPreservesTypedOutputAndImageDetails() {
                                           ++tableCompletions;
                                       }) != 0,
             "vision table extraction starts");
-    require(client.extractLatexVision(image, QStringLiteral("latex-vision"), &receiver,
+    require(client.extractLatexVision(image, QStringLiteral("ai-model"), &receiver,
                                       [&](auto result) {
                                           latex = result;
                                           ++latexCompletions;
@@ -2198,12 +2215,22 @@ void visionExtractionPreservesTypedOutputAndImageDetails() {
     for (int index = 0; index < server.streams.size(); ++index) {
         const auto body = server.streams.at(index).body;
         const bool isTable = body.value(QStringLiteral("model")) == QStringLiteral("table-vision");
-        require(isTable || body.value(QStringLiteral("model")) == QStringLiteral("latex-vision"),
+        require(isTable || body.value(QStringLiteral("model")) == QStringLiteral("ai-model"),
                 "vision extraction sends the selected model ID");
         require(body.value(QStringLiteral("stream")).toBool() &&
-                    body.value(QStringLiteral("max_tokens")).toInt() == 8192 &&
-                    !body.value(QStringLiteral("enable_thinking")).toBool(),
+                    body.value(QStringLiteral("max_tokens")).toInt() == 8192,
                 "builtin vision extraction requests bounded deterministic streamed output");
+        if (isTable) {
+            require(body.value(QStringLiteral("enable_thinking")) == QJsonValue(false) &&
+                        !body.contains(QStringLiteral("reasoning_effort")),
+                    "other built-in vision requests use the existing reasoning field");
+        } else {
+            require(
+                body.value(QStringLiteral("thinking")).toObject().value(QStringLiteral("type")) ==
+                        QStringLiteral("enabled") &&
+                    body.value(QStringLiteral("reasoning_effort")) == QStringLiteral("low"),
+                "Fast formula extraction requests GLM low reasoning");
+        }
         const auto messages = body.value(QStringLiteral("messages")).toArray();
         const QString prompt =
             messages.first().toObject().value(QStringLiteral("content")).toString();
@@ -2758,10 +2785,13 @@ void visionExtractionRejectsIncompleteAndInvalidResponses() {
 }
 
 void tableVisionCorrectionsReusePreparedConversation() {
-    for (const bool custom : {false, true}) {
+    for (const auto& builtInModel :
+         {QStringLiteral("ai-model"), QStringLiteral("expert-model"), QString{}}) {
+        const bool custom = builtInModel.isEmpty();
+        const bool expert = snowShotExpertModelId(builtInModel);
         translation_tests::Server server;
         SnowShotApiClient client(server.url());
-        QString model = QStringLiteral("vision");
+        QString model = builtInModel;
         if (custom) {
             snow_shot::CustomAiModelConfiguration config{
                 QStringLiteral("11111111-1111-4111-8111-111111111111"),
@@ -2784,29 +2814,69 @@ void tableVisionCorrectionsReusePreparedConversation() {
         image.fill(Qt::white);
         QString source;
         int completions = 0;
+        QList<bool> reasoningProgress;
         const auto delta = [&](const QString& text) { source += text; };
+        const auto progress = [&](bool active) { reasoningProgress.append(active); };
         const auto completion = [&](SnowShotTranslationResult result) {
             require(result.succeeded(), "table transport does not validate syntax");
             ++completions;
         };
-        require(client.streamTableVision(image, model, conversation, &client, delta, completion) !=
-                    0,
+        require(client.streamTableVision(image, model, conversation, &client, delta, completion,
+                                         progress) != 0,
                 "prepare a streaming table conversation");
         translation_tests::waitUntil([&] { return server.streams.size() == 1; },
                                      "initial table request");
+        if (expert) {
+            server.reasoning(0, QString{});
+            server.reasoning(0, QStringLiteral("first "));
+            server.reasoning(0, QStringLiteral("thought"));
+            translation_tests::waitUntil([&] { return !reasoningProgress.isEmpty(); },
+                                         "reasoning progress arrives before any output");
+        }
         server.delta(0, QStringLiteral("Unusable response"));
         translation_tests::waitUntil([&] { return !source.isEmpty(); },
                                      "raw delta arrives before completion");
         require(completions == 0, "progress does not require a terminal event");
+        require(reasoningProgress == (expert ? QList<bool>{true, false} : QList<bool>{}),
+                "each reasoning phase starts once and content ends it");
         server.finish(0);
         translation_tests::waitUntil([&] { return completions == 1; }, "initial completion");
         const QString failed = std::exchange(source, {});
-        require(client.correctTableVision(conversation, failed, &client, delta, completion) != 0,
+        require(failed == QStringLiteral("Unusable response"),
+                "table output excludes reasoning deltas");
+        reasoningProgress.clear();
+        require(client.correctTableVision(conversation, failed, &client, delta, completion,
+                                          progress) != 0,
                 "correct using the prepared conversation");
         translation_tests::waitUntil([&] { return server.streams.size() == 2; },
                                      "correction request");
         const auto first = server.streams[0].body.value(QStringLiteral("messages")).toArray();
         const auto second = server.streams[1].body.value(QStringLiteral("messages")).toArray();
+        if (expert) {
+            for (const auto& stream : server.streams) {
+                require(stream.body.value(QStringLiteral("reasoning_effort")) ==
+                                QStringLiteral("low") &&
+                            stream.body.value(QStringLiteral("max_completion_tokens")).toInt() ==
+                                8192 &&
+                            !stream.body.contains(QStringLiteral("max_tokens")) &&
+                            !stream.body.contains(QStringLiteral("enable_thinking")) &&
+                            !stream.body.contains(QStringLiteral("thinking")) &&
+                            !stream.body.contains(QStringLiteral("temperature")),
+                        "Expert extraction and correction use Kimi request parameters");
+            }
+            require(second[2].toObject().value(QStringLiteral("reasoning_content")) ==
+                        QStringLiteral("first thought"),
+                    "Expert correction preserves the assistant reasoning");
+        } else if (!custom) {
+            for (const auto& stream : server.streams) {
+                require(stream.body.value(QStringLiteral("reasoning_effort")) ==
+                                QStringLiteral("low") &&
+                            stream.body.value(QStringLiteral("thinking"))
+                                    .toObject()
+                                    .value(QStringLiteral("type")) == QStringLiteral("enabled"),
+                        "Fast table extraction and correction request GLM low reasoning");
+            }
+        }
         require(encodes == 1 && first.size() == 2 && second.size() == 4 && first[0] == second[0] &&
                     first[1] == second[1] &&
                     second[2].toObject().value(QStringLiteral("content")).toString() == failed,
@@ -2820,10 +2890,14 @@ void tableVisionCorrectionsReusePreparedConversation() {
         require(!requestId(server.streams[0].headers).isEmpty() &&
                     requestId(server.streams[0].headers) != requestId(server.streams[1].headers),
                 "correction has an independent operation identity");
-        server.delta(1, QStringLiteral("<table><tr><td>Fixed"));
+        server.send(1, QByteArrayLiteral(
+                           "data: {\"choices\":[{\"delta\":{\"reasoning_content\":"
+                           "\"recheck the source\",\"content\":\"<table><tr><td>Fixed\"}}]}\n\n"));
         server.finish(1);
         translation_tests::waitUntil([&] { return completions == 2; }, "correction completion");
         require(source == QStringLiteral("<table><tr><td>Fixed"), "repair replaces its source");
+        require(reasoningProgress == QList<bool>{true, false},
+                "correction reports independent reasoning progress for every provider");
     }
 }
 
