@@ -52,7 +52,6 @@
 #include "snow_shot/presentation/screenshotpinnedwindow.h"
 #include "snow_shot/presentation/screenrecordingfolder.h"
 #include "snow_shot/presentation/systemtraycontroller.h"
-#include "snow_shot/presentation/systemnotificationfeedback.h"
 #include "snow_shot/presentation/floatingtoolbarcontroller.h"
 #include "snow_shot/app/mcp/mcpruntimelifecycle.h"
 #include "snow_shot/app/mcp/mcpruntimegraph.h"
@@ -147,18 +146,7 @@ class ApplicationController::Impl {
     Impl(ApplicationController& owner, QApplication& application)
         : q(owner), app(application), restartCoordinator(application),
           groupManager(initializedPinnedWindowRepository()),
-          systemTray(presentation::settings::builtInTrayCommandManifest(), &groupManager) {
-        QObject::connect(&systemTray,
-                         &presentation::SystemTrayController::notificationDeliveryFinished, &q,
-                         [this](const platform::SystemNotificationRequest& request,
-                                const platform::SystemNotificationResult& result) {
-                             presentation::presentSystemNotificationResult(
-                                 request, result, [this]() -> QWidget* {
-                                     MainWindow& window = ensureMainWindow();
-                                     window.showAndActivate();
-                                     return &window;
-                                 });
-                         });
+          systemTray(presentation::settings::builtInTrayCommandManifest(), &groupManager, &q) {
         QObject::connect(&floatingToolbar,
                          &presentation::FloatingToolbarController::actionRequested, &q,
                          [this](const QString& action) { dispatchFloatingAction(action); });
@@ -177,6 +165,37 @@ class ApplicationController::Impl {
                     [this, snapshot = std::move(snapshot), paths = std::move(paths)]() mutable {
                         if (auto* controller = ensureScreenshotController())
                             controller->pinDroppedContent(std::move(snapshot), std::move(paths));
+                    }));
+            });
+        QObject::connect(
+            &floatingToolbar, &presentation::FloatingToolbarController::imageContentDropped, &q,
+            [this](presentation::FloatingToolbarImageAction action,
+                   ScreenshotClipboardContentSnapshot snapshot, QStringList paths,
+                   std::shared_ptr<presentation::ImageStitchingImportReservation> reservation) {
+                if (storage::ApplicationStorage::instance().directoryChanging())
+                    return;
+                static_cast<void>(actionGate.dispatch(
+                    [this, action, snapshot = std::move(snapshot), paths = std::move(paths),
+                     reservation = std::move(reservation)]() mutable {
+                        const auto present = [&](auto& coordinator) {
+                            if (!paths.isEmpty())
+                                coordinator.presentFiles(paths);
+                            else
+                                coordinator.presentDroppedImage(std::move(snapshot),
+                                                                std::move(reservation));
+                        };
+                        using Action = presentation::FloatingToolbarImageAction;
+                        switch (action) {
+                        case Action::Stitch:
+                            present(ensureImageStitchingWindowCoordinator());
+                            break;
+                        case Action::Split:
+                            present(ensureImageSplitWindowCoordinator());
+                            break;
+                        case Action::Edit:
+                            present(ensureImageEditingWindowCoordinator());
+                            break;
+                        }
                     }));
             });
         QObject::connect(&app, &QCoreApplication::aboutToQuit, &floatingToolbar,

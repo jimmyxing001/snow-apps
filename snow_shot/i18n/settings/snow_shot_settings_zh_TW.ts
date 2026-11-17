@@ -1062,10 +1062,6 @@
     <context>
         <name>LoginItemService</name>
         <message>
-            <source>%1 needs a valid code signature to use launch at login. Reinstall the signed app</source>
-            <translation>%1 需要有效的程式碼簽章才能在登入時啟動。請重新安裝已簽章的應用程式</translation>
-        </message>
-        <message>
             <source>A launch-at-login change is already in progress</source>
             <translation>正在變更登入時啟動設定</translation>
         </message>
@@ -1078,24 +1074,8 @@
             <translation>無法變更登入時啟動設定：%1</translation>
         </message>
         <message>
-            <source>Could not save launch-at-login initialization. Registration was not changed</source>
-            <translation>無法儲存登入時啟動初始化狀態。註冊狀態未變更</translation>
-        </message>
-        <message>
             <source>Could not save the launch-at-login preference. The displayed macOS status is still current</source>
             <translation>無法儲存登入時啟動偏好設定。顯示的 macOS 狀態仍為目前狀態</translation>
-        </message>
-        <message>
-            <source>Move the signed %1 app to /Applications or ~/Applications to use launch at login</source>
-            <translation>請將已簽章的 %1 應用程式移至 /Applications 或 ~/Applications，以便在登入時啟動</translation>
-        </message>
-        <message>
-            <source>Move the signed Snow Shot app to /Applications or ~/Applications to use launch at login</source>
-            <translation>請將已簽章的 Snow Shot 應用程式移至 /Applications 或 ~/Applications，以使用登入時啟動功能</translation>
-        </message>
-        <message>
-            <source>Snow Shot needs a valid code signature to use launch at login. Reinstall the signed app</source>
-            <translation>Snow Shot 需要有效的程式碼簽章才能使用登入時啟動功能。請重新安裝已簽章的應用程式</translation>
         </message>
         <message>
             <source>macOS did not apply the launch-at-login change. Check Login Items in System Settings</source>
@@ -1578,6 +1558,10 @@
             <translation>作用中視窗</translation>
         </message>
         <message>
+            <source>Adaptive guide colors</source>
+            <translation>自適應輔助線顏色</translation>
+        </message>
+        <message>
             <source>Add a mask to highlight text recognition results</source>
             <translation>加入遮罩以醒目顯示文字辨識結果</translation>
         </message>
@@ -1834,6 +1818,10 @@
             <translation>自動選取新建立的元素</translation>
         </message>
         <message>
+            <source>Automatically start Snow Shot in the background when you log in to your Mac</source>
+            <translation>登入 Mac 時自動在背景啟動 Snow Shot</translation>
+        </message>
+        <message>
             <source>Autostart</source>
             <translation>開機自動啟動</translation>
         </message>
@@ -2018,10 +2006,6 @@
             <translation>自動檢查</translation>
         </message>
         <message>
-            <source>Check for new versions on GitHub and Gitee</source>
-            <translation>在 GitHub 和 Gitee 上檢查新版本</translation>
-        </message>
-        <message>
             <source>Child elements</source>
             <translation>子元素</translation>
         </message>
@@ -2180,6 +2164,10 @@
         <message>
             <source>Choose what happens automatically when text recognition completes</source>
             <translation>選擇文字辨識完成後自動執行的動作</translation>
+        </message>
+        <message>
+            <source>Choose what happens when content is dropped on the floating toolbar</source>
+            <translation>選擇將內容拖放到浮動工具列時執行的操作</translation>
         </message>
         <message>
             <source>Choose what happens when the clipboard content or selected file is already pinned</source>
@@ -3090,6 +3078,10 @@
             <translation>影像與文件檔案</translation>
         </message>
         <message>
+            <source>Image editing</source>
+            <translation>影像編輯</translation>
+        </message>
+        <message>
             <source>Image export</source>
             <translation>影像匯出</translation>
         </message>
@@ -3124,6 +3116,14 @@
         <message>
             <source>Image size</source>
             <translation>影像大小</translation>
+        </message>
+        <message>
+            <source>Image splitting</source>
+            <translation>影像分割</translation>
+        </message>
+        <message>
+            <source>Image stitching</source>
+            <translation>影像拼接</translation>
         </message>
         <message>
             <source>Import</source>
@@ -3184,6 +3184,10 @@
         <message>
             <source>Interface settings</source>
             <translation>介面設定</translation>
+        </message>
+        <message>
+            <source>Invert guide colors that are similar to their sampled background color</source>
+            <translation>輔助線顏色與取樣的背景顏色相近時反轉輔助線顏色</translation>
         </message>
         <message>
             <source>JPEG</source>
@@ -3368,10 +3372,6 @@
         <message>
             <source>Maintain selection aspect ratio</source>
             <translation>保持選取範圍長寬比</translation>
-        </message>
-        <message>
-            <source>Manage Snow Shot's login permission in macOS System Settings</source>
-            <translation>在 macOS 系統設定中管理 Snow Shot 的登入權限</translation>
         </message>
         <message>
             <source>Manage macOS permissions for Snow Shot</source>
@@ -3582,16 +3582,12 @@
             <translation>僅在顯示時</translation>
         </message>
         <message>
-            <source>Open</source>
-            <translation>開啟</translation>
-        </message>
-        <message>
-            <source>Open Login Items settings</source>
-            <translation>開啟登入項目設定</translation>
-        </message>
-        <message>
             <source>Open a canvas on the current display or toggle click-through</source>
             <translation>在目前顯示器上開啟畫布或切換滑鼠穿透</translation>
+        </message>
+        <message>
+            <source>Open at login</source>
+            <translation>登入時打開</translation>
         </message>
         <message>
             <source>Open image editing for each selected image file, or an empty window if no images are selected</source>
@@ -5012,6 +5008,10 @@
         <message>
             <source>Tool positions</source>
             <translation>工具位置</translation>
+        </message>
+        <message>
+            <source>Toolbar drop behavior</source>
+            <translation>工具列拖放行為</translation>
         </message>
         <message>
             <source>Toolbar opacity</source>

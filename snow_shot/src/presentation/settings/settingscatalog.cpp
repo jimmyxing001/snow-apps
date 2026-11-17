@@ -695,6 +695,17 @@ SettingsItemDefinition showGuidesByDefaultItem() {
             SettingsSwitchDefinition{SettingsSwitchBinding::ShowGuidesByDefault}};
 }
 
+SettingsItemDefinition adaptiveGuideColorsItem() {
+    return {QStringLiteral("interface.screenshot.adaptive-guide-colors"),
+            settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Adaptive guide colors")),
+            settingsText(QT_TRANSLATE_NOOP(
+                "SettingsCatalog",
+                "Invert guide colors that are similar to their sampled background color")),
+            {},
+            QStringLiteral("screenshot_ui/adaptive_guide_colors"),
+            SettingsSwitchDefinition{SettingsSwitchBinding::AdaptiveGuideColors}};
+}
+
 SettingsItemDefinition showEditSelectionToolbarItem() {
     return {QStringLiteral("interface.screenshot.show-edit-selection-toolbar"),
             settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Show edit selection toolbar")),
@@ -1136,19 +1147,14 @@ SettingsItemDefinition updateModeItem() {
 #ifndef Q_OS_MACOS
         {QStringLiteral("download"),
          settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Download automatically"))},
+#endif
         {QStringLiteral("next_launch"),
          settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Auto-update on next launch"))},
-#endif
     };
     return {QStringLiteral("updates.mode"),
             settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Updates")),
-#ifdef Q_OS_MACOS
-            settingsText(
-                QT_TRANSLATE_NOOP("SettingsCatalog", "Check for new versions on GitHub and Gitee")),
-#else
             settingsText(QT_TRANSLATE_NOOP("SettingsCatalog",
                                            "Choose how updates are downloaded and installed")),
-#endif
             {settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Software updates"))},
             QStringLiteral("updates/mode"),
             payload};
@@ -2585,21 +2591,6 @@ SettingsItemDefinition restartAsAdministratorItem() {
             payload};
 }
 #endif
-#ifdef Q_OS_MACOS
-SettingsItemDefinition loginItemSettingsItem() {
-    SettingsActionDefinition payload;
-    payload.binding = SettingsActionBinding::OpenLoginItemSettings;
-    payload.iconFactory = [] { return outlined_icons::Setting(); };
-    payload.buttonText = settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Open"));
-    return {QStringLiteral("system.login-item-settings"),
-            settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Open Login Items settings")),
-            settingsText(QT_TRANSLATE_NOOP(
-                "SettingsCatalog", "Manage Snow Shot's login permission in macOS System Settings")),
-            {},
-            {},
-            payload};
-}
-#endif
 SettingsItemDefinition autoStartItem() {
     if (app::distribution::isStoreManaged())
         return switchItem(QStringLiteral("system.auto-start-at-boot"),
@@ -2611,8 +2602,10 @@ SettingsItemDefinition autoStartItem() {
     return switchItem(
         QStringLiteral("system.auto-start-at-boot"),
 #ifdef Q_OS_MACOS
-        QT_TRANSLATE_NOOP("SettingsCatalog", "Launch at login"),
-        QT_TRANSLATE_NOOP("SettingsCatalog", "Start Snow Shot in the background when you log in"),
+        QT_TRANSLATE_NOOP("SettingsCatalog", "Open at login"),
+        QT_TRANSLATE_NOOP(
+            "SettingsCatalog",
+            "Automatically start Snow Shot in the background when you log in to your Mac"),
 #else
         QT_TRANSLATE_NOOP("SettingsCatalog", "Auto start at boot"),
         QT_TRANSLATE_NOOP("SettingsCatalog",
@@ -4139,9 +4132,6 @@ constexpr CatalogItemFactory catalogPageGeneralSectionSystemGeneralItems[] = {
 #if defined(Q_OS_WIN)
     {nullptr, &catalogItemSystemAnnotationModeWhenOpeningForEditing},
 #endif
-#if defined(Q_OS_MACOS)
-    {loginItemSettingsItem},
-#endif
     {updateModeItem},
 };
 
@@ -4275,6 +4265,7 @@ constexpr CatalogItemFactory catalogPageScreenshotsSectionInterfaceScreenshotIte
     {shortcutHintOpacityItem},
     {screenshotAreaTypeHintItem},
     {showGuidesByDefaultItem},
+    {adaptiveGuideColorsItem},
     {nullptr, &catalogItemInterfaceScreenshotCursorGuideLineColor},
     {nullptr, &catalogItemInterfaceScreenshotSelectionCenterGuideLineColor},
     {nullptr, &catalogItemInterfaceScreenshotMonitorCenterGuideLineColor},
@@ -4847,8 +4838,27 @@ constexpr CatalogItemFactory catalogPageDesktopToolsSectionTrayItems[] = {
     {trayMenuOptionsItem},
 };
 
+SettingsItemDefinition floatingToolbarDropBehaviorItem() {
+    return fixedSelectItem(
+        QStringLiteral("floating-toolbar.drop-behavior"),
+        QT_TRANSLATE_NOOP("SettingsCatalog", "Toolbar drop behavior"),
+        QT_TRANSLATE_NOOP("SettingsCatalog",
+                          "Choose what happens when content is dropped on the floating toolbar"),
+        QStringLiteral("floating_toolbar/drop_behavior"),
+        SettingsSelectBinding::FloatingToolbarDropBehavior,
+        {{QStringLiteral("pin_to_screen"),
+          settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Pin to screen"))},
+         {QStringLiteral("image_stitching"),
+          settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Image stitching"))},
+         {QStringLiteral("image_splitting"),
+          settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Image splitting"))},
+         {QStringLiteral("image_editing"),
+          settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Image editing"))}});
+}
+
 constexpr CatalogItemFactory catalogPageDesktopToolsSectionFloatingToolbarItems[] = {
     {floatingToolbarEnabledItem},
+    {floatingToolbarDropBehaviorItem},
     {floatingToolbarOpacityItem},
     {floatingToolbarEditorItem},
 };
@@ -6296,6 +6306,9 @@ QStringList SettingsCatalog::validationErrors() const {
                     case SettingsSelectBinding::PinDuplicateContentAction:
                         expectedKey = QStringLiteral("pin_to_screen/duplicate_content_action");
                         break;
+                    case SettingsSelectBinding::FloatingToolbarDropBehavior:
+                        expectedKey = QStringLiteral("floating_toolbar/drop_behavior");
+                        break;
                     case SettingsSelectBinding::PinTextSelectionOnRecognitionResults:
                         expectedKey =
                             QStringLiteral("pin_to_screen/text_selection_on_recognition_results");
@@ -6438,6 +6451,9 @@ QStringList SettingsCatalog::validationErrors() const {
                         break;
                     case SettingsSwitchBinding::ShowGuidesByDefault:
                         expectedKey = QStringLiteral("screenshot_ui/show_guides_by_default");
+                        break;
+                    case SettingsSwitchBinding::AdaptiveGuideColors:
+                        expectedKey = QStringLiteral("screenshot_ui/adaptive_guide_colors");
                         break;
                     case SettingsSwitchBinding::ShowEditSelectionToolbar:
                         expectedKey = QStringLiteral("screenshot_ui/show_edit_selection_toolbar");

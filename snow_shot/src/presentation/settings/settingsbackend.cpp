@@ -675,6 +675,8 @@ QVariant BuiltInSettingsBackend::selectValue(SettingsSelectBinding binding) cons
         return storage::PinToScreenSettings().middleMouseButtonAction();
     case SettingsSelectBinding::PinDuplicateContentAction:
         return storage::PinToScreenSettings().duplicateContentAction();
+    case SettingsSelectBinding::FloatingToolbarDropBehavior:
+        return storage::FloatingToolbarSettings().dropBehavior();
     case SettingsSelectBinding::PinTextSelectionOnRecognitionResults:
         return storage::PinToScreenSettings().textSelectionOnRecognitionResults();
     case SettingsSelectBinding::PinMouseWheelZoomMode:
@@ -924,6 +926,8 @@ bool BuiltInSettingsBackend::applySelectValue(SettingsSelectBinding binding,
         return storage::PinToScreenSettings().setDoubleClickAction(value.toString());
     case SettingsSelectBinding::PinMiddleClickAction:
         return storage::PinToScreenSettings().setMiddleMouseButtonAction(value.toString());
+    case SettingsSelectBinding::FloatingToolbarDropBehavior:
+        return storage::FloatingToolbarSettings().setDropBehavior(value.toString());
     case SettingsSelectBinding::PinDuplicateContentAction:
         return storage::PinToScreenSettings().setDuplicateContentAction(value.toString());
     case SettingsSelectBinding::PinTextSelectionOnRecognitionResults:
@@ -996,6 +1000,8 @@ bool BuiltInSettingsBackend::switchValue(SettingsSwitchBinding binding) const {
         return storage::ScreenshotUiSettings().screenshotAreaTypeHintEnabled();
     case SettingsSwitchBinding::ShowGuidesByDefault:
         return storage::ScreenshotUiSettings().showGuidesByDefault();
+    case SettingsSwitchBinding::AdaptiveGuideColors:
+        return storage::ScreenshotUiSettings().adaptiveGuideColors();
     case SettingsSwitchBinding::ShowEditSelectionToolbar:
         return storage::ScreenshotUiSettings().showEditSelectionToolbar();
     case SettingsSwitchBinding::FloatingToolbarEnabled:
@@ -1219,7 +1225,7 @@ bool BuiltInSettingsBackend::fieldUsesStorageErrors(const QString& fieldId) cons
 }
 bool BuiltInSettingsBackend::fieldPending(const QString& fieldId) const {
 #ifdef Q_OS_MACOS
-    if (fieldId == u"system.auto-start-at-boot" || fieldId == u"system.login-item-settings")
+    if (fieldId == u"system.auto-start-at-boot")
         return m_loginItems->pending();
 #endif
     return platform::windows::administratorOperationPending() &&
@@ -1355,6 +1361,9 @@ bool BuiltInSettingsBackend::applySwitchValue(SettingsSwitchBinding binding, boo
     }
     if (binding == SettingsSwitchBinding::ShowGuidesByDefault) {
         return storage::ScreenshotUiSettings().setShowGuidesByDefault(value);
+    }
+    if (binding == SettingsSwitchBinding::AdaptiveGuideColors) {
+        return storage::ScreenshotUiSettings().setAdaptiveGuideColors(value);
     }
     if (binding == SettingsSwitchBinding::ShowEditSelectionToolbar) {
         return storage::ScreenshotUiSettings().setShowEditSelectionToolbar(value);
@@ -1544,6 +1553,7 @@ bool BuiltInSettingsBackend::applySwitchValue(SettingsSwitchBinding binding, boo
         return false;
     case SettingsSwitchBinding::ScreenshotAreaTypeHint:
     case SettingsSwitchBinding::ShowGuidesByDefault:
+    case SettingsSwitchBinding::AdaptiveGuideColors:
     case SettingsSwitchBinding::ShowEditSelectionToolbar:
     case SettingsSwitchBinding::FloatingToolbarEnabled:
     case SettingsSwitchBinding::TrayEnabled:
@@ -2277,12 +2287,6 @@ bool BuiltInSettingsBackend::applyGlobalMouseCombination(
 SettingsActionState BuiltInSettingsBackend::actionState(SettingsActionBinding binding) const {
     const storage::StorageStatus status = storage::ApplicationStorage::instance().status();
     switch (binding) {
-    case SettingsActionBinding::OpenLoginItemSettings:
-#ifdef Q_OS_MACOS
-        return {!m_loginItems->pending(), false};
-#else
-        return {false, false};
-#endif
     case SettingsActionBinding::RestartAsAdministrator: {
         const auto state = platform::windows::administratorPresentation(
             platform::windows::administratorState(), storage::SystemSettings().autoStartAtBoot(),
@@ -2321,15 +2325,6 @@ SettingsActionState BuiltInSettingsBackend::actionState(SettingsActionBinding bi
 bool BuiltInSettingsBackend::triggerAction(SettingsActionBinding binding, const QString& filePath,
                                            bool includeToolbarStyles) {
     switch (binding) {
-    case SettingsActionBinding::OpenLoginItemSettings:
-#ifdef Q_OS_MACOS
-        if (!actionState(binding).enabled)
-            return false;
-        m_loginItems->openSettings();
-        return true;
-#else
-        return false;
-#endif
     case SettingsActionBinding::RestartAsAdministrator: {
         emit synchronized();
         const auto result = platform::windows::restartAsAdministrator(
@@ -2958,6 +2953,9 @@ SettingsResetResult BuiltInSettingsBackend::resetSectionWithResults(SettingsSect
             {QStringLiteral("screenshot_ui/show_guides_by_default"),
              storage::ConfigurationSchema::defaultValue(
                  QStringLiteral("screenshot_ui/show_guides_by_default"))},
+            {QStringLiteral("screenshot_ui/adaptive_guide_colors"),
+             storage::ConfigurationSchema::defaultValue(
+                 QStringLiteral("screenshot_ui/adaptive_guide_colors"))},
             {QStringLiteral("screenshot_ui/cursor_guide_line_color"),
              storage::ConfigurationSchema::defaultValue(
                  QStringLiteral("screenshot_ui/cursor_guide_line_color"))},
@@ -3122,6 +3120,9 @@ SettingsResetResult BuiltInSettingsBackend::resetSectionWithResults(SettingsSect
     case SettingsSectionReset::FloatingToolbar:
         return storage::ApplicationStorage::instance().configuration().setValues({
             {QStringLiteral("floating_toolbar/enabled"), false},
+            {QStringLiteral("floating_toolbar/drop_behavior"),
+             storage::ConfigurationSchema::defaultValue(
+                 QStringLiteral("floating_toolbar/drop_behavior"))},
             {QStringLiteral("floating_toolbar/hide_in_fullscreen"), true},
             {QStringLiteral("floating_toolbar/hide_during_capture"), true},
             {QStringLiteral("floating_toolbar/layout"),

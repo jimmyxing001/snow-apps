@@ -1112,23 +1112,19 @@ if(SNOW_SHOT_BUILD_TESTS)
 endif()
 add_library(snow_shot_system_notification_controller STATIC
     include/snow_shot/presentation/systemnotificationcontroller.h
-    src/presentation/services/systemnotificationcontroller.cpp
-    src/presentation/services/systemnotificationfeedback.cpp)
+    src/presentation/services/systemnotificationcontroller.cpp)
 target_include_directories(snow_shot_system_notification_controller PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include")
-target_link_libraries(snow_shot_system_notification_controller PUBLIC Qt6::Core
-    PRIVATE ant_design_qt Qt6::Widgets)
+target_link_libraries(snow_shot_system_notification_controller PUBLIC Qt6::Core)
 if(SNOW_SHOT_BUILD_TESTS)
     add_executable(snow-shot-system-notification-controller-tests
         tests/system_notification_controller_tests.cpp)
     target_link_libraries(snow-shot-system-notification-controller-tests PRIVATE
-        snow_shot_system_notification_controller ant_design_qt Qt6::Widgets)
-    snow_shot_import_offscreen_platform(snow-shot-system-notification-controller-tests)
-    snow_shot_offscreen_qpa_environment(_SNOW_NOTIFICATION_QPA_ENVIRONMENT)
+        snow_shot_system_notification_controller)
     add_test(NAME snow-shot-system-notification-controller-tests
-        COMMAND snow-shot-system-notification-controller-tests -platform offscreen)
+        COMMAND snow-shot-system-notification-controller-tests)
     set_tests_properties(snow-shot-system-notification-controller-tests PROPERTIES
-        LABELS "unit" TIMEOUT 30 ENVIRONMENT "${_SNOW_NOTIFICATION_QPA_ENVIRONMENT}"
+        LABELS "unit" TIMEOUT 30
         ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
 endif()
 if(APPLE)
@@ -3268,6 +3264,8 @@ if(SNOW_SHOT_BUILD_TESTS)
         target_sources(snow-shot-about-page-tests PRIVATE
             src/platform/macos/applicationactivation.mm)
         target_link_libraries(snow-shot-about-page-tests PRIVATE "-framework AppKit")
+        # Settings link unused export factories; discard those sections in this UI fixture.
+        target_link_options(snow-shot-about-page-tests PRIVATE "-Wl,-dead_strip")
     endif()
     target_link_libraries(snow-shot-about-page-tests PRIVATE
         snow_shot_settings
@@ -3288,6 +3286,11 @@ if(SNOW_SHOT_BUILD_TESTS)
         ENVIRONMENT "${_SNOW_SHOT_OFFSCREEN_QPA_ENVIRONMENT}"
         ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
     )
+    add_test(NAME snow-shot-about-update-tests
+        COMMAND snow-shot-about-page-tests --updates-only -platform offscreen)
+    set_tests_properties(snow-shot-about-update-tests PROPERTIES LABELS unit TIMEOUT 60
+        ENVIRONMENT "${_SNOW_SHOT_OFFSCREEN_QPA_ENVIRONMENT}"
+        ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
     add_test(NAME snow-shot-tray-click-settings-tests
         COMMAND snow-shot-about-page-tests --tray-click-settings-only -platform offscreen)
     set_tests_properties(snow-shot-tray-click-settings-tests PROPERTIES LABELS "unit" TIMEOUT 60
@@ -8130,6 +8133,8 @@ if(SNOW_SHOT_BUILD_TESTS)
         COMMAND snow-shot-selection-presentation-tests -platform offscreen)
     add_test(NAME snow-shot-selection-color-picker-tests
         COMMAND snow-shot-selection-presentation-tests --picker-drag-only -platform offscreen)
+    add_test(NAME snow-shot-adaptive-guide-colors-tests
+        COMMAND snow-shot-selection-presentation-tests --adaptive-guides-only -platform offscreen)
     add_test(NAME snow-shot-toolbar-presenter-lifetime-tests
         COMMAND snow-shot-selection-presentation-tests --toolbar-presenter-lifetime-only -platform offscreen)
     add_executable(snow-shot-selection-wheel-tests
@@ -8170,6 +8175,7 @@ if(SNOW_SHOT_BUILD_TESTS)
     add_test(NAME snow-shot-rectangular-selection-rendering-tests
         COMMAND snow-shot-screenshot-canvas-renderer-tests --rectangular-selection-rendering-only -platform offscreen)
     set_tests_properties(snow-shot-selection-presentation-tests snow-shot-selection-color-picker-tests
+        snow-shot-adaptive-guide-colors-tests
         snow-shot-toolbar-presenter-lifetime-tests snow-shot-overlay-preparation-tests
         snow-shot-background-coverage-tests snow-shot-pointer-presentation-tests
         snow-shot-rectangular-selection-rendering-tests
@@ -9036,6 +9042,12 @@ if(SNOW_SHOT_BUILD_TESTS)
     add_test(NAME snow-shot-recording-follow-mouse-tests
         COMMAND snow-shot-screen-recording-controller-tests --follow-mouse-only -platform offscreen)
     set_tests_properties(snow-shot-recording-follow-mouse-tests PROPERTIES LABELS "unit" TIMEOUT 60)
+    if(APPLE)
+        add_test(NAME snow-shot-macos-recording-follow-toolbar-tests
+            COMMAND snow-shot-screen-recording-controller-tests --follow-toolbar-only -platform cocoa)
+        set_tests_properties(snow-shot-macos-recording-follow-toolbar-tests PROPERTIES
+            LABELS "interactive;macos" RUN_SERIAL TRUE TIMEOUT 60 SNOW_TEST_CROSS_PLATFORM TRUE)
+    endif()
     add_test(NAME snow-shot-recording-follow-display-handoff-tests
         COMMAND snow-shot-screen-recording-controller-tests --follow-display-handoff-only
             -platform offscreen:configfile=recording_toolbar_screens.json)
@@ -12059,6 +12071,11 @@ if(SNOW_SHOT_BUILD_TESTS)
     snow_shot_offscreen_qpa_environment(_snow_controller_clipboard_qpa_environment)
     add_test(NAME snow-shot-screenshot-controller-clipboard-tests
         COMMAND snow_shot --clipboard-pin-tests -platform offscreen)
+    add_test(NAME snow-shot-system-notification-window-tests
+        COMMAND snow_shot --clipboard-pin-tests --system-notification-window-tests -platform offscreen)
+    set_tests_properties(snow-shot-system-notification-window-tests PROPERTIES
+        LABELS unit SNOW_TEST_CROSS_PLATFORM TRUE TIMEOUT 30 RUN_SERIAL TRUE
+        ENVIRONMENT "${_snow_controller_clipboard_qpa_environment}")
     add_test(NAME snow-shot-document-save-shutdown-tests
         COMMAND snow_shot --clipboard-pin-tests --document-save-shutdown-tests -platform offscreen)
     set_tests_properties(snow-shot-document-save-shutdown-tests PROPERTIES
@@ -13090,7 +13107,7 @@ if(SNOW_SHOT_BUILD_TESTS OR SNOW_APPS_BUILD_BENCHMARKS)
         target_include_directories(${_snow_floating_target} PRIVATE include src/image)
         target_link_libraries(${_snow_floating_target} PRIVATE
             snow_shot_settings snow_shot_image_codec snow_shot_clipboard_placement
-            snow_draw_engine_qt_canvas ant_design_qt Qt6::Widgets)
+            snow_shot_collage_core snow_draw_engine_qt_canvas ant_design_qt Qt6::Widgets)
         snow_shot_import_offscreen_platform(${_snow_floating_target})
         snow_shot_link_macos_window_platform(${_snow_floating_target})
         if(WIN32)

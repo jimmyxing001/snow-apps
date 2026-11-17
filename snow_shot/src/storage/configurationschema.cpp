@@ -461,7 +461,11 @@ constexpr SchemaString kSchemaStrings2[] = {u"Ctrl+U"};
 constexpr ConfigurationIntegerRange kSchemaRange0{10, 100, 1};
 constexpr SchemaString kSchemaStrings3[] = {u"icon", u"toolbar"};
 constexpr SchemaAllowedValues kSchemaAllowed0 = {kSchemaStrings3, std::size(kSchemaStrings3)};
-constexpr int kConfigurationSchemaVersion = 6;
+constexpr SchemaString kFloatingToolbarDropBehaviors[] = {u"pin_to_screen", u"image_stitching",
+                                                          u"image_splitting", u"image_editing"};
+constexpr SchemaAllowedValues kFloatingToolbarDropBehaviorValues = {
+    kFloatingToolbarDropBehaviors, std::size(kFloatingToolbarDropBehaviors)};
+constexpr int kConfigurationSchemaVersion = 7;
 constexpr ConfigurationIntegerRange kSchemaRange1{kConfigurationSchemaVersion,
                                                   kConfigurationSchemaVersion, 1};
 constexpr SchemaString kSchemaStrings4[] = {u"system", u"light", u"dark"};
@@ -480,7 +484,7 @@ constexpr SchemaString kSchemaStrings8[] = {u"smart_control", u"disabled"};
 constexpr SchemaAllowedValues kSchemaAllowed6 = {kSchemaStrings8, std::size(kSchemaStrings8)};
 constexpr SchemaString kSchemaStrings9[] = {u"images_only", u"image_files", u"disabled"};
 constexpr SchemaAllowedValues kSchemaAllowed7 = {kSchemaStrings9, std::size(kSchemaStrings9)};
-constexpr SchemaString kSchemaStrings10[] = {u"manual", u"check"};
+constexpr SchemaString kSchemaStrings10[] = {u"manual", u"check", u"next_launch"};
 constexpr SchemaAllowedValues kSchemaAllowed8 = {kSchemaStrings10, std::size(kSchemaStrings10)};
 constexpr SchemaString kSchemaStrings11[] = {u"manual", u"check", u"download", u"next_launch"};
 [[maybe_unused]] constexpr SchemaAllowedValues kSchemaAllowed9 = {kSchemaStrings11,
@@ -862,6 +866,8 @@ constexpr SchemaEntryDescriptor kEntryDescriptors[] = {
     {u"pin_to_screen_shortcuts/upload_to_cloud", stringsDefault(kSchemaStrings2),
      ConfigurationValueKind::StringList, nullptr, nullptr, 2},
     {u"floating_toolbar/enabled", booleanDefault(false), ConfigurationValueKind::Boolean},
+    {u"floating_toolbar/drop_behavior", stringDefault(u"pin_to_screen"),
+     ConfigurationValueKind::String, nullptr, &kFloatingToolbarDropBehaviorValues},
     {u"floating_toolbar/opacity", integerDefault(50), ConfigurationValueKind::Integer,
      &kSchemaRange0},
     {u"floating_toolbar/hide_in_fullscreen", booleanDefault(true), ConfigurationValueKind::Boolean},
@@ -914,7 +920,11 @@ constexpr SchemaEntryDescriptor kEntryDescriptors[] = {
      nullptr, &kSchemaAllowed5},
     {u"system/memory_optimization_policy", stringDefault(u"smart_control"),
      ConfigurationValueKind::String, nullptr, &kSchemaAllowed6},
+#ifdef Q_OS_MACOS
+    {u"system/auto_start_at_boot", booleanDefault(false), ConfigurationValueKind::Boolean},
+#else
     {u"system/auto_start_at_boot", booleanDefault(true), ConfigurationValueKind::Boolean},
+#endif
     {u"system/context_menu_mode", stringDefault(u"image_files"), ConfigurationValueKind::String,
      nullptr, &kSchemaAllowed7},
     {u"system/annotation_mode_when_opening_for_editing", booleanDefault(true),
@@ -922,10 +932,10 @@ constexpr SchemaEntryDescriptor kEntryDescriptors[] = {
     {u"system/launch_as_administrator", booleanDefault(false), ConfigurationValueKind::Boolean},
     {u"mcp/enabled", booleanDefault(false), ConfigurationValueKind::Boolean},
 #ifdef Q_OS_MACOS
-    {u"updates/mode", stringDefault(u"check"), ConfigurationValueKind::String, nullptr,
+    {u"updates/mode", stringDefault(u"next_launch"), ConfigurationValueKind::String, nullptr,
      &kSchemaAllowed8},
 #else
-    {u"updates/mode", stringDefault(u"download"), ConfigurationValueKind::String, nullptr,
+    {u"updates/mode", stringDefault(u"next_launch"), ConfigurationValueKind::String, nullptr,
      &kSchemaAllowed9},
 #endif
     {u"network/proxy", stringDefault(u"none"), ConfigurationValueKind::String, nullptr,
@@ -1525,6 +1535,7 @@ constexpr SchemaEntryDescriptor kEntryDescriptors[] = {
      ConfigurationValueKind::Boolean},
     {u"screenshot_ui/show_guides_by_default", booleanDefault(false),
      ConfigurationValueKind::Boolean},
+    {u"screenshot_ui/adaptive_guide_colors", booleanDefault(true), ConfigurationValueKind::Boolean},
     {u"screenshot_ui/cursor_guide_line_color", stringDefault(u"#000000FF"),
      ConfigurationValueKind::String},
     {u"screenshot_ui/selection_center_guide_line_color", stringDefault(u"#4096FFFF"),
@@ -2794,8 +2805,7 @@ ConfigurationNormalization ConfigurationSchema::normalize(const QString& key,
         return {value, true, false};
     }
 #ifdef Q_OS_MACOS
-    if (key == u"updates/mode" &&
-        (value.toString() == u"download" || value.toString() == u"next_launch")) {
+    if (key == u"updates/mode" && value.toString() == u"download") {
         return {QStringLiteral("check"), true, true};
     }
 #endif

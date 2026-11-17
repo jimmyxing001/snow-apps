@@ -553,9 +553,19 @@ void builtInCatalogIsCompleteAndValid() {
                         return first.id ==
                                    QStringLiteral("interface.screenshot.show-guides-by-default") &&
                                second.id ==
-                                   QStringLiteral("interface.screenshot.cursor-guide-line-color");
+                                   QStringLiteral("interface.screenshot.adaptive-guide-colors");
                     }) != screenshotInterface->items.cend(),
-            "show guides by default must appear immediately above cursor guide color");
+            "adaptive guide colors must appear immediately below show guides by default");
+    const auto* adaptiveGuideColors =
+        catalog.item({QStringLiteral("screenshots"), QStringLiteral("interface-screenshot"),
+                      QStringLiteral("interface.screenshot.adaptive-guide-colors")});
+    require(
+        adaptiveGuideColors != nullptr &&
+            adaptiveGuideColors->configurationKey ==
+                QStringLiteral("screenshot_ui/adaptive_guide_colors") &&
+            std::get<settings::SettingsSwitchDefinition>(adaptiveGuideColors->payload).binding ==
+                settings::SettingsSwitchBinding::AdaptiveGuideColors,
+        "the adaptive guide colors switch must use its own setting");
     const auto* editSelectionToolbar =
         catalog.item({QStringLiteral("screenshots"), QStringLiteral("interface-screenshot"),
                       QStringLiteral("interface.screenshot.show-edit-selection-toolbar")});
@@ -737,12 +747,13 @@ void builtInCatalogIsCompleteAndValid() {
                     const auto& select = std::get<settings::SettingsSelectDefinition>(item.payload);
 #ifdef Q_OS_MACOS
                     require(select.binding == settings::SettingsSelectBinding::UpdateMode &&
-                                select.options.size() == 2 &&
+                                select.options.size() == 3 &&
+                                select.options[2].value == QStringLiteral("next_launch") &&
                                 select.options[0].value == QStringLiteral("manual") &&
                                 select.options[1].value == QStringLiteral("check") &&
                                 storage::ConfigurationSchema::defaultValue(item.configurationKey) ==
-                                    QStringLiteral("check"),
-                            "macOS exposes only manual and automatic checks");
+                                    QStringLiteral("next_launch"),
+                            "macOS exposes manual, check and next-launch policies");
                     const auto migrated = storage::ConfigurationSchema::normalize(
                         item.configurationKey, QStringLiteral("download"));
                     require(migrated.valid && migrated.changed &&
@@ -750,9 +761,9 @@ void builtInCatalogIsCompleteAndValid() {
                             "legacy automatic download migrates to check");
                     const auto nextLaunch = storage::ConfigurationSchema::normalize(
                         item.configurationKey, QStringLiteral("next_launch"));
-                    require(nextLaunch.valid && nextLaunch.changed &&
-                                nextLaunch.value == QStringLiteral("check"),
-                            "Windows next-launch installation migrates to checks on macOS");
+                    require(nextLaunch.valid && !nextLaunch.changed &&
+                                nextLaunch.value == QStringLiteral("next_launch"),
+                            "next-launch policy remains intact on macOS");
 #else
                     require(select.binding == settings::SettingsSelectBinding::UpdateMode &&
                                 select.options.size() == 4 &&
@@ -761,8 +772,8 @@ void builtInCatalogIsCompleteAndValid() {
                                 select.options[2].value == QStringLiteral("download") &&
                                 select.options[3].value == QStringLiteral("next_launch") &&
                                 storage::ConfigurationSchema::defaultValue(item.configurationKey) ==
-                                    QStringLiteral("download"),
-                            "update policy exposes all four modes with automatic download default");
+                                    QStringLiteral("next_launch"),
+                            "update policy exposes all four modes with next-launch default");
 #endif
                     foundUpdates = true;
                 }
@@ -793,7 +804,6 @@ void builtInCatalogIsCompleteAndValid() {
         QStringLiteral("screenshot.restore-original-screen-colors"),
     };
     const QSet<QString> macOnlyItems{
-        QStringLiteral("system.login-item-settings"),
         QStringLiteral("screen-recording"),
         QStringLiteral("accessibility"),
         QStringLiteral("input-monitoring"),
@@ -3316,12 +3326,10 @@ void searchIndexIsGeneratedAndRanked() {
     require(!updates.isEmpty() &&
                 updates.constFirst().location.itemId == QStringLiteral("updates.mode"),
             "update policy is directly discoverable through settings search");
-#ifndef Q_OS_MACOS
     const auto nextLaunchUpdates = index.search(QStringLiteral("Auto-update on next launch"));
     require(!nextLaunchUpdates.isEmpty() &&
                 nextLaunchUpdates.constFirst().location.itemId == QStringLiteral("updates.mode"),
             "next-launch updates must be searchable by their option label");
-#endif
     const auto selectedText = index.search(QStringLiteral("Translate selected text"));
     require(!selectedText.isEmpty() &&
                 selectedText.constFirst().location ==
@@ -4070,8 +4078,11 @@ void featureNavigationAndSearchAreConsistent() {
     require(tray && floating && tray->reset == settings::SettingsSectionReset::Tray &&
                 floating->reset == settings::SettingsSectionReset::FloatingToolbar &&
                 registry.fieldsForReset(tray->reset).size() == 8 &&
-                registry.fieldsForReset(floating->reset).size() == 3,
+                registry.fieldsForReset(floating->reset).size() == 4,
             "merged desktop categories include every control in their reset scopes");
+    require(floating->items[0].id == QStringLiteral("floating-toolbar.enabled") &&
+                floating->items[1].id == QStringLiteral("floating-toolbar.drop-behavior"),
+            "toolbar drop behavior is immediately below Show toolbar");
     auto pages = catalog.pages();
     auto page = std::find_if(pages.begin(), pages.end(), [](const auto& definition) {
         return definition.id == QStringLiteral("screenshots");
@@ -4353,15 +4364,19 @@ int main(int argc, char** argv) {
     const auto* loginSettings =
         adminCatalog.item({QStringLiteral("general"), QStringLiteral("system-general"),
                            QStringLiteral("system.login-item-settings")});
-    require(login && QString::fromUtf8(login->title.source) == u"Launch at login" &&
-                QString::fromUtf8(login->description.source) ==
-                    u"Start Snow Shot in the background when you log in" &&
-                login->configurationKey == u"system/auto_start_at_boot",
-            "macOS login setting preserves its binding with native wording");
-    require(loginSettings &&
-                std::get<settings::SettingsActionDefinition>(loginSettings->payload).binding ==
-                    settings::SettingsActionBinding::OpenLoginItemSettings,
-            "macOS exposes the native login settings action");
+    require(
+        login && QString::fromUtf8(login->title.source) == u"Open at login" &&
+            QString::fromUtf8(login->description.source) ==
+                u"Automatically start Snow Shot in the background when you log in to your Mac" &&
+            login->configurationKey == u"system/auto_start_at_boot",
+        "macOS login setting preserves its binding with native wording");
+    require(!loginSettings, "macOS exposes only the login toggle without a setup action");
+    const settings::SettingsSearchIndex loginSearch(settings::builtInSettingsRegistry());
+    for (const auto& query : {QStringLiteral("Open at login"), QStringLiteral("Launch at login")}) {
+        const auto hits = loginSearch.search(query);
+        require(!hits.isEmpty() && hits.first().location.itemId == login->id,
+                "both the new label and the existing login alias find the single toggle");
+    }
     require(adminCatalog.item({QStringLiteral("general"), QStringLiteral("system-general"),
                                QStringLiteral("system.launch-as-administrator")}) == nullptr &&
                 adminCatalog.item({QStringLiteral("general"), QStringLiteral("system-general"),

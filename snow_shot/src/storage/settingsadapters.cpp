@@ -1944,6 +1944,14 @@ bool ScreenshotUiSettings::setShowGuidesByDefault(bool enabled) const {
     return cache().setValue(QStringLiteral("screenshot_ui/show_guides_by_default"), enabled);
 }
 
+bool ScreenshotUiSettings::adaptiveGuideColors() const {
+    return cache().value(QStringLiteral("screenshot_ui/adaptive_guide_colors")).toBool();
+}
+
+bool ScreenshotUiSettings::setAdaptiveGuideColors(bool enabled) const {
+    return cache().setValue(QStringLiteral("screenshot_ui/adaptive_guide_colors"), enabled);
+}
+
 QColor ScreenshotUiSettings::cursorGuideLineColor() const {
     return colorValue(QStringLiteral("screenshot_ui/cursor_guide_line_color"));
 }
@@ -2437,6 +2445,14 @@ bool FloatingToolbarSettings::enabled() const {
 
 bool FloatingToolbarSettings::setEnabled(bool value) const {
     return cache().setValue(QStringLiteral("floating_toolbar/enabled"), value);
+}
+
+QString FloatingToolbarSettings::dropBehavior() const {
+    return cache().value(QStringLiteral("floating_toolbar/drop_behavior")).toString();
+}
+
+bool FloatingToolbarSettings::setDropBehavior(const QString& value) const {
+    return cache().setValue(QStringLiteral("floating_toolbar/drop_behavior"), value);
 }
 
 bool FloatingToolbarSettings::hideInFullscreen() const {
