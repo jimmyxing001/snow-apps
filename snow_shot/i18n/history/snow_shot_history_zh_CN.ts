@@ -1942,6 +1942,10 @@ Files:
             <translation>取消</translation>
         </message>
         <message>
+            <source>Checkerboard</source>
+            <translation>棋盘格</translation>
+        </message>
+        <message>
             <source>Click-through</source>
             <translation>鼠标穿透</translation>
         </message>
@@ -2120,6 +2124,10 @@ Files:
             <translation>提高速度</translation>
         </message>
         <message>
+            <source>Keep transparent</source>
+            <translation>保持透明</translation>
+        </message>
+        <message>
             <source>Live content is unavailable. Retrying...</source>
             <translation>实时内容暂不可用，正在重试...</translation>
         </message>
@@ -2170,10 +2178,6 @@ Files:
         <message>
             <source>Pause</source>
             <translation>暂停</translation>
-        </message>
-        <message>
-            <source>Pin to screen management</source>
-            <translation>固定到屏幕管理</translation>
         </message>
         <message>
             <source>Pinned content</source>
@@ -2338,6 +2342,10 @@ Files:
             <translation>翻译结果</translation>
         </message>
         <message>
+            <source>Transparent layer</source>
+            <translation>透明图层</translation>
+        </message>
+        <message>
             <source>Unavailable</source>
             <translation>暂不可用</translation>
         </message>
@@ -2352,6 +2360,10 @@ Files:
         <message>
             <source>Uploading to cloud... %1%</source>
             <translation>正在上传到云端… %1%</translation>
+        </message>
+        <message>
+            <source>Window management</source>
+            <translation>窗口管理</translation>
         </message>
     </context>
     <context>

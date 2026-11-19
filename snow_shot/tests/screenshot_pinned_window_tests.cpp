@@ -36,6 +36,9 @@
 #ifdef Q_OS_MACOS
 #include <CoreGraphics/CoreGraphics.h>
 int macLivePinnedWindowTests();
+void macPlacePinnedTestUnderlay(QWidget& underlay, QWidget& pin);
+bool macPinnedHitTest(QWidget& expected, const QPoint& globalPoint);
+qintptr macPinnedWindowNumber(QWidget& pin);
 #endif
 #include "snow_shot/presentation/screenshotautofiltercontroller.h"
 #include "snow_shot/presentation/screenshottoolbarmainpanel.h"
@@ -203,6 +206,7 @@ int macPinnedContentDragTests(
 #include <iostream>
 #include <memory>
 #include <stdexcept>
+#include <tuple>
 #include <utility>
 #include <vector>
 #include <qpa/qplatformscreen.h>
@@ -1393,6 +1397,10 @@ QRect qRectForNativeRect(const RECT& rect) {
                  std::max(1L, rect.bottom - rect.top));
 }
 
+QRect nativePinnedResizeRim(const QRect& geometry) {
+    return snow_shot::presentation::pinnedContentRect(geometry).adjusted(-1, -1, 1, 1);
+}
+
 #endif
 
 void require(bool condition, const char* message) {
@@ -2100,7 +2108,8 @@ void pinnedSelectionRendersCachedOcrInCanvasCoordinates(bool restoreFromStorage 
                     "cached OCR should be available from the pinned context menu");
 #if defined(Q_OS_WIN) || defined(_WIN32)
             if (testInteractions) {
-                const QPoint corner = window->currentNativeGeometry().topLeft();
+                const QPoint corner =
+                    nativePinnedResizeRim(window->currentNativeGeometry()).topLeft();
                 require(
                     SendMessageW(toNativeHwnd(window->winId()), WM_NCHITTEST, 0,
                                  MAKELPARAM(static_cast<WORD>(corner.x()),
@@ -6702,6 +6711,8 @@ void pinnedBorderUsesCeiledWindowDpiPhysicalPixels(SnowCanvasRuntime&) {
         config.imageSource = ScreenshotImageSource::fromImage(background, config.canvasSourceRect);
         config.screen = screen;
         config.enableEditing = false;
+        config.initialBorderVisible = true;
+        config.initialShadowVisible = false;
         require(pinnedWindow->present(config), "pinned window presentation failed");
         QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
         setPinnedWindowActive(*pinnedWindow, false);
@@ -6804,10 +6815,14 @@ void pinnedBorderUsesCeiledWindowDpiPhysicalPixels(SnowCanvasRuntime&) {
                          "the border must cover its DPI-rounded width at the content edge");
         require(store.pixelColor(contentRight - 1, middleY) != borderColor,
                 "the border must leave the last content column untouched");
-        require(store.pixelColor(contentRight + borderWidth, middleY).alpha() == 0,
-                "the reserved shadow margin must begin immediately after the content border");
-        require(store.pixelColor(clientWidth, middleY) != borderColor,
-                "the store overshoot column past the client edge must stay border-free");
+        require(store.pixelColor(contentRight + borderWidth, middleY) == QColor(0, 0, 0, 1),
+                "the one-alpha margin must begin immediately after the content border");
+        const int resizeWidth = std::min(margin, qRound(6 * pinnedWindow->devicePixelRatioF()));
+        require(store.pixelColor(contentRight + resizeWidth - 1, middleY) == QColor(0, 0, 0, 1) &&
+                    store.pixelColor(contentRight + resizeWidth, middleY).alpha() == 0,
+                "the fill must occupy just the DPI-rounded six-DIP outer resize band");
+        require(store.pixelColor(clientWidth, middleY).alpha() == 0,
+                "the margin must stop at the native client edge");
         requireColorNear(store.pixelColor(middleX, contentRight), borderColor, 0,
                          "the bottom border must end at the exact content edge");
         requireColorNear(store.pixelColor(middleX, contentRight + borderWidth - 1), borderColor, 0,
@@ -7015,9 +7030,11 @@ void pinnedLazyMenuHeadersRetranslate() {
         window.findChild<QAction*>(QStringLiteral("screenshotPinnedBatchEnableHideToTopAction"));
     require(hideAll && hideAll->text() == QStringLiteral("Enable hide at top"),
             "the bulk Hide to Top action must use its English source label");
-    const QStringList menuNames{QStringLiteral("screenshotPinnedOpacityMenu"),
+    const QStringList menuNames{QStringLiteral("screenshotPinnedWindowManagementMenu"),
+                                QStringLiteral("screenshotPinnedOpacityMenu"),
                                 QStringLiteral("screenshotPinnedScaleMenu"),
-                                QStringLiteral("screenshotPinnedLoadContentMenu")};
+                                QStringLiteral("screenshotPinnedLoadContentMenu"),
+                                QStringLiteral("screenshotPinnedTransparentLayerMenu")};
     QList<QPointer<QAction>> headers;
     QStringList originalLabels;
     for (const auto& name : menuNames) {
@@ -7026,14 +7043,25 @@ void pinnedLazyMenuHeadersRetranslate() {
         headers.append(menu->menuAction());
         originalLabels.append(menu->menuAction()->text());
     }
+    auto* transparentLayerMenu = headers.constLast()->menu();
+    for (auto* action : transparentLayerMenu->actions()) {
+        headers.append(action);
+        originalLabels.append(action->text());
+    }
+    require(originalLabels.constFirst() == QStringLiteral("Window management"),
+            "the window management submenu must use its English source label");
     class MenuTranslator final : public QTranslator {
       public:
         QString translate(const char* context, const char* source, const char*,
                           int) const override {
             if (QByteArray(context) == "ScreenshotPinnedWindow" &&
-                (QByteArray(source) == "Opacity" || QByteArray(source) == "Scale" ||
-                 QByteArray(source) == "Load new content" ||
-                 QByteArray(source) == "Enable hide at top")) {
+                (QByteArray(source) == "Window management" || QByteArray(source) == "Opacity" ||
+                 QByteArray(source) == "Scale" || QByteArray(source) == "Load new content" ||
+                 QByteArray(source) == "Enable hide at top" ||
+                 QByteArray(source) == "Transparent layer" ||
+                 QByteArray(source) == "Click-through" ||
+                 QByteArray(source) == "Keep transparent" ||
+                 QByteArray(source) == "Checkerboard")) {
                 return QStringLiteral("Translated ") + QString::fromUtf8(source);
             }
             return {};
@@ -7045,9 +7073,14 @@ void pinnedLazyMenuHeadersRetranslate() {
     QCoreApplication::sendEvent(&window, &languageChange);
     require(hideAll->text() == QStringLiteral("Translated Enable hide at top"),
             "an existing bulk Hide to Top action must follow LanguageChange");
-    const QStringList translatedLabels{QStringLiteral("Translated Opacity"),
+    const QStringList translatedLabels{QStringLiteral("Translated Window management"),
+                                       QStringLiteral("Translated Opacity"),
                                        QStringLiteral("Translated Scale"),
-                                       QStringLiteral("Translated Load new content")};
+                                       QStringLiteral("Translated Load new content"),
+                                       QStringLiteral("Translated Transparent layer"),
+                                       QStringLiteral("Translated Click-through"),
+                                       QStringLiteral("Translated Keep transparent"),
+                                       QStringLiteral("Translated Checkerboard")};
     for (int index = 0; index < headers.size(); ++index) {
         require(headers.at(index) && headers.at(index)->text() == translatedLabels.at(index),
                 "an existing lazy submenu header must follow LanguageChange");
@@ -8844,11 +8877,12 @@ void pinnedDoubleClickActions() {
     // Entering drawing mode starts on the Resize window tool, where window
     // gestures stay enabled by design; switch to the Select drawing tool so
     // the canvas owns the input, as a user drawing would.
-    PhysicalKeyEvent selectPress(QEvent::KeyPress, Qt::Key_M, Qt::NoModifier);
-    QCoreApplication::sendEvent(canvas, &selectPress);
-    PhysicalKeyEvent selectRelease(QEvent::KeyRelease, Qt::Key_M, Qt::NoModifier);
-    QCoreApplication::sendEvent(canvas, &selectRelease);
-    waitForUi(50);
+    auto* editor = window->findChild<ScreenshotPinnedEditController*>();
+    require(editor && editor->toolbarWindow() && editor->toolbarWindow()->palette() &&
+                editor->toolbarWindow()->palette()->activateToolShortcut(
+                    ScreenshotToolPalette::Tool::Select) &&
+                !editor->resizeWindowToolActive(),
+            "select the drawing tool before testing canvas double-click input");
     send(canvas, canvas->rect().center());
     require(!thumbnail->isChecked(), "drawing input must not trigger the double-click action");
     drawing->setChecked(false);
@@ -8873,7 +8907,7 @@ void pinnedDoubleClickActions() {
         waitForUi(300);
         require(!thumbnail->isChecked() && window->currentNativeGeometry() == original,
                 "native thumbnail double-click must restore original geometry");
-        const QPoint border(original.left(), original.center().y());
+        const QPoint border(nativePinnedResizeRim(original).left(), original.center().y());
         require(SendMessageW(hwnd, WM_NCHITTEST, 0,
                              MAKELPARAM(static_cast<WORD>(border.x()),
                                         static_cast<WORD>(border.y()))) == HTLEFT,
@@ -9564,7 +9598,7 @@ void pinnedControlsPresenceFollowsLiveCursor() {
     SendMessageW(hwnd, WM_NCMOUSELEAVE, 0, 0);
     waitForUi(150);
     require(panel->isVisible(), "a late non-client leave must not hide a hovered child");
-    // The permanent transparent margin is outside the image's native input surface.
+    // Use the content-side resize band to exercise the transition from child controls.
     const QPoint resizeCorner =
         snow_shot::presentation::pinnedContentRect(frame).topLeft() + QPoint(1, 1);
     require(SendMessageW(hwnd, WM_NCHITTEST, 0,
@@ -10107,7 +10141,7 @@ void pinnedScalingAndAspectLockedResizing(SnowCanvasRuntime&) {
             MAKELPARAM(static_cast<WORD>(position.x()), static_cast<WORD>(position.y())));
     };
 
-    const QRect hitTestGeometry = pinnedWindow->currentNativeGeometry();
+    const QRect hitTestGeometry = nativePinnedResizeRim(pinnedWindow->currentNativeGeometry());
     const int hitTestRight = hitTestGeometry.left() + hitTestGeometry.width() - 1;
     const int hitTestBottom = hitTestGeometry.top() + hitTestGeometry.height() - 1;
     const QPoint hitTestCenter = hitTestGeometry.center();
@@ -10334,22 +10368,21 @@ void pinnedScalingAndAspectLockedResizing(SnowCanvasRuntime&) {
     require(editToolbar->isVisible() && pinnedWindow->currentNativeGeometry() == editModeGeometry &&
                 editController->resizeWindowToolActive(),
             "a no-motion native interaction must restore the toolbar, geometry, and tool");
-    require(nativeHitTest(QPoint(editModeGeometry.right(), editModeGeometry.center().y())) ==
-                HTRIGHT,
+    const QPoint editModeResizePoint(nativePinnedResizeRim(editModeGeometry).right(),
+                                     editModeGeometry.center().y());
+    require(nativeHitTest(editModeResizePoint) == HTRIGHT,
             "Resize window must preserve the native right-edge hit band");
 
     require(editPalette->activateToolShortcut(ScreenshotToolPalette::Tool::Select) &&
                 editPalette->activeToolForTests() == ScreenshotToolPalette::Tool::Select &&
                 !editController->resizeWindowToolActive() &&
                 nativeHitTest(editModeGeometry.center()) == HTCLIENT &&
-                nativeHitTest(QPoint(editModeGeometry.right(), editModeGeometry.center().y())) ==
-                    HTRIGHT,
+                nativeHitTest(editModeResizePoint) == HTRIGHT,
             "Select must keep the interior client-interactive while preserving edge resizing");
     require(editPalette->activateDrawingShortcut(QStringLiteral("shape")) &&
                 editPalette->activeToolForTests() == ScreenshotToolPalette::Tool::Shape &&
                 nativeHitTest(editModeGeometry.center()) == HTCLIENT &&
-                nativeHitTest(QPoint(editModeGeometry.right(), editModeGeometry.center().y())) ==
-                    HTRIGHT,
+                nativeHitTest(editModeResizePoint) == HTRIGHT,
             "drawing tools must preserve both canvas input and native edge resizing");
 
     QRect drawingProposal = editModeGeometry;
@@ -10360,8 +10393,7 @@ void pinnedScalingAndAspectLockedResizing(SnowCanvasRuntime&) {
                 qRectForNativeRect(drawingNative) != drawingProposal,
             "drawing mode must constrain accepted WM_SIZING proposals to the image ratio");
     ScreenshotPinnedWindowTestAccess::setRecognitionInteraction(*pinnedWindow, true);
-    require(nativeHitTest(QPoint(editModeGeometry.right(), editModeGeometry.center().y())) ==
-                HTRIGHT,
+    require(nativeHitTest(editModeResizePoint) == HTRIGHT,
             "recognition modes must preserve native edge resizing");
     ScreenshotPinnedWindowTestAccess::setRecognitionInteraction(*pinnedWindow, false);
     drawingAction->setChecked(false);
@@ -10562,7 +10594,9 @@ void pinnedResizeWindowNativeInteractions() {
     const QRect geometry = window->currentNativeGeometry();
     require(controller->resizeWindowToolActive() && !canvas->interactionEnabled(),
             "drawing mode must start with Resize window and an inactive canvas");
-    requireAllResizeHits(geometry, "Resize window must expose all four edges and all four corners");
+    const QRect resizeRim = nativePinnedResizeRim(geometry);
+    requireAllResizeHits(resizeRim,
+                         "Resize window must expose all four edges and all four corners");
     require(nativeHitTest(geometry.center()) == HTCAPTION,
             "Resize window must expose eligible interior content as HTCAPTION");
     require(SendMessage(hwnd, WM_SETCURSOR, reinterpret_cast<WPARAM>(hwnd),
@@ -10593,14 +10627,14 @@ void pinnedResizeWindowNativeInteractions() {
                 palette->activeToolForTests() == ScreenshotToolPalette::Tool::Select &&
                 canvas->interactionEnabled(),
             "explicit Select must leave Resize window and enable canvas input");
-    requireAllResizeHits(geometry, "Select must retain every native resize hit zone");
+    requireAllResizeHits(resizeRim, "Select must retain every native resize hit zone");
     require(nativeHitTest(geometry.center()) == HTCLIENT,
             "Select must retain client interaction inside the edge band");
 
     require(palette->activateDrawingShortcut(QStringLiteral("shape")) &&
                 palette->activeToolForTests() == ScreenshotToolPalette::Tool::Shape,
             "native Resize window fixture could not activate Shape");
-    requireAllResizeHits(geometry, "drawing tools must retain every native resize hit zone");
+    requireAllResizeHits(resizeRim, "drawing tools must retain every native resize hit zone");
     require(nativeHitTest(geometry.center()) == HTCLIENT,
             "drawing tools must retain client interaction inside the edge band");
 
@@ -10620,7 +10654,7 @@ void pinnedResizeWindowNativeInteractions() {
             "canceling native edge adjustment must restore the toolbar and exact drawing tool");
 
     ScreenshotPinnedWindowTestAccess::setRecognitionInteraction(*window, true);
-    requireAllResizeHits(geometry, "recognition tools must retain every native resize hit zone");
+    requireAllResizeHits(resizeRim, "recognition tools must retain every native resize hit zone");
     require(nativeHitTest(geometry.center()) == HTCLIENT,
             "recognition content without an eligible background must remain client-interactive");
     ScreenshotPinnedWindowTestAccess::setRecognitionInteraction(*window, false);
@@ -11663,12 +11697,17 @@ void pinnedBatchHideToTop() {
     require(menu && hideAll && shadow && load && !hideAll->isCheckable(),
             "Window Management must expose the non-checkable bulk Hide to Top action");
     auto* batch = window.findChild<QAction*>(QStringLiteral("screenshotPinnedBatchActionsAction"));
+    auto* transparentLayer = window.findChild<adqt::widgets::AdContextMenu*>(
+        QStringLiteral("screenshotPinnedTransparentLayerMenu"));
     const auto actions = menu->actions();
     const auto shadowIndex = actions.indexOf(shadow);
-    require(batch && shadowIndex >= 0 && actions.indexOf(batch) == shadowIndex + 2 &&
-                actions.at(shadowIndex + 1)->isSeparator() &&
+    require(batch && transparentLayer && shadowIndex >= 0 &&
+                actions.indexOf(transparentLayer->menuAction()) == shadowIndex + 1 &&
+                actions.indexOf(batch) == shadowIndex + 3 &&
+                actions.at(shadowIndex + 2)->isSeparator() &&
                 actions.indexOf(load) == actions.indexOf(batch) + 1,
-            "Show shadow is followed by a separator, Batch Actions, then Load content");
+            "Show shadow is followed by Transparent layer, a separator, Batch Actions, and Load "
+            "content");
 
     hideAll->trigger();
     for (auto* pin : {&window, &thumbnail, &locked, &clickThrough}) {
@@ -12703,6 +12742,7 @@ void pinnedLockNative() {
         waitForUi(10);
     Access::setLock(window, true);
     const QRect geometry = window.currentNativeGeometry();
+    const QPoint resizeCorner = nativePinnedResizeRim(geometry).topLeft();
     const HWND hwnd = reinterpret_cast<HWND>(window.winId());
     for (const auto command : {SC_MOVE, SC_SIZE}) {
         require(SendMessageW(hwnd, WM_SYSCOMMAND, command, 0) == 0 &&
@@ -12715,7 +12755,7 @@ void pinnedLockNative() {
                     window.currentNativeGeometry() == geometry,
                 "locked native move and resize presses must not change geometry");
     }
-    require(SendMessageW(hwnd, WM_NCHITTEST, 0, MAKELPARAM(geometry.x() + 1, geometry.y() + 1)) ==
+    require(SendMessageW(hwnd, WM_NCHITTEST, 0, MAKELPARAM(resizeCorner.x(), resizeCorner.y())) ==
                 HTCLIENT,
             "locked edges must use client input routing");
     for (const UINT message : {WM_MOVING, WM_SIZING}) {
@@ -12728,7 +12768,7 @@ void pinnedLockNative() {
                 "native geometry proposals must be constrained while locked");
     }
     Access::setLock(window, false);
-    require(SendMessageW(hwnd, WM_NCHITTEST, 0, MAKELPARAM(geometry.x() + 1, geometry.y() + 1)) ==
+    require(SendMessageW(hwnd, WM_NCHITTEST, 0, MAKELPARAM(resizeCorner.x(), resizeCorner.y())) ==
                 HTTOPLEFT,
             "unlock must restore native resize hit testing");
     window.close();
@@ -13788,6 +13828,358 @@ void pinnedCheckerboardTracksContentSource() {
             "RGB replacement must clear checkerboard");
     replacementWindow.close();
 }
+
+ScreenshotPinnedWindow::Config transparentLayerTestConfig(QScreen& screen) {
+    auto config = clickThroughTestConfig(screen);
+    QImage image = config.imageSource.materializedImage;
+    QPainter painter(&image);
+    painter.setCompositionMode(QPainter::CompositionMode_Source);
+    painter.fillRect(QRect(120, 120, 160, 160), Qt::transparent);
+    painter.end();
+    config.imageSource = ScreenshotImageSource::fromImage(image, config.canvasSourceRect);
+    config.initialBorderVisible = false;
+    config.initialShadowVisible = false;
+    return config;
+}
+
+QList<QAction*> transparentLayerActions(ScreenshotPinnedWindow& window) {
+    materializePinnedMenuTree(window);
+    const auto* menu = window.findChild<adqt::widgets::AdContextMenu*>(
+        QStringLiteral("screenshotPinnedTransparentLayerMenu"));
+    require(menu && menu->menuAction()->text() == QStringLiteral("Transparent layer") &&
+                !menu->menuAction()->icon().pixmap(QSize(16, 16)).isNull() &&
+                menu->actions().size() == 3,
+            "the Transparent layer menu must show its icon and offer three modes");
+    return menu->actions();
+}
+
+void activeGroupTransparentLayerOffscreen() {
+    using Mode = snow_shot::storage::PinnedTransparentLayerMode;
+    IsolatedPinnedStorage storage;
+    snow_shot::presentation::PinnedWindowGroupManager groups;
+    const auto otherGroup = groups.createGroup(QStringLiteral("Other pins"));
+    require(otherGroup.has_value(), "the tray scope fixture needs an inactive group");
+    ScreenshotPinnedWindow first;
+    ScreenshotPinnedWindow second;
+    ScreenshotPinnedWindow other;
+    ScreenshotPinnedWindow closing;
+    other.setGroupId(*otherGroup);
+    second.setTransparentLayerMode(Mode::ClickThrough);
+    for (auto* window : {&first, &second, &other, &closing})
+        groups.registerWindow(window, window->groupId());
+    groups.markWindowClosing(&closing);
+    require(groups.activeGroupTransparentLayerModes() ==
+                QSet<Mode>{Mode::Checkerboard, Mode::ClickThrough},
+            "the tray reports mixed modes from the current group");
+
+    groups.setActiveGroupTransparentLayerMode(Mode::KeepTransparent);
+    require(first.transparentLayerMode() == Mode::KeepTransparent &&
+                second.transparentLayerMode() == Mode::KeepTransparent &&
+                other.transparentLayerMode() == Mode::Checkerboard &&
+                closing.transparentLayerMode() == Mode::Checkerboard &&
+                groups.activeGroupTransparentLayerModes() == QSet<Mode>{Mode::KeepTransparent},
+            "the tray changes only open pins in the current group");
+}
+
+void pinnedTransparentLayerOffscreen() {
+    using Access = ScreenshotPinnedWindowTestAccess;
+    using Mode = snow_shot::storage::PinnedTransparentLayerMode;
+    QScreen* screen = QGuiApplication::primaryScreen();
+    require(screen != nullptr, "transparent layer needs a screen");
+    ScreenshotPinnedWindow window;
+    Access::prepareReplacement(window, transparentLayerTestConfig(*screen));
+    window.show();
+    const auto actions = transparentLayerActions(window);
+    auto* clickThrough = actions.at(0);
+    auto* keepTransparent = actions.at(1);
+    auto* checkerboard = actions.at(2);
+    require(clickThrough->text() == QStringLiteral("Click-through") &&
+                keepTransparent->text() == QStringLiteral("Keep transparent") &&
+                checkerboard->text() == QStringLiteral("Checkerboard"),
+            "transparent layer options must appear in the requested order");
+    const auto requireChecked = [&](QAction* selected) {
+        for (const QAction* action : actions) {
+            require(action->isCheckable() && action->isChecked() == (action == selected),
+                    "only the selected Transparent layer option can be checked");
+        }
+    };
+    requireChecked(checkerboard);
+    const auto initialPreview = renderWidget(window);
+    const QColor checkerColor = initialPreview.pixelColor(initialPreview.rect().center());
+    require(checkerColor.alpha() == 255, "the default checkerboard must back the hole");
+
+    for (const auto& [action, mode, expected] :
+         {std::tuple{clickThrough, Mode::ClickThrough, QColor(Qt::transparent)},
+          std::tuple{keepTransparent, Mode::KeepTransparent, QColor(0, 0, 0, 1)},
+          std::tuple{checkerboard, Mode::Checkerboard, checkerColor}}) {
+        action->trigger();
+        requireChecked(action);
+        const auto snapshot = window.persistenceSnapshot();
+        require(
+            snapshot.transparentLayerMode == mode && !snapshot.clickThroughMode &&
+                snapshot.checkerboardEnabled == true,
+            "the menu must set the pin mode independently of its source and whole-window input");
+        const auto preview = renderWidget(window);
+        require(preview.pixelColor(preview.rect().center()) == expected &&
+                    preview.pixelColor(preview.width() / 4, preview.height() / 2) ==
+                        QColor(42, 84, 126) &&
+                    renderWholeWidget(window).pixelColor(0, 0).alpha() == 0,
+                "the mode must back only the transparent content and leave the outer gutter clear");
+
+        QImage exported;
+        bool completed = false;
+        auto artifact = Access::fileSave(window);
+        require(artifact && artifact->requestImage(&window,
+                                                   [&](ScreenshotExportImageResult result) {
+                                                       exported = std::move(result.image);
+                                                       completed = true;
+                                                   }),
+                "transparent pin export must start");
+        translation_tests::waitUntil([&] { return completed; }, "transparent pin export finishes");
+        require(!exported.isNull() && exported.pixelColor(exported.rect().center()).alpha() == 0,
+                "transparent layer modes must preserve export alpha");
+    }
+
+    clickThrough->trigger();
+    Access::thumbnailForHideTest(window, true);
+    const auto thumbnail = renderWidget(window);
+    require(thumbnail.pixelColor(thumbnail.rect().center()).alpha() == 255,
+            "the thumbnail keeps its opaque presentation");
+    Access::thumbnailForHideTest(window, false);
+    const auto expanded = renderWidget(window);
+    require(expanded.pixelColor(expanded.rect().center()).alpha() == 0,
+            "expanding the thumbnail reapplies the selected mode");
+    requireChecked(clickThrough);
+    window.close();
+
+    ScreenshotPinnedWindow legacy;
+    auto legacyConfig = transparentLayerTestConfig(*screen);
+    legacyConfig.checkerboardEnabled = false;
+    Access::prepareReplacement(legacy, legacyConfig);
+    legacy.show();
+    const auto legacyActions = transparentLayerActions(legacy);
+    const auto paintedCenter = [&] {
+        const auto image = renderWidget(legacy);
+        return image.pixelColor(image.rect().center());
+    };
+    require(paintedCenter().alpha() == 0 && !legacy.persistenceSnapshot().transparentLayerMode,
+            "a pin without a saved choice retains its source's transparent background");
+    legacyActions.at(2)->trigger();
+    require(paintedCenter().alpha() == 255 &&
+                legacy.persistenceSnapshot().transparentLayerMode == Mode::Checkerboard,
+            "selecting Checkerboard fills a transparent hole regardless of the source default");
+    legacy.close();
+}
+
+void pinnedTransparentLayerRestores() {
+    using Access = ScreenshotPinnedWindowTestAccess;
+    using Mode = snow_shot::storage::PinnedTransparentLayerMode;
+    IsolatedPinnedStorage storage;
+    QScreen* screen = QGuiApplication::primaryScreen();
+    require(screen != nullptr, "transparent layer restore needs a screen");
+    auto record = savedPinnedRecord(*screen, 1.0, QSize(400, 400), 100.0, QPoint(40, 40));
+    record.image = transparentLayerTestConfig(*screen).imageSource.materializedImage;
+    record.checkerboardEnabled = false;
+    record.transparentLayerMode = Mode::Checkerboard;
+    ScreenshotSelectionExportUiServices services;
+    auto* restored = restoreSeededPinnedWindow(services, record);
+    const auto preview = renderWidget(*restored);
+    const auto actions = transparentLayerActions(*restored);
+    require(actions.at(2)->isChecked() &&
+                preview.pixelColor(preview.rect().center()).alpha() == 255,
+            "a restored pin must apply an explicit Checkerboard over the source default");
+    actions.at(0)->trigger();
+    require(Access::persistencePending(*restored), "changing the layer schedules a state save");
+    Access::persistNow(*restored);
+    const auto updated =
+        snow_shot::storage::ApplicationStorage::instance().pinnedWindows().loadRecord(record.id);
+    require(updated && updated->transparentLayerMode == Mode::ClickThrough,
+            "the menu must save the newly selected mode through the pin state writer");
+    closeRestoredPinnedWindow(restored, record.id);
+}
+
+#ifdef Q_OS_MACOS
+void cocoaPinnedTransparentInputMaskOffscreen() {
+    using snow_shot::presentation::updateCocoaPinnedInputMask;
+    QImage pixels(QSize(12, 6), QImage::Format_ARGB32_Premultiplied);
+    pixels.fill(Qt::transparent);
+    pixels.setPixelColor(1, 1, QColor(0, 0, 0, 1));
+    pixels.setPixelColor(5, 1, Qt::black);
+    const auto initial = updateCocoaPinnedInputMask({}, pixels, QRegion(0, 0, 6, 3), 2);
+    require(initial == QRegion(0, 0, 1, 1) + QRect(2, 0, 1, 1),
+            "any nonzero backing pixel makes its Retina logical cell interactive");
+
+    pixels.fill(Qt::transparent);
+    pixels.setPixelColor(5, 3, Qt::black);
+    pixels.setPixelColor(11, 5, Qt::black);
+    const auto updated = updateCocoaPinnedInputMask(initial, pixels, QRegion(2, 0, 1, 2), 2);
+    require(updated == QRegion(0, 0, 1, 1) + QRect(2, 1, 1, 1),
+            "mask updates replace only the painted region and reuse the surrounding cells");
+}
+#endif
+
+#if defined(Q_OS_WIN) || defined(Q_OS_MACOS)
+void pinnedTransparentLayerNativeHitTesting() {
+    using Access = ScreenshotPinnedWindowTestAccess;
+    QScreen* screen = QGuiApplication::primaryScreen();
+    require(screen != nullptr, "native transparency needs a screen");
+    ScreenshotPinnedWindow window;
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    auto config = transparentLayerTestConfig(*screen);
+    config.initialBorderVisible = true;
+    require(window.present(config), "show the native transparent pin");
+    translation_tests::waitUntil(
+        [&] { return window.automationState().value(QStringLiteral("ready")).toBool(); },
+        "the native transparent pin must publish its content");
+    QWidget underlay(nullptr, Qt::Window | Qt::FramelessWindowHint);
+    underlay.setGeometry(window.geometry());
+    underlay.show();
+#ifdef Q_OS_MACOS
+    macPlacePinnedTestUnderlay(underlay, window);
+    const qintptr nativeWindowNumber = macPinnedWindowNumber(window);
+#endif
+
+    const QRect content = Access::contentViewport(window).toAlignedRect();
+    const QPoint hole = content.center();
+    const QPoint opaque(content.left() + content.width() / 4, hole.y());
+#ifdef Q_OS_WIN
+    const auto hitsNative = [](QWidget& expected, const QPoint& point) {
+        return WindowFromPoint(POINT{point.x(), point.y()}) == toNativeHwnd(expected.winId());
+    };
+    const auto hits = [&](QWidget& expected, const QPoint& localPoint) {
+        return hitsNative(expected, Access::nativePoint(window, localPoint));
+    };
+    const QRect nativeContent = Access::contentGeometry(window);
+    const int resizeWidth = std::min(snow_shot::presentation::pinnedShadowMargin(),
+                                     qRound(6 * window.devicePixelRatioF()));
+    const QPoint resizeEdge(nativeContent.left() - resizeWidth, nativeContent.center().y());
+    const QPoint outsideResizeEdge = resizeEdge - QPoint(1, 0);
+#else
+    const QPoint gutter(content.left() / 2, hole.y());
+    const auto hits = [&](QWidget& expected, const QPoint& localPoint) {
+        return macPinnedHitTest(expected, window.mapToGlobal(localPoint));
+    };
+#endif
+    const auto actions = transparentLayerActions(window);
+    translation_tests::waitUntil([&] { return hits(window, hole) && hits(window, opaque); },
+                                 "checkerboard and opaque image pixels must hit the pin");
+#ifdef Q_OS_WIN
+    translation_tests::waitUntil([&] { return hitsNative(window, resizeEdge); },
+                                 "the outermost pixel of the resize band must hit the pin");
+    require(!hitsNative(window, outsideResizeEdge),
+            "the very next pixel outside the resize band must pass through");
+    const auto nativeHitTest = [&](const QPoint& point) {
+        return SendMessageW(toNativeHwnd(window.winId()), WM_NCHITTEST, 0,
+                            MAKELPARAM(point.x(), point.y()));
+    };
+    require(nativeHitTest(resizeEdge) == HTLEFT && nativeHitTest(outsideResizeEdge) != HTLEFT,
+            "the resize hit boundary must match the painted boundary");
+#endif
+#ifdef Q_OS_MACOS
+    const QPoint rim(content.left() - 1, hole.y());
+    const QImage withBorder = renderPinnedWithBorder(window);
+    require(withBorder.pixelColor(0, withBorder.height() / 2).alpha() > 0 &&
+                renderWholeWidget(window).pixelColor(gutter).alpha() == 0,
+            "the macOS border-only decoration needs a painted rim and a clear gutter");
+#endif
+    actions.at(0)->trigger();
+    translation_tests::waitUntil([&] { return hits(underlay, hole) && hits(window, opaque); },
+                                 "the transparent hole must hit the underlay");
+#ifdef Q_OS_WIN
+    require(hitsNative(window, resizeEdge),
+            "pixel passthrough must keep the painted resize band interactive");
+    Access::shadowState(window, false, false);
+    translation_tests::waitUntil([&] { return !hitsNative(window, resizeEdge); },
+                                 "hiding the border must clear the band from native input");
+    Access::shadowState(window, true, false);
+    translation_tests::waitUntil([&] { return hitsNative(window, resizeEdge); },
+                                 "showing the border must make the resize band interactive again");
+#endif
+#ifdef Q_OS_MACOS
+    require(hits(window, rim) && hits(underlay, gutter),
+            "masked input must hit the rim and pass through the clear outer gutter");
+    const QRegion initialMask = window.windowHandle()->mask();
+    require(!initialMask.isEmpty() && initialMask.contains(opaque) && !initialMask.contains(hole),
+            "the macOS mask must follow the painted pixels");
+    require(macPinnedWindowNumber(window) == nativeWindowNumber,
+            "applying the mask must preserve the initial native window");
+    {
+        QWidget patch(&window);
+        patch.setAutoFillBackground(true);
+        patch.setGeometry(QRect(hole - QPoint(10, 10), QSize(20, 20)));
+        patch.show();
+        patch.raise();
+        translation_tests::waitUntil(
+            [&] { return hits(window, hole) && hits(window, opaque); },
+            "a newly painted child adds input without dropping the cached opaque pixels");
+        const QPoint movedHole = hole + QPoint(30, 0);
+        patch.move(movedHole - QPoint(10, 10));
+        translation_tests::waitUntil(
+            [&] { return hits(underlay, hole) && hits(window, movedHole) && hits(window, opaque); },
+            "moving an opaque child refreshes the old and new portions of the mask");
+        patch.hide();
+        translation_tests::waitUntil(
+            [&] {
+                return hits(underlay, movedHole) &&
+                       window.windowHandle()->mask().xored(initialMask).isEmpty();
+            },
+            "hiding the child removes its input without changing the rest of the mask");
+    }
+#else
+    require(window.windowHandle()->mask().isEmpty(), "Windows uses the layered window alpha");
+#endif
+    require(Access::setClickThrough(window, true), "enable the separate whole-window mode");
+    translation_tests::waitUntil([&] { return hits(underlay, hole) && hits(underlay, opaque); },
+                                 "whole-window mode must pass through both image points");
+#ifdef Q_OS_WIN
+    require(!hitsNative(window, resizeEdge), "whole-window mode must pass through the resize band");
+#endif
+    require(Access::setClickThrough(window, false), "leave the separate whole-window mode");
+    translation_tests::waitUntil([&] { return hits(underlay, hole) && hits(window, opaque); },
+                                 "leaving whole-window mode restores per-pixel input");
+#ifdef Q_OS_MACOS
+    const qintptr restoredWindowNumber = macPinnedWindowNumber(window);
+#endif
+    actions.at(1)->trigger();
+    translation_tests::waitUntil([&] { return hits(window, hole) && hits(window, opaque); },
+                                 "the nearly transparent fill must hit the pin");
+    require(window.windowHandle()->mask().isEmpty(), "leaving pixel passthrough clears the mask");
+    Access::setGeneralOpacity(window, 25);
+    translation_tests::waitUntil([&] { return hits(window, hole); },
+                                 "the fill must still hit the pin at minimum menu opacity");
+#ifdef Q_OS_WIN
+    translation_tests::waitUntil([&] { return hitsNative(window, resizeEdge); },
+                                 "the resize band must still hit the pin at minimum opacity");
+    require(!hitsNative(window, outsideResizeEdge),
+            "compensating opacity must keep the area beyond the resize band clear");
+#endif
+    Access::setGeneralOpacity(window, 100);
+    actions.at(0)->trigger();
+    ScreenshotClipboardContent replacement;
+    replacement.image = QImage(QSize(400, 400), QImage::Format_ARGB32_Premultiplied);
+    replacement.image.fill(QColor(42, 84, 126));
+    {
+        QPainter painter(&replacement.image);
+        painter.setCompositionMode(QPainter::CompositionMode_Source);
+        painter.fillRect(QRect(40, 120, 120, 160), Qt::transparent);
+    }
+    require(Access::replace(window, std::move(replacement)), "move the pin's transparent hole");
+    translation_tests::waitUntil(
+        [&] {
+            const QRect viewport = Access::contentViewport(window).toAlignedRect();
+            const QPoint center = viewport.center();
+            const QPoint newHole(viewport.left() + viewport.width() / 4, center.y());
+            return hits(window, center) && hits(underlay, newHole);
+        },
+        "native input must follow the newly painted alpha");
+#ifdef Q_OS_MACOS
+    require(window.windowHandle()->mask() != initialMask &&
+                macPinnedWindowNumber(window) == restoredWindowNumber,
+            "redrawing alpha must update the mask on the existing window");
+#endif
+    window.close();
+}
+#endif
 
 void pinnedThumbnailBorderContainsBackgroundOffscreen() {
     using Access = ScreenshotPinnedWindowTestAccess;
@@ -17993,7 +18385,8 @@ void pinnedCtrlHoverKeepsWindowCursorOffscreen() {
                     canvas->canvasSnapConfig().enabled == snapping &&
                     Access::dragDocument(window) == document,
                 "disabled drawing input must preserve cursor, snapping, and document state");
-        require(hit(QPoint(1, 1), Qt::ControlModifier) == HTTOPLEFT,
+        const QPoint resizeCorner = Access::contentViewport(window).topLeft().toPoint();
+        require(hit(resizeCorner, Qt::ControlModifier) == HTTOPLEFT,
                 "Ctrl must preserve native resize borders");
     }
     window.close();
@@ -18036,8 +18429,9 @@ void pinnedOcrBoxSelectionNativeRouting() {
     require(hit(blank, Qt::ControlModifier) == HTCAPTION &&
                 hit(blank, Qt::ControlModifier | Qt::AltModifier) == HTCAPTION,
             "visible OCR preserves existing Ctrl movement and Ctrl precedence");
-    require(hit(QPoint(1, 1), Qt::NoModifier) == HTTOPLEFT &&
-                hit(QPoint(1, 1), Qt::AltModifier) == HTTOPLEFT,
+    const QPoint resizeCorner = Access::contentViewport(window).topLeft().toPoint();
+    require(hit(resizeCorner, Qt::NoModifier) == HTTOPLEFT &&
+                hit(resizeCorner, Qt::AltModifier) == HTTOPLEFT,
             "OCR box selection and Alt movement preserve native resize handles");
     Access::setLock(window, true);
     require(hit(blank, Qt::NoModifier) == HTCLIENT && hit(blank, Qt::AltModifier) == HTCLIENT &&
@@ -18150,7 +18544,8 @@ void pinnedDragExportNativeHitTest() {
             "native fixture targets the image interior");
     require(hit(imagePoint, false) == HTCAPTION, "ordinary image drag uses native caption");
     require(hit(imagePoint, true) == HTCLIENT, "Ctrl image drag is delivered to Qt");
-    require(hit(QPoint(1, 1), true) == HTTOPLEFT, "Ctrl leaves resize borders native");
+    const QPoint resizeCorner = Access::contentViewport(window).topLeft().toPoint();
+    require(hit(resizeCorner, true) == HTTOPLEFT, "Ctrl leaves resize borders native");
     const snow_shot::storage::PinToScreenSettings settings;
     require(settings.setTextSelectionOnRecognitionResults(QStringLiteral("always")),
             "enable hidden selection for native drag routing");
@@ -18178,9 +18573,9 @@ void pinnedDragExportNativeHitTest() {
     require(hit(text, false) == HTCLIENT, "releasing Alt restores native text-selection routing");
     require(hit(blank, false) == HTCAPTION && hit(blank, true) == HTCLIENT,
             "Ctrl routes hidden selection background to Qt instead of native window movement");
-    require(hit(QPoint(1, 1), true) == HTTOPLEFT,
+    require(hit(resizeCorner, true) == HTTOPLEFT,
             "hidden selection Ctrl dragging preserves native resize borders");
-    require(hit(QPoint(1, 1), false, true) == HTTOPLEFT,
+    require(hit(resizeCorner, false, true) == HTTOPLEFT,
             "Alt text dragging preserves native resize borders");
     window.close();
 }
@@ -20542,6 +20937,8 @@ void pinnedTransparentPhysicalEdges(bool liveSurface) {
             config.canvasSourceRect);
         config.borderAppearance = screenshotSelectionBorderAppearance(extent, style);
         config.checkerboardEnabled = false;
+        config.initialBorderVisible = false;
+        config.initialShadowVisible = false;
         require(window.present(config), "transparent edge fixture must present");
         waitForUi(30);
         const qreal dpr = window.devicePixelRatioF();
@@ -20587,7 +20984,7 @@ void pinnedTransparentPhysicalEdges(bool liveSurface) {
             verifyCorners(raster.copy(contentRaster), false);
             require(raster.pixelColor(0, 0).alpha() == 0 &&
                         raster.pixelColor(contentRaster.center().x(), margin - 1).alpha() == 0,
-                    "the disabled shadow must leave the reserved margin transparent");
+                    "disabling both decorations must keep the reserved margin transparent");
             require(SetWindowPos(toNativeHwnd(window.winId()), HWND_TOPMOST, 0, 0, 0, 0,
                                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE) != FALSE,
                     "transparent fixture must be above its backdrop");
@@ -26807,23 +27204,88 @@ void pinnedShadowStateAndMarginsOffscreen() {
                 window.currentNativeGeometry() == outer &&
                 Access::contentGeometry(window) == content,
             "Y must enable the shadow before opening the menu and preserve border and geometry");
+    const QRect viewport = Access::contentViewport(window).toRect();
+    const QRect client = window.rect();
+    const auto requireAllResizeHandles = [&](const QRect& bounds) {
+        const std::array<std::pair<QPoint, int>, 8> handles = {
+            std::pair{bounds.topLeft(), 0},
+            std::pair{QPoint(viewport.center().x(), bounds.top()), 1},
+            std::pair{bounds.topRight(), 2},
+            std::pair{QPoint(bounds.right(), viewport.center().y()), 3},
+            std::pair{bounds.bottomRight(), 4},
+            std::pair{QPoint(viewport.center().x(), bounds.bottom()), 5},
+            std::pair{bounds.bottomLeft(), 6},
+            std::pair{QPoint(bounds.left(), viewport.center().y()), 7}};
+        for (const auto& [point, expected] : handles)
+            require(Access::decorationResizeHandle(window, point) == expected,
+                    "all four edges and four corners must reach the resize bounds");
+    };
+    requireAllResizeHandles(client);
     sendShortcut(window, Qt::Key_Y);
     require(!window.persistenceSnapshot().showShadow && window.persistenceSnapshot().showBorder,
             "Y must toggle the shadow off independently of the border");
-    const QRect viewport = Access::contentViewport(window).toRect();
-    const QRect client = window.rect();
-    const std::array<std::pair<QPoint, int>, 8> handles = {
-        std::pair{client.topLeft(), 0},
-        std::pair{QPoint(viewport.center().x(), client.top()), 1},
-        std::pair{client.topRight(), 2},
-        std::pair{QPoint(client.right(), viewport.center().y()), 3},
-        std::pair{client.bottomRight(), 4},
-        std::pair{QPoint(viewport.center().x(), client.bottom()), 5},
-        std::pair{client.bottomLeft(), 6},
-        std::pair{QPoint(client.left(), viewport.center().y()), 7}};
-    for (const auto& [point, expected] : handles)
-        require(Access::decorationResizeHandle(window, point) == expected,
-                "shadow margin shares all eight resize handles with content edges");
+#ifdef Q_OS_WIN
+    constexpr int borderOnlyMarginAlpha = 1;
+    const QRect resizeBounds = viewport.adjusted(-6, -6, 6, 6);
+    requireAllResizeHandles(resizeBounds);
+    const QPoint resizePoint(resizeBounds.left(), viewport.center().y());
+    const QPoint outsidePoint = resizePoint - QPoint(1, 0);
+    const QImage borderOnly = renderWholeWidget(window);
+    const std::pair<QPoint, QPoint> edges[] = {
+        {resizePoint, QPoint(-1, 0)},
+        {QPoint(resizeBounds.right(), resizePoint.y()), QPoint(1, 0)},
+        {QPoint(viewport.center().x(), resizeBounds.top()), QPoint(0, -1)},
+        {QPoint(viewport.center().x(), resizeBounds.bottom()), QPoint(0, 1)},
+        {resizeBounds.topLeft(), QPoint(-1, -1)},
+        {resizeBounds.bottomRight(), QPoint(1, 1)},
+    };
+    for (const auto& [edge, outward] : edges) {
+        require(borderOnly.pixelColor(edge) == QColor(0, 0, 0, 1) &&
+                    borderOnly.pixelColor(edge + outward).alpha() == 0 &&
+                    !Access::decorationResizeHandle(window, edge + outward),
+                "the six-DIP paint and resize boundaries must match");
+    }
+    Access::setGeneralOpacity(window, 25);
+    const QImage dimmed = renderWholeWidget(window);
+    require(dimmed.pixelColor(resizePoint) == QColor(0, 0, 0, 2) &&
+                dimmed.pixelColor(outsidePoint).alpha() == 0,
+            "minimum opacity must compensate alpha only in the resize band");
+    Access::setGeneralOpacity(window, 100);
+    require(renderWholeWidget(window).pixelColor(resizePoint) == QColor(0, 0, 0, 1),
+            "restoring full opacity must restore the one-alpha fill");
+
+    const auto requireResizeMarginAlpha = [&](int expected, const char* message) {
+        waitForUi(5);
+        const QRect currentViewport = Access::contentViewport(window).toRect();
+        const QPoint point(currentViewport.left() - 3, currentViewport.center().y());
+        if (auto* store = window.backingStore();
+            store && store->paintDevice() && store->paintDevice()->devType() == QInternal::Image) {
+            const auto& raster = *static_cast<const QImage*>(store->paintDevice());
+            const QPoint physicalPoint = QPointF(point * window.devicePixelRatioF()).toPoint();
+            require(raster.pixelColor(physicalPoint).alpha() == expected, message);
+        }
+        require(renderWholeWidget(window).pixelColor(point).alpha() == expected, message);
+    };
+    Access::setLock(window, true);
+    require(window.persistenceSnapshot().lockedMode, "lock the border-only pin");
+    requireResizeMarginAlpha(0, "locking must clear the extra resize fill");
+    Access::setLock(window, false);
+    requireResizeMarginAlpha(borderOnlyMarginAlpha, "unlocking must restore the resize fill");
+
+    Access::thumbnailForAnimationTest(window, true, false);
+    require(window.persistenceSnapshot().thumbnailMode,
+            "enter thumbnail mode on the border-only pin");
+    requireResizeMarginAlpha(0, "thumbnail mode must clear the extra resize fill");
+    Access::thumbnailForAnimationTest(window, false, false);
+    require(window.currentNativeGeometry() == outer, "leaving thumbnail mode restores geometry");
+    requireResizeMarginAlpha(borderOnlyMarginAlpha, "expanding must restore the resize fill");
+#else
+    constexpr int borderOnlyMarginAlpha = 0;
+    const QPoint dragPoint(viewport.left() / 2, viewport.center().y());
+    require(renderWholeWidget(window).pixelColor(dragPoint).alpha() == borderOnlyMarginAlpha &&
+                Access::decorationResizeHandle(window, dragPoint) == 7,
+            "the clear margin must retain the decoration resize geometry");
+#endif
     const QPoint marginSample(viewport.left() - 2, viewport.center().y());
     const auto sample = [&] { return renderWholeWidget(window).pixelColor(marginSample); };
     const auto requireShadowRgb = [&](const QColor& actual, QColor expected, const char* message) {
@@ -26854,8 +27316,9 @@ void pinnedShadowStateAndMarginsOffscreen() {
             require(window.currentNativeGeometry() == outer &&
                         Access::contentGeometry(window) == content,
                     "independent effect toggles preserve outer and content geometry");
-            require(shadow ? pixel.alpha() > 0 && pixel.alpha() <= 58 : pixel.alpha() == 0,
-                    "shadow uses configured translucent alpha and disabled margin is erased");
+            require(shadow ? pixel.alpha() > 0 && pixel.alpha() <= 58
+                           : pixel.alpha() == (border ? borderOnlyMarginAlpha : 0),
+                    "the margin must show the shadow, one-alpha fill, or clear pixels");
             if (shadow)
                 requireShadowRgb(pixel, QColor(200, 30, 70, 160),
                                  "normal shadow follows live RGBA color");
@@ -26866,9 +27329,9 @@ void pinnedShadowStateAndMarginsOffscreen() {
                 const auto& raster = *static_cast<const QImage*>(store->paintDevice());
                 const QPoint physicalSample =
                     QPointF(marginSample * window.devicePixelRatioF()).toPoint();
-                require(shadow ? raster.pixelColor(physicalSample).alpha() > 0
-                               : raster.pixelColor(physicalSample).alpha() == 0,
-                        "published backing store clears stale shadow pixels on every toggle");
+                const int alpha = raster.pixelColor(physicalSample).alpha();
+                require(shadow ? alpha > 0 : alpha == (border ? borderOnlyMarginAlpha : 0),
+                        "published backing store updates margin alpha on every toggle");
             }
             requireColorNear(renderWidget(window).pixelColor(40, 40), source.pixelColor(40, 40), 0,
                              "decoration never changes interior image pixels");
@@ -26956,8 +27419,9 @@ void pinnedShadowStateAndMarginsOffscreen() {
             "restored visibility overrides explicit creation appearance without double expansion");
     Access::prepareReplacement(window, config);
     require(!window.automationState().value(QStringLiteral("show_shadow")).toBool() &&
-                sample().alpha() == 0 && window.currentNativeGeometry() == outer,
-            "pooled-window reuse resets shadow and clears stale decoration pixels");
+                sample().alpha() == borderOnlyMarginAlpha &&
+                window.currentNativeGeometry() == outer,
+            "pooled-window reuse resets the margin to the border-only state");
     require(settings.setShowBorderByDefault(false) && settings.setShowShadowByDefault(true),
             "change defaults for future pins");
     require(!window.automationState().value(QStringLiteral("show_shadow")).toBool(),
@@ -28798,6 +29262,21 @@ int main(int argc, char* argv[]) {
             pinnedCheckerboardTracksContentSource();
             return 0;
         }
+        if (app.arguments().contains(QStringLiteral("--transparent-layer-only"))) {
+            pinnedTransparentLayerOffscreen();
+            pinnedTransparentLayerRestores();
+            activeGroupTransparentLayerOffscreen();
+#ifdef Q_OS_MACOS
+            cocoaPinnedTransparentInputMaskOffscreen();
+#endif
+            return 0;
+        }
+#if defined(Q_OS_WIN) || defined(Q_OS_MACOS)
+        if (app.arguments().contains(QStringLiteral("--transparent-layer-native-only"))) {
+            pinnedTransparentLayerNativeHitTesting();
+            return 0;
+        }
+#endif
         if (app.arguments().contains(QStringLiteral("--selection-annotations-only"))) {
             pinnedDocumentSelectionUsesLocalCaptureGeometry();
             pinnedAnnotationsIgnoreSelectionShape();

@@ -1949,6 +1949,10 @@ Files:
             <translation>Cancel</translation>
         </message>
         <message>
+            <source>Checkerboard</source>
+            <translation>Checkerboard</translation>
+        </message>
+        <message>
             <source>Click-through</source>
             <translation>Click-through</translation>
         </message>
@@ -2128,6 +2132,10 @@ Files:
             <translation>Increase speed</translation>
         </message>
         <message>
+            <source>Keep transparent</source>
+            <translation>Keep transparent</translation>
+        </message>
+        <message>
             <source>Live content is unavailable. Retrying...</source>
             <translation>Live content is unavailable. Retrying...</translation>
         </message>
@@ -2178,10 +2186,6 @@ Files:
         <message>
             <source>Pause</source>
             <translation>Pause</translation>
-        </message>
-        <message>
-            <source>Pin to screen management</source>
-            <translation>Pin to screen management</translation>
         </message>
         <message>
             <source>Pinned content</source>
@@ -2347,6 +2351,10 @@ Files:
             <translation>Translation results</translation>
         </message>
         <message>
+            <source>Transparent layer</source>
+            <translation>Transparent layer</translation>
+        </message>
+        <message>
             <source>Unavailable</source>
             <translation>Unavailable</translation>
         </message>
@@ -2361,6 +2369,10 @@ Files:
         <message>
             <source>Uploading to cloud... %1%</source>
             <translation>Uploading to cloud... %1%</translation>
+        </message>
+        <message>
+            <source>Window management</source>
+            <translation>Window management</translation>
         </message>
     </context>
     <context>
