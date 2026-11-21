@@ -63,6 +63,10 @@
             <translation>Focused window</translation>
         </message>
         <message>
+            <source>Image compression</source>
+            <translation>Image compression</translation>
+        </message>
+        <message>
             <source>Image editing</source>
             <translation>Image editing</translation>
         </message>
@@ -1636,6 +1640,10 @@ Files:
             <translation>Hidden</translation>
         </message>
         <message>
+            <source>Image compression</source>
+            <translation>Image compression</translation>
+        </message>
+        <message>
             <source>Image editing</source>
             <translation>Image editing</translation>
         </message>
@@ -2108,6 +2116,10 @@ Files:
             <translation>Hide other windows</translation>
         </message>
         <message>
+            <source>Image compression</source>
+            <translation>Image compression</translation>
+        </message>
+        <message>
             <source>Image editing</source>
             <translation>Image editing</translation>
         </message>
@@ -2301,10 +2313,6 @@ Files:
         <message>
             <source>The current window content cannot be captured</source>
             <translation>The current window content cannot be captured</translation>
-        </message>
-        <message>
-            <source>The image could not be saved automatically: %1</source>
-            <translation>The image could not be saved automatically: %1</translation>
         </message>
         <message>
             <source>The new content could not be loaded</source>

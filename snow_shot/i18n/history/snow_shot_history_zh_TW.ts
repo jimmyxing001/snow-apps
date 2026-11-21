@@ -63,6 +63,10 @@
             <translation>焦點視窗</translation>
         </message>
         <message>
+            <source>Image compression</source>
+            <translation>影像壓縮</translation>
+        </message>
+        <message>
             <source>Image editing</source>
             <translation>影像編輯</translation>
         </message>
@@ -1634,6 +1638,10 @@ Files:
             <translation>已隱藏</translation>
         </message>
         <message>
+            <source>Image compression</source>
+            <translation>影像壓縮</translation>
+        </message>
+        <message>
             <source>Image editing</source>
             <translation>影像編輯</translation>
         </message>
@@ -2100,6 +2108,10 @@ Files:
             <translation>隱藏其他視窗</translation>
         </message>
         <message>
+            <source>Image compression</source>
+            <translation>影像壓縮</translation>
+        </message>
+        <message>
             <source>Image editing</source>
             <translation>影像編輯</translation>
         </message>
@@ -2292,10 +2304,6 @@ Files:
         <message>
             <source>The current window content cannot be captured</source>
             <translation>無法擷取視窗的目前內容</translation>
-        </message>
-        <message>
-            <source>The image could not be saved automatically: %1</source>
-            <translation>無法自動儲存影像：%1</translation>
         </message>
         <message>
             <source>The new content could not be loaded</source>

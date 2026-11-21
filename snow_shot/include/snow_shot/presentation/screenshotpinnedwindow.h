@@ -1,7 +1,7 @@
 #ifndef SNOW_SHOT_PRESENTATION_SCREENSHOTPINNEDWINDOW_H
 #define SNOW_SHOT_PRESENTATION_SCREENSHOTPINNEDWINDOW_H
 
-#include "snow_shot/presentation/screenshotclouduploadservice.h"
+#include "snow_shot/presentation/screenshotexporttasks.h"
 #include "snow_shot/app/editionfeatures.h"
 #if SNOW_SHOT_ENABLE_LATEX_RECOGNITION
 #include "snow_shot/presentation/screenshotclipboardformularenderer.h"
@@ -348,6 +348,7 @@ class ScreenshotPinnedWindow final : public QWidget {
     void showMainWindowRequested();
     void splitRequested(const ScreenshotPinnedImageSnapshot& snapshot);
     void imageEditingRequested(const QString& recordId);
+    void imageCompressionRequested(const ScreenshotPinnedImageSnapshot& snapshot);
     void imageEditingSnapshotRequested(const snow_shot::presentation::ImageEditingSource& source);
     void closingForPersistence(const snow_shot::storage::PinnedWindowRecord& snapshot,
                                snow_shot::storage::PinnedWindowCloseIntent intent);
@@ -545,7 +546,7 @@ class ScreenshotPinnedWindow final : public QWidget {
     QPointF canvasPositionForViewPosition(const QPointF& position) const;
     void copyEditToolbarContent();
     void copyCurrentViewport();
-    struct CopyOutputOptions;
+    using CopyOutputOptions = ScreenshotExportTasks;
     void copyCurrentViewportWithOptions(CopyOutputOptions output);
     void copyOriginalContent();
     void copyOriginalImage(ScreenshotClipboardService::PublicationId publicationId);
@@ -569,6 +570,10 @@ class ScreenshotPinnedWindow final : public QWidget {
     void stitchDisplayedPinnedWindows();
     [[nodiscard]] static bool batchSavePending();
     void uploadToCloud();
+    ScreenshotExportTasks tasksFor(snow_shot::storage::ExportTrigger trigger);
+    void runTasks(const ScreenshotExportTasks& tasks,
+                  std::shared_ptr<ScreenshotExportArtifact> image = {},
+                  ScreenshotEncodedExport file = {}, QImage printed = {});
     void cancelCloudUpload();
     [[nodiscard]] ScreenshotPinnedImageSnapshot
     renderedImageSnapshot(ViewportExportMode mode = ViewportExportMode::Complete);
@@ -579,6 +584,7 @@ class ScreenshotPinnedWindow final : public QWidget {
                              ScreenshotPinnedImageSnapshot& snapshot);
     [[nodiscard]] std::optional<QByteArray> exportDocumentSnapshot() const;
     void quickSave();
+    void quickSavePreparedImage(const ScreenshotExportTasks& tasks);
     void invalidatePendingCopy();
     void saveRecognitionSnapshot(ScreenshotRecognitionFileSnapshot snapshot, QString path,
                                  QString baseName = {}, bool automatic = false);
@@ -768,6 +774,7 @@ class ScreenshotPinnedWindow final : public QWidget {
     bool m_recognitionSavePending = false;
     std::shared_ptr<ScreenshotExportArtifact> m_quickSaveArtifact;
     bool m_quickSavePending = false;
+    std::unique_ptr<QObject> m_exportTaskOwner;
     QPointer<ScreenshotCloudUploadJob> m_cloudUploadJob;
     bool m_cloudUploadPreparing = false;
     ScreenshotClipboardCommitHandle m_clipboardCommit;
@@ -830,6 +837,7 @@ class ScreenshotPinnedWindow final : public QWidget {
     QPointer<QAction> m_loadContentAction;
     QPointer<QAction> m_splitImageAction;
     QPointer<QAction> m_imageEditingAction;
+    QPointer<QAction> m_imageCompressionAction;
     QPointer<QActionGroup> m_opacityActions;
     QPointer<QActionGroup> m_scaleActions;
     QPointer<QAction> m_scaleMenuAction;

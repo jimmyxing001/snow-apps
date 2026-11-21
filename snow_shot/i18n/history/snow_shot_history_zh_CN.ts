@@ -63,6 +63,10 @@
             <translation>焦点窗口</translation>
         </message>
         <message>
+            <source>Image compression</source>
+            <translation>图像压缩</translation>
+        </message>
+        <message>
             <source>Image editing</source>
             <translation>图像编辑</translation>
         </message>
@@ -1634,6 +1638,10 @@ Files:
             <translation>已隐藏</translation>
         </message>
         <message>
+            <source>Image compression</source>
+            <translation>图像压缩</translation>
+        </message>
+        <message>
             <source>Image editing</source>
             <translation>图像编辑</translation>
         </message>
@@ -2100,6 +2108,10 @@ Files:
             <translation>隐藏其他窗口</translation>
         </message>
         <message>
+            <source>Image compression</source>
+            <translation>图像压缩</translation>
+        </message>
+        <message>
             <source>Image editing</source>
             <translation>图像编辑</translation>
         </message>
@@ -2292,10 +2304,6 @@ Files:
         <message>
             <source>The current window content cannot be captured</source>
             <translation>无法捕获窗口的当前内容</translation>
-        </message>
-        <message>
-            <source>The image could not be saved automatically: %1</source>
-            <translation>无法自动保存图像：%1</translation>
         </message>
         <message>
             <source>The new content could not be loaded</source>
