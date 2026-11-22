@@ -220,6 +220,7 @@ int macPinnedContentDragTests(
 #include <shellapi.h>
 #include <dwmapi.h>
 #include <commctrl.h>
+#undef CopyFile // Keep ExportTask::CopyFile visible in the test fixtures.
 #endif
 
 void runPinnedOriginalImageTranslationTests();
@@ -8827,6 +8828,8 @@ void pinnedDoubleClickActions() {
     config.imageSource = ScreenshotImageSource::fromImage(image, config.canvasSourceRect);
     config.screen = screen;
     config.automaticTextRecognition = false;
+    snow_shot::presentation::PinnedWindowSelectionController selection;
+    config.selectionController = &selection;
     auto* window = new ScreenshotPinnedWindow();
     QPointer<ScreenshotPinnedWindow> guarded(window);
     require(window->present(config), "double-click pin presentation failed");
@@ -8847,16 +8850,22 @@ void pinnedDoubleClickActions() {
         send(window, window->rect().center(), button);
         require(!thumbnail->isChecked(), "non-left double-click must not toggle thumbnail mode");
     }
+    selection.toggleSelection(window);
+    require(selection.isSelected(window), "select the regular pin before double-clicking it");
     send(window, window->rect().center());
-    require(thumbnail->isChecked(), "default double-click must enter thumbnail mode exactly once");
+    require(thumbnail->isChecked() && selection.selectedCount() == 0,
+            "default double-click must enter thumbnail mode and clear selection");
     // The second gesture during the transition cannot restart or reverse the animation.
     send(window, window->rect().center());
     require(thumbnail->isChecked(), "animation must block another double-click action");
     waitForUi(300);
+    selection.toggleSelection(window);
+    require(selection.isSelected(window), "select the thumbnail before double-clicking it");
     send(canvas, canvas->rect().center());
     waitForUi(300);
-    require(!thumbnail->isChecked() && window->currentNativeGeometry() == original,
-            "canvas double-click must restore the pre-thumbnail geometry exactly once");
+    require(!thumbnail->isChecked() && window->currentNativeGeometry() == original &&
+                selection.selectedCount() == 0,
+            "canvas double-click must expand the thumbnail and clear selection");
 
     require(settings.setDoubleClickAction(QStringLiteral("none")), "configure None on open pin");
     send(canvas, canvas->rect().center());
@@ -8903,10 +8912,12 @@ void pinnedDoubleClickActions() {
                         !window->isMaximized(),
                     "native caption double-click must dispatch once without maximizing");
         }
+        selection.toggleSelection(window);
         nativeDoubleClick(window->currentNativeGeometry().center(), HTCAPTION);
         waitForUi(300);
-        require(!thumbnail->isChecked() && window->currentNativeGeometry() == original,
-                "native thumbnail double-click must restore original geometry");
+        require(!thumbnail->isChecked() && window->currentNativeGeometry() == original &&
+                    selection.selectedCount() == 0,
+                "native thumbnail double-click must restore original geometry and clear selection");
         const QPoint border(nativePinnedResizeRim(original).left(), original.center().y());
         require(SendMessageW(hwnd, WM_NCHITTEST, 0,
                              MAKELPARAM(static_cast<WORD>(border.x()),
@@ -13853,34 +13864,6 @@ QList<QAction*> transparentLayerActions(ScreenshotPinnedWindow& window) {
     return menu->actions();
 }
 
-void activeGroupTransparentLayerOffscreen() {
-    using Mode = snow_shot::storage::PinnedTransparentLayerMode;
-    IsolatedPinnedStorage storage;
-    snow_shot::presentation::PinnedWindowGroupManager groups;
-    const auto otherGroup = groups.createGroup(QStringLiteral("Other pins"));
-    require(otherGroup.has_value(), "the tray scope fixture needs an inactive group");
-    ScreenshotPinnedWindow first;
-    ScreenshotPinnedWindow second;
-    ScreenshotPinnedWindow other;
-    ScreenshotPinnedWindow closing;
-    other.setGroupId(*otherGroup);
-    second.setTransparentLayerMode(Mode::ClickThrough);
-    for (auto* window : {&first, &second, &other, &closing})
-        groups.registerWindow(window, window->groupId());
-    groups.markWindowClosing(&closing);
-    require(groups.activeGroupTransparentLayerModes() ==
-                QSet<Mode>{Mode::Checkerboard, Mode::ClickThrough},
-            "the tray reports mixed modes from the current group");
-
-    groups.setActiveGroupTransparentLayerMode(Mode::KeepTransparent);
-    require(first.transparentLayerMode() == Mode::KeepTransparent &&
-                second.transparentLayerMode() == Mode::KeepTransparent &&
-                other.transparentLayerMode() == Mode::Checkerboard &&
-                closing.transparentLayerMode() == Mode::Checkerboard &&
-                groups.activeGroupTransparentLayerModes() == QSet<Mode>{Mode::KeepTransparent},
-            "the tray changes only open pins in the current group");
-}
-
 void pinnedTransparentLayerOffscreen() {
     using Access = ScreenshotPinnedWindowTestAccess;
     using Mode = snow_shot::storage::PinnedTransparentLayerMode;
@@ -18215,7 +18198,44 @@ void pinnedDragExportOffscreen() {
 
     // Exercise format selection and service lifetime without a native event loop.
     QImage image(20, 10, QImage::Format_RGB32);
+    image.setColorSpace(QColorSpace::SRgb);
     image.fill(Qt::green);
+    {
+        ScreenshotPinnedDragExport exporter;
+        int drops = 0;
+        std::unique_ptr<QObject> gesture;
+        exporter.setExecutor([&](QDrag& drag) {
+            gesture.reset();
+            const auto urls = drag.mimeData()->urls();
+            require(urls.size() == 1 && urls.first().isLocalFile(), "record drag has one file");
+            const QString path = urls.first().toLocalFile();
+            require(QFileInfo(path).fileName() == QStringLiteral("drag-result.png") &&
+                        normalize(QImage(path)) == normalize(image) &&
+                        normalize(qvariant_cast<QImage>(drag.mimeData()->imageData())) ==
+                            normalize(image),
+                    "record drag delivers the configured file and image");
+            ++drops;
+            return Qt::CopyAction;
+        });
+        int completions = 0;
+        const auto start = [&] {
+            gesture = std::make_unique<QObject>();
+            exporter.start(
+                std::make_shared<ScreenshotExportArtifact>(
+                    ScreenshotExportSource::fromImage(image)),
+                [&](QString error) {
+                    require(error.isEmpty(), "record drag finished successfully");
+                    ++completions;
+                },
+                [] { return true; }, gesture.get());
+        };
+        start();
+        gesture.reset();
+        require(!exporter.busy(), "ending the press cancels pending file preparation");
+        start();
+        wait([&] { return completions == 1; }, "a new press can finish its native drag");
+        require(drops == 1, "only the active record gesture published an image");
+    }
     for (const QString& format : {QStringLiteral("jpeg"), QStringLiteral("pdf")}) {
         require(settings.setImageFormat(format), "set drag file format");
         ScreenshotPinnedDragExport exporter;
@@ -19702,8 +19722,14 @@ void pinnedSaveDialogRoutingAndCancellation() {
     require(!adqt::widgets::detail::blockingModalWindow(
                 modal->contentWidget()->window()->windowHandle()),
             "pinned save must not block its own visible surface");
-    require(modal->contentWidget()->window()->windowHandle()->transientParent() ==
-                toolbar->windowHandle(),
+    QWindow independent;
+    require(modal->windowModality() == Qt::WindowModal &&
+                adqt::widgets::detail::blockingModalWindow(window->windowHandle()) &&
+                adqt::widgets::detail::blockingModalWindow(toolbar->windowHandle()) &&
+                !adqt::widgets::detail::blockingModalWindow(&independent),
+            "pinned save blocks its pin and toolbar while allowing independent capture");
+    require(toolbar->windowHandle()->isAncestorOf(modal->contentWidget()->window()->windowHandle(),
+                                                  QWindow::IncludeTransients),
             "pinned save must stay above its visible editing toolbar");
     modal->rejectButton()->click();
     waitForUi(30);
@@ -23387,6 +23413,14 @@ void pinnedPrintingWithoutToolbarAndDelayedCompletion(bool locked) {
             "printing fixture must apply the requested lock state through its shortcut");
     const QRect geometry = window.currentNativeGeometry();
     QApplication::clipboard()->setText(QStringLiteral("print must not publish"));
+    QWidget independent;
+    independent.show();
+    adqt::widgets::AdModal otherConfirmation(&independent);
+    otherConfirmation.setMode(adqt::widgets::AdModal::Mode::Window);
+    otherConfirmation.open();
+    window.activateWindow();
+    canvas->setFocus();
+    waitForUi(20);
     sendShortcut(*canvas, Qt::Key_P, Qt::ControlModifier);
     sendShortcut(*canvas, Qt::Key_P, Qt::ControlModifier);
     QElapsedTimer timer;
@@ -23394,7 +23428,8 @@ void pinnedPrintingWithoutToolbarAndDelayedCompletion(bool locked) {
     while (starts == 0 && timer.elapsed() < 10000)
         waitForUi(5);
     require(starts == 1 && Access::printPending(window) && !hasToolbar(),
-            "Ctrl+P must print directly once without creating the toolbar");
+            "another window's confirmation must allow this pin to print once via Ctrl+P");
+    otherConfirmation.close();
     sendShortcut(*canvas, Qt::Key_L);
     require(window.persistenceSnapshot().lockedMode == locked &&
                 window.currentNativeGeometry() == geometry,
@@ -23839,7 +23874,9 @@ class PinnedSelectionFixture final {
             window->close();
     }
 
-    ScreenshotPinnedWindow& add(QPoint offset, QSize size = QSize(120, 80)) {
+    ScreenshotPinnedWindow&
+    add(QPoint offset, QSize size = QSize(120, 80),
+        const std::function<void(ScreenshotPinnedWindow::Config&)>& configure = {}) {
         require(directory.isValid(), "multi-selection needs isolated writable storage");
         QScreen* screen = QGuiApplication::primaryScreen();
         require(screen != nullptr, "multi-selection needs a screen");
@@ -23869,6 +23906,8 @@ class PinnedSelectionFixture final {
         config.persistenceRemover = [this](const QString& id) {
             persistenceSucceeded &= repository.remove(id).success;
         };
+        if (configure)
+            configure(config);
         auto window = std::make_unique<ScreenshotPinnedWindow>();
         window->setAttribute(Qt::WA_DeleteOnClose, false);
         auto ready = std::make_shared<std::optional<bool>>();
@@ -24152,11 +24191,29 @@ void pinnedMultiSelectionRoutingAndIndicator() {
             "pending content cannot enter selection before a usable first frame");
     Access::selectionFramePublished(first, true);
     fixture.selection.toggleSelection(&first);
+    const auto orderedSelection = fixture.selection.selectedWindows();
     Access::thumbnailForHideTest(first, true);
-    require(!fixture.selection.isSelected(&first) && !fixture.selection.isSelectable(&first),
-            "thumbnail mode leaves selection and retains its existing input behavior");
-    Access::thumbnailForHideTest(first, false);
+    require(fixture.selection.selectedWindows() == orderedSelection &&
+                fixture.selection.isSelectable(&first) && indicator->isVisible() &&
+                first.rect().contains(indicator->geometry()),
+            "thumbnail mode preserves ordered selection and its indicator");
+    pinnedSelectionClick(first, Qt::ControlModifier);
+    require(!indicator->isVisible() && fixture.selection.isSelected(&second),
+            "modifier-click deselects the thumbnail alone");
+    pinnedSelectionClick(first, Qt::ControlModifier);
+    require(indicator->isVisible(), "modifier-click selects the thumbnail again");
+    indicator->click();
+    require(!fixture.selection.isSelected(&first) && fixture.selection.isSelected(&second),
+            "the thumbnail indicator deselects it alone");
+    pinnedSelectionClick(first, Qt::ControlModifier);
+    pinnedSelectionClick(first);
+    require(fixture.selection.selectedCount() == 0,
+            "a plain click on a thumbnail clears selection");
+    fixture.selection.toggleSelection(&second);
     fixture.selection.toggleSelection(&first);
+    Access::thumbnailForHideTest(first, false);
+    require(fixture.selection.selectedWindows() == orderedSelection && indicator->isVisible(),
+            "expanding a thumbnail through the mode command preserves selection");
     require(Access::hideToTop(first).enter(
                 screenshot_pinned_hide_to_top::screenGeometry(first.screen())) &&
                 !fixture.selection.isSelected(&first) && !fixture.selection.isSelectable(&first),
@@ -24924,7 +24981,7 @@ void pinnedMultiSelectionMenuAndLocks() {
         require(first.grab().save(screenshotPath),
                 "save selected pin screenshot for visual inspection");
     require(
-        actions.size() == 13 &&
+        actions.size() == 14 &&
             actions.at(0)->objectName() ==
                 QStringLiteral("screenshotPinnedSelectionImageStitching") &&
             actions.at(0)->text() == QStringLiteral("Image stitching") &&
@@ -24933,24 +24990,29 @@ void pinnedMultiSelectionMenuAndLocks() {
                 QStringLiteral("screenshotPinnedSelectionCopyFilesToClipboard") &&
             actions.at(1)->text() == QStringLiteral("Copy files to clipboard") &&
             !actions.at(1)->icon().isNull() &&
-            actions.at(2)->objectName() == QStringLiteral("screenshotPinnedSelectionSaveAsFile") &&
-            actions.at(2)->text() == QStringLiteral("Save as file") &&
-            !actions.at(2)->icon().isNull() && actions.at(3)->isSeparator() &&
-            actions.at(4)->objectName() == QStringLiteral("screenshotPinnedSelectionCloseOthers") &&
-            actions.at(5)->menu() && actions.at(5)->text() == QStringLiteral("Align position") &&
-            actions.at(6)->menu() && actions.at(6)->text() == QStringLiteral("Group") &&
-            actions.at(7)->objectName() == QStringLiteral("screenshotPinnedSelectionLock") &&
-            actions.at(8)->isSeparator() &&
-            actions.at(9)->objectName() == QStringLiteral("screenshotPinnedSelectionClose") &&
-            actions.at(10)->objectName() == QStringLiteral("screenshotPinnedSelectionDestroy") &&
-            !menu.actionDanger(actions.at(9)) && menu.actionDanger(actions.at(10)) &&
-            actions.at(11)->isSeparator() &&
-            actions.at(12)->objectName() == QStringLiteral("screenshotPinnedSelectionCount") &&
-            !actions.at(12)->isEnabled() && actions.at(12)->text().contains(QStringLiteral("2")),
-        "multi-selection exposes stitching, copy files and save before the separator, with the "
+            actions.at(2)->objectName() ==
+                QStringLiteral("screenshotPinnedSelectionCopyTextToClipboard") &&
+            actions.at(2)->text() == QStringLiteral("Copy text to clipboard") &&
+            !actions.at(2)->isEnabled() &&
+            actions.at(3)->objectName() == QStringLiteral("screenshotPinnedSelectionSaveAsFile") &&
+            actions.at(3)->text() == QStringLiteral("Save as file") &&
+            !actions.at(3)->icon().isNull() && actions.at(4)->isSeparator() &&
+            actions.at(5)->objectName() == QStringLiteral("screenshotPinnedSelectionCloseOthers") &&
+            actions.at(6)->menu() && actions.at(6)->text() == QStringLiteral("Align position") &&
+            actions.at(7)->menu() && actions.at(7)->text() == QStringLiteral("Group") &&
+            actions.at(8)->objectName() == QStringLiteral("screenshotPinnedSelectionLock") &&
+            actions.at(9)->isSeparator() &&
+            actions.at(10)->objectName() == QStringLiteral("screenshotPinnedSelectionClose") &&
+            actions.at(11)->objectName() == QStringLiteral("screenshotPinnedSelectionDestroy") &&
+            !menu.actionDanger(actions.at(10)) && menu.actionDanger(actions.at(11)) &&
+            actions.at(12)->isSeparator() &&
+            actions.at(13)->objectName() == QStringLiteral("screenshotPinnedSelectionCount") &&
+            !actions.at(13)->isEnabled() && actions.at(13)->text().contains(QStringLiteral("2")),
+        "multi-selection exposes stitching, both copy commands and save before the separator, with "
+        "the "
         "disabled selection count at the bottom");
-    auto* alignment = actions.at(5)->menu();
-    auto* groupMenu = qobject_cast<adqt::widgets::AdContextMenu*>(actions.at(6)->menu());
+    auto* alignment = actions.at(6)->menu();
+    auto* groupMenu = qobject_cast<adqt::widgets::AdContextMenu*>(actions.at(7)->menu());
     require(groupMenu != nullptr, "multi-selection owns a group context submenu");
     auto& defaultGroup =
         pinnedSelectionAction(*groupMenu, QStringLiteral("screenshotPinnedSelectionGroup-default"));
@@ -24975,7 +25037,7 @@ void pinnedMultiSelectionMenuAndLocks() {
     }
     fixture.selection.toggleSelection(&third);
     auto& threeMenu = fixture.menu(first);
-    auto* threeAlign = threeMenu.actions().at(5)->menu();
+    auto* threeAlign = threeMenu.actions().at(6)->menu();
     require(pinnedSelectionAction(*threeAlign, operationName(Alignment::DistributeHorizontally))
                     .isEnabled() &&
                 pinnedSelectionAction(*threeAlign, operationName(Alignment::DistributeVertically))
@@ -24985,7 +25047,7 @@ void pinnedMultiSelectionMenuAndLocks() {
     auto& mixedMenu = fixture.menu(first);
     auto& mixedLock =
         pinnedSelectionAction(mixedMenu, QStringLiteral("screenshotPinnedSelectionLock"));
-    require(!mixedLock.isChecked() && !mixedMenu.actions().at(5)->isEnabled(),
+    require(!mixedLock.isChecked() && !mixedMenu.actions().at(6)->isEnabled(),
             "mixed lock states keep a uniform lock action and disable alignment");
     mixedLock.trigger();
     require(
@@ -25144,7 +25206,9 @@ void pinnedMultiSelectionCloseAndGroups() {
         fixture.selection.toggleSelection(&first);
         fixture.selection.toggleSelection(&second);
         auto& menu = fixture.menu(first);
-        auto* group = menu.actions().at(6)->menu();
+        auto* group = menu.findChild<adqt::widgets::AdContextMenu*>(
+            QStringLiteral("screenshotPinnedSelectionGroupMenu"));
+        require(group != nullptr, "the multi-selection menu includes the group submenu");
         pinnedSelectionAction(*group,
                               QStringLiteral("screenshotPinnedSelectionGroup-%1").arg(*destination))
             .trigger();
@@ -25166,12 +25230,17 @@ void pinnedMultiSelectionCloseAndGroups() {
         fixture.selection.toggleSelection(&first);
         fixture.selection.toggleSelection(&second);
         auto& menu = fixture.menu(first);
-        auto* group = menu.actions().at(6)->menu();
+        auto* group = menu.findChild<adqt::widgets::AdContextMenu*>(
+            QStringLiteral("screenshotPinnedSelectionGroupMenu"));
+        require(group != nullptr, "the multi-selection menu includes the group submenu");
         pinnedSelectionAction(*group, QStringLiteral("screenshotPinnedSelectionNewGroup"))
             .trigger();
         auto* modal = first.findChild<adqt::widgets::AdModal*>(
             QStringLiteral("pinnedWindowGroupCreateModal"));
-        require(modal && modal->isOpen(), "batch New Group opens the existing group-name form");
+        require(modal && modal->isOpen() && modal->windowModality() == Qt::WindowModal &&
+                    adqt::widgets::detail::blockingModalWindow(first.windowHandle()) &&
+                    !adqt::widgets::detail::blockingModalWindow(second.windowHandle()),
+                "New Group blocks its source pin while other windows remain usable");
         auto* input = modal->contentWidget()->findChild<adqt::widgets::AdLineEdit*>(
             QStringLiteral("pinnedWindowGroupNameInput"));
         require(input != nullptr, "batch New Group preserves the existing group-name editor");
@@ -25264,55 +25333,74 @@ void pinnedMultiSelectionDestroyConfirmation() {
     auto& first = fixture.add({40, 60});
     auto& second = fixture.add({230, 160});
     auto& other = fixture.add({420, 260});
+    auto& fourth = fixture.add({610, 360});
     fixture.selection.toggleSelection(&first);
     fixture.selection.toggleSelection(&second);
-    const auto openConfirmation = [&]() {
-        auto& menu = fixture.menu(first);
+    const auto confirmationName = QStringLiteral("screenshotPinnedSelectionDestroyConfirmation");
+    const auto openConfirmation = [&](ScreenshotPinnedWindow& owner) {
+        auto& menu = fixture.menu(owner);
         auto& action =
             pinnedSelectionAction(menu, QStringLiteral("screenshotPinnedSelectionDestroy"));
         action.trigger();
-        auto* modal = first.findChild<adqt::widgets::AdModal*>(
-            QStringLiteral("screenshotPinnedSelectionDestroyConfirmation"));
-        require(modal && modal->isOpen() && modal->windowModality() == Qt::ApplicationModal &&
+        auto* modal = owner.findChild<adqt::widgets::AdModal*>(confirmationName);
+        require(modal && modal->isOpen() && modal->windowModality() == Qt::WindowModal &&
                     modal->property("pinnedSelectionCount").toInt() == 2,
-                "Destroy opens one count-aware application-modal confirmation");
+                "Destroy opens one count-aware confirmation on the source pin");
         action.trigger();
-        require(first.findChildren<adqt::widgets::AdModal*>(
-                         QStringLiteral("screenshotPinnedSelectionDestroyConfirmation"))
-                        .size() == 1,
+        require(owner.findChildren<adqt::widgets::AdModal*>(confirmationName).size() == 1,
                 "repeated Destroy requests reuse the batch confirmation");
         return modal;
     };
-    auto* modal = openConfirmation();
+    auto* modal = openConfirmation(first);
     modal->reject();
     waitForUi(5);
     QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
     require(fixture.destroyAttempts == 0 && fixture.selection.selectedCount() == 2 &&
                 first.sourcePinAvailable() && second.sourcePinAvailable() &&
-                fixture.repository.summaries().size() == 3,
+                fixture.repository.summaries().size() == 4,
             "canceling batch Destroy preserves records and selection");
     fixture.rejectDestroy = true;
-    modal = openConfirmation();
+    modal = openConfirmation(first);
     modal->accept();
     waitForUi(5);
     QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
     require(fixture.destroyAttempts == 1 && fixture.selection.selectedCount() == 2 &&
                 first.sourcePinAvailable() && second.sourcePinAvailable() &&
-                fixture.repository.summaries().size() == 3,
+                fixture.repository.summaries().size() == 4,
             "failed destruction preflight leaves all selected windows and records untouched");
     fixture.rejectDestroy = false;
-    modal = openConfirmation();
+    QPointer<adqt::widgets::AdModal> previous = openConfirmation(first);
+    fixture.selection.destroyWindows(&other, {&first, &second, &other, &fourth});
+    auto* displayed = other.findChild<adqt::widgets::AdModal*>(confirmationName);
+    require((!previous || !previous->isOpen()) && displayed && displayed->isOpen() &&
+                displayed->property("pinnedDisplayedBatch").toBool() &&
+                displayed->property("pinnedSelectionCount").toInt() == 4,
+            "Destroy displayed windows replaces the earlier selected-window request");
+    displayed->reject();
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+
+    previous = openConfirmation(first);
+    fixture.selection.selectAll({&other, &fourth});
+    require(!previous || !previous->isOpen(),
+            "changing the selection invalidates an outstanding batch Destroy");
+    if (previous)
+        previous->accept();
+    require(fixture.destroyAttempts == 1 && fixture.repository.summaries().size() == 4,
+            "a superseded confirmation cannot delete the previous selection");
+    modal = openConfirmation(other);
     modal->accept();
     waitForUi(5);
     QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
     require(fixture.destroyAttempts == 2 && fixture.lastDestroyedIds.size() == 2 &&
-                fixture.lastDestroyedIds.contains(first.persistenceId()) &&
-                fixture.lastDestroyedIds.contains(second.persistenceId()) &&
+                fixture.lastDestroyedIds.contains(other.persistenceId()) &&
+                fixture.lastDestroyedIds.contains(fourth.persistenceId()) &&
                 fixture.selection.selectedCount() == 0 &&
-                !fixture.repository.loadRecord(first.persistenceId()) &&
-                !fixture.repository.loadRecord(second.persistenceId()) &&
-                fixture.repository.loadRecord(other.persistenceId()) && other.sourcePinAvailable(),
-            "confirmed Destroy removes only the frozen selection with one backend batch");
+                !fixture.repository.loadRecord(other.persistenceId()) &&
+                !fixture.repository.loadRecord(fourth.persistenceId()) &&
+                fixture.repository.loadRecord(first.persistenceId()) &&
+                fixture.repository.loadRecord(second.persistenceId()) &&
+                first.sourcePinAvailable() && second.sourcePinAvailable(),
+            "confirmed Destroy removes only the updated selection with one backend batch");
 }
 
 void pinnedMultiSelectionDestroyWithoutConfirmation() {
@@ -25523,6 +25611,9 @@ void pinnedMultiSelectionLiveLanguageAndTheme() {
             pinnedSelectionAction(menu,
                                   QStringLiteral("screenshotPinnedSelectionCopyFilesToClipboard"))
                     .text() == QStringLiteral("Translated Copy files to clipboard") &&
+            pinnedSelectionAction(menu,
+                                  QStringLiteral("screenshotPinnedSelectionCopyTextToClipboard"))
+                    .text() == QStringLiteral("Translated Copy text to clipboard") &&
             pinnedSelectionAction(menu, QStringLiteral("screenshotPinnedSelectionSaveAsFile"))
                     .text() == QStringLiteral("Translated Save as file") &&
             modal->windowTitle() == QStringLiteral("Translated Destroy selected windows") &&
@@ -25652,6 +25743,85 @@ void pinnedMultiSelectionSharedGeometry() {
                 second.currentNativeGeometry() == peerGeometry &&
                 Access::originalImage(second) == peerImage,
             "content replacement remains a single-window operation during multi-selection");
+}
+
+void pinnedMultiSelectionThumbnailGeometry() {
+    using Access = ScreenshotPinnedWindowTestAccess;
+    using Alignment = SnowCanvasSelectionAlignment;
+    PinnedSelectionFixture fixture;
+    auto& first = fixture.add({60, 60});
+    auto& thumbnail = fixture.add({235, 170}, {180, 100});
+    auto& last = fixture.add({530, 280});
+    const QRect expanded = thumbnail.currentNativeGeometry();
+    Access::setPhysicalCursor(thumbnail, {true, [expanded] { return expanded.center(); }, {}});
+    Access::thumbnailForHideTest(thumbnail, true);
+    for (const auto& pin : fixture.windows)
+        fixture.selection.toggleSelection(pin.get());
+
+    const auto firstOrigin = first.persistenceSnapshot().placement.position;
+    const auto thumbnailOrigin = thumbnail.persistenceSnapshot().placement.position;
+    const auto lastOrigin = last.persistenceSnapshot().placement.position;
+    const QPointF press = thumbnail.mapToGlobal(thumbnail.rect().center());
+    const QPointF delta(28, 21);
+    pinnedSelectionDesktopMouse(thumbnail, QEvent::MouseButtonPress, press, Qt::NoModifier,
+                                Qt::LeftButton);
+    pinnedSelectionDesktopMouse(thumbnail, QEvent::MouseMove, press + delta, Qt::NoModifier,
+                                Qt::LeftButton);
+    require(fixture.selection.geometryActive(), "a selected thumbnail starts a shared drag");
+    pinnedSelectionDesktopMouse(thumbnail, QEvent::MouseButtonRelease, press + delta);
+    require(first.persistenceSnapshot().placement.position == firstOrigin + delta &&
+                thumbnail.persistenceSnapshot().placement.position == thumbnailOrigin + delta &&
+                last.persistenceSnapshot().placement.position == lastOrigin + delta,
+            "dragging a selected thumbnail moves the full selection by the same delta");
+
+    const QSize compactSize = thumbnail.currentNativeGeometry().size();
+    require(fixture.selection.alignSelection(Alignment::AlignTop) &&
+                thumbnail.currentNativeGeometry().top() == first.currentNativeGeometry().top() &&
+                thumbnail.currentNativeGeometry().top() == last.currentNativeGeometry().top(),
+            "alignment includes the thumbnail's visible edge");
+    require(fixture.selection.alignSelection(Alignment::DistributeHorizontally),
+            "a thumbnail counts as a third distribution target");
+    const QRect compact = thumbnail.currentNativeGeometry();
+    const int leadingGap = compact.left() - first.currentNativeGeometry().right();
+    const int trailingGap = last.currentNativeGeometry().left() - compact.right();
+    require(compact.size() == compactSize && leadingGap > 0 &&
+                std::abs(leadingGap - trailingGap) <= 1,
+            "distribution uses the compact width to produce equal gaps");
+
+    require(fixture.selection.scaleBy(&first, 125) && qAbs(Access::scale(first) - 125.) < .01 &&
+                qAbs(Access::scale(last) - 125.) < .01 &&
+                thumbnail.currentNativeGeometry() == compact,
+            "group scaling changes regular pins and leaves the compact rectangle in place");
+    fixture.selection.deselectWindow(&last);
+    const QPointF resizePress = first.mapToGlobal(first.rect().bottomRight());
+    constexpr int handle = int(screenshot_pinned_resize_geometry::DragHandle::BottomRight);
+    require(fixture.selection.beginGeometry(&first, resizePress, handle),
+            "a regular pin can start a resize with thumbnails as its only selected peers");
+    fixture.selection.updateGeometry(resizePress + QPointF(30, 24));
+    fixture.selection.endGeometry(false);
+    const QRect resized = first.currentNativeGeometry();
+    require(Access::scale(first) > 125 && thumbnail.currentNativeGeometry() == compact,
+            "group resize handles affect only the regular member");
+
+    const QPointF local = thumbnail.rect().center();
+    const QPointF desktop = thumbnail.mapToGlobal(local.toPoint());
+    QWheelEvent wheel(local, desktop, {}, QPoint(0, 120), Qt::NoButton, Qt::NoModifier,
+                      Qt::NoScrollPhase, false);
+    QNativeGestureEvent pinch(Qt::ZoomNativeGesture, QPointingDevice::primaryPointingDevice(), 2,
+                              local, local, desktop, .5, QPointF());
+    require(Access::wheel(thumbnail, &wheel) && Access::gesture(thumbnail, &pinch) &&
+                thumbnail.currentNativeGeometry() == compact &&
+                first.currentNativeGeometry() == resized &&
+                thumbnail.persistenceSnapshot().thumbnailMode,
+            "wheel and pinch over a selected thumbnail preserve the mixed group's geometry");
+
+    require(fixture.selection.beginGeometry(&first, resizePress), "start another shared move");
+    fixture.selection.updateGeometry(resizePress + delta);
+    Access::thumbnailForHideTest(thumbnail, false);
+    require(!fixture.selection.geometryActive() && first.currentNativeGeometry() == resized &&
+                thumbnail.currentNativeGeometry() == expanded &&
+                fixture.selection.selectedCount() == 2,
+            "expanding a thumbnail rolls back the move and restores its saved expanded rectangle");
 }
 
 void pinnedMultiSelectionResizeHandlesAndLimits() {
@@ -28770,6 +28940,7 @@ int main(int argc, char* argv[]) {
             pinnedMultiSelectionGroupModalManagerTeardown();
             pinnedMultiSelectionLiveLanguageAndTheme();
             pinnedMultiSelectionSharedGeometry();
+            pinnedMultiSelectionThumbnailGeometry();
             pinnedMultiSelectionResizeHandlesAndLimits();
             pinnedMultiSelectionGesturesAndRollback();
             pinnedMultiSelectionActivationPreservesGeometry();
@@ -29283,7 +29454,6 @@ int main(int argc, char* argv[]) {
         if (app.arguments().contains(QStringLiteral("--transparent-layer-only"))) {
             pinnedTransparentLayerOffscreen();
             pinnedTransparentLayerRestores();
-            activeGroupTransparentLayerOffscreen();
 #ifdef Q_OS_MACOS
             cocoaPinnedTransparentInputMaskOffscreen();
 #endif

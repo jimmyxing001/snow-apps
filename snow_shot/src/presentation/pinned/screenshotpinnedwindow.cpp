@@ -1,11 +1,12 @@
 #include "snow_shot/presentation/imageeditingdocument.h"
+#include "widgets/detail/window_modality.h"
 #include "snow_shot/presentation/screenshotmanualsave.h"
 #include "snow_shot/presentation/crosshaircursor.h"
 #include "snow_shot/presentation/canvastexteditingpreferences.h"
 #include "snow_shot/presentation/canvasdrawingpreferences.h"
 #include "snow_shot/presentation/collagedocument.h"
 #include "snow_shot/presentation/screenshotmessageservice.h"
-#include "snow_shot/presentation/components/confirmationskipbutton.h"
+#include "snow_shot/presentation/components/windowconfirmation.h"
 #include "snow_draw_engine_qt/snow_canvas_image.h"
 #include "snow_shot/diagnostics/diagnostics.h"
 #include "snow_shot/presentation/screenshotcontentdrop.h"
@@ -196,7 +197,7 @@ QTransform imagePixelsToCanvasTransform(const QTransform& imageTransform,
 
 #if SNOW_SHOT_ENABLE_TEXT_TRANSLATION
 constexpr quint32 kTextTranslationPayloadMarker = 0x53535452;
-constexpr quint8 kTextTranslationPayloadVersion = 3;
+constexpr quint8 kTextTranslationPayloadVersion = 4;
 #endif
 
 QList<QKeyCombination> standardKeyCombinations(QKeySequence::StandardKey standardKey) {
@@ -254,7 +255,8 @@ QByteArray serializeRecognitionResults(const ScreenshotRecognitionResults& sourc
         results.text->presentation != nullptr) {
         // Merged translations own their geometry and paragraph rendering metadata.
         stream << kTextTranslationPayloadMarker << kTextTranslationPayloadVersion
-               << results.translatedText->selection << qint64(results.translatedText->lines.size());
+               << results.translatedTextComplete << results.translatedText->selection
+               << qint64(results.translatedText->lines.size());
         for (const auto& line : results.translatedText->lines) {
             stream << line.text << line.confidence << line.quad
                    << quint8(line.direction == ScreenshotOcrTextDirection::Vertical ? 1 : 0)
@@ -1068,6 +1070,7 @@ ScreenshotPinnedWindow::ScreenshotPinnedWindow(QWidget* parent)
                   [this] {
                       if (m_selectionController)
                           m_selectionController->windowStateChanged(this);
+                      notifyBatchClipboardTextChanged();
                       updateAnimationSuspension();
                       updateColorSwatchControls();
                       refreshContextMenu();
@@ -1156,7 +1159,7 @@ void ScreenshotPinnedWindow::registerWindowShortcuts() {
         binding.canActivate = [this, localCommandsAllowed](const auto& context) {
             return animatedImage() && m_firstContentFramePublished &&
                    (context.event == nullptr || !context.event->isAutoRepeat()) &&
-                   QApplication::activeModalWidget() == nullptr && localCommandsAllowed(context);
+                   localCommandsAllowed(context);
         };
         binding.activate = [this, id](const auto&) {
             executeAnimationCommand(id);
@@ -1195,7 +1198,7 @@ void ScreenshotPinnedWindow::registerWindowShortcuts() {
     paste.canActivate = [this, localCommandsAllowed](const auto& context) {
         return !isLiveWindow() && m_firstContentFramePublished && !m_originalImage.isNull() &&
                (context.event == nullptr || !context.event->isAutoRepeat()) &&
-               QApplication::activeModalWidget() == nullptr && localCommandsAllowed(context);
+               localCommandsAllowed(context);
     };
     paste.activate = [this](const auto&) {
         loadClipboardContent();
@@ -1206,9 +1209,7 @@ void ScreenshotPinnedWindow::registerWindowShortcuts() {
     ShortcutManager::Binding print;
     print.id = QStringLiteral("pinned.print");
     print.priority = ShortcutManager::StandardPriority::WindowCommand;
-    print.canActivate = [localCommandsAllowed](const auto& context) {
-        return QApplication::activeModalWidget() == nullptr && localCommandsAllowed(context);
-    };
+    print.canActivate = localCommandsAllowed;
     print.activate = [this](const auto&) {
         printContent();
         return true;
@@ -1250,7 +1251,6 @@ void ScreenshotPinnedWindow::registerWindowShortcuts() {
         batch.priority = ShortcutManager::StandardPriority::WindowCommand;
         batch.canActivate = [this, id, localCommandsAllowed](const auto& context) {
             return localCommandsAllowed(context) && m_firstContentFramePublished &&
-                   QApplication::activeModalWidget() == nullptr &&
                    (context.event == nullptr || !context.event->isAutoRepeat()) &&
                    ((id == QStringLiteral("batch_select_all") ||
                      id == QStringLiteral("batch_image_stitching"))
@@ -1731,6 +1731,7 @@ void ScreenshotPinnedWindow::setGroupId(const QString& id) {
     }
     endWindowShake(true);
     m_groupId = normalized;
+    notifyBatchClipboardTextChanged();
     if (!property("snowPinnedWindowGroupManagerMutation").toBool()) {
         schedulePersistence();
     }
@@ -2202,19 +2203,7 @@ void ScreenshotPinnedWindow::changeEvent(QEvent* event) {
 void ScreenshotPinnedWindow::retranslateUi() {
     if (m_shakeMessage && m_shakeMessage->isOpen())
         showShakeMessage(false);
-    if (m_closeConfirmation != nullptr) {
-        m_closeConfirmation->setWindowTitle(tr("Close pinned window"));
-        m_closeConfirmation->setText(tr("Close this pinned window?"));
-        m_closeConfirmation->setAcceptText(tr("Close"));
-        m_closeConfirmation->setRejectText(tr("Cancel"));
-    }
-    if (m_destroyConfirmation != nullptr) {
-        m_destroyConfirmation->setWindowTitle(tr("Destroy pinned window"));
-        m_destroyConfirmation->setText(
-            tr("Destroy this pinned window? This action cannot be undone"));
-        m_destroyConfirmation->setAcceptText(tr("Destroy"));
-        m_destroyConfirmation->setRejectText(tr("Cancel"));
-    }
+    retranslateCloseConfirmations();
     const auto updateWidget = [](QWidget* widget) {
         if (widget == nullptr) {
             return;
@@ -3152,6 +3141,7 @@ void ScreenshotPinnedWindow::hideEvent(QHideEvent* event) {
     endWindowShake(true);
     synchronizeQuickTextAnnotationToolbar();
     QWidget::hideEvent(event);
+    notifyBatchClipboardTextChanged();
 }
 
 void ScreenshotPinnedWindow::moveEvent(QMoveEvent* event) {
@@ -3189,6 +3179,7 @@ void ScreenshotPinnedWindow::moveEvent(QMoveEvent* event) {
 
 void ScreenshotPinnedWindow::showEvent(QShowEvent* event) {
     QWidget::showEvent(event);
+    notifyBatchClipboardTextChanged();
     if (!m_closing) {
         m_pointerPresence->setActive(true);
         refreshControlsPointerPresence();
@@ -3633,6 +3624,7 @@ void ScreenshotPinnedWindow::resetContextMenuActions() {
     // belong exclusively to the current popup, including lazily constructed submenus.
     m_groupMenu = nullptr;
     m_groupMenuAction = nullptr;
+    m_batchActionsMenu = nullptr;
     m_ocrAction = nullptr;
     m_textTypeAction = nullptr;
     m_textTypeActions = nullptr;
@@ -5037,6 +5029,7 @@ void ScreenshotPinnedWindow::handleFirstContentFramePainted() {
     }
     m_firstContentFramePublished = true;
     m_hideToTop->finishRestore();
+    notifyBatchClipboardTextChanged();
     updateAnimationSuspension();
     SNOW_SHOT_PIN_PERF_MILESTONE("window.first_content_frame");
     scheduleDeferredPresentationSetup();
@@ -5083,6 +5076,7 @@ void ScreenshotPinnedWindow::configureRecognitionTarget() {
     m_recognitionSession->seedRecognitionResults(m_recognitionResults);
     m_ocrReady = m_recognitionSession->hasTextResult();
     m_recognitionTargetReady = true;
+    notifyBatchClipboardTextChanged();
     synchronizeHiddenTextSelection();
 }
 
@@ -5208,7 +5202,7 @@ void ScreenshotPinnedWindow::ensureEditController() {
     if (m_recognitionSession != nullptr) {
         connect(m_editController, &ScreenshotPinnedEditController::textRecognitionRequested, this,
                 [this]() {
-                    m_textType = snow_shot::storage::PinnedTextType::RecognitionResults;
+                    updateTextType(snow_shot::storage::PinnedTextType::RecognitionResults);
                     m_translateAfterRecognition = false;
                     activateRecognitionMode(
                         static_cast<int>(ScreenshotRecognitionSessionController::Mode::Text));
@@ -5529,11 +5523,18 @@ void ScreenshotPinnedWindow::initializeTextType(const Config& config) {
     m_preferCachedTranslation = false;
 }
 
+void ScreenshotPinnedWindow::updateTextType(snow_shot::storage::PinnedTextType type) {
+    if (m_textType != type) {
+        m_textType = type;
+        notifyBatchClipboardTextChanged();
+    }
+}
+
 void ScreenshotPinnedWindow::setTextType(snow_shot::storage::PinnedTextType type) {
     if (type == snow_shot::storage::PinnedTextType::TranslationResults &&
         !snow_shot::app::edition::textTranslation)
         return;
-    m_textType = type;
+    updateTextType(type);
     m_translateAfterRecognition = false;
     if (m_initialRecognitionVisible)
         m_initialTranslationVisible =
@@ -5723,7 +5724,7 @@ void ScreenshotPinnedWindow::updateRecognitionToolbarState() {
 }
 
 void ScreenshotPinnedWindow::handleTextEditingRequested() {
-    m_textType = snow_shot::storage::PinnedTextType::RecognitionResults;
+    updateTextType(snow_shot::storage::PinnedTextType::RecognitionResults);
     m_translateAfterRecognition = false;
     if (m_recognitionSession != nullptr) {
         if (m_recognitionSession->translating()) {
@@ -5741,11 +5742,11 @@ void ScreenshotPinnedWindow::handleTextTranslationRequested() {
 #if SNOW_SHOT_ENABLE_TEXT_TRANSLATION
     if (m_recognitionSession != nullptr) {
         if (m_recognitionSession->translating()) {
-            m_textType = snow_shot::storage::PinnedTextType::RecognitionResults;
+            updateTextType(snow_shot::storage::PinnedTextType::RecognitionResults);
             m_translateAfterRecognition = false;
             m_recognitionSession->endTextEditing();
         } else {
-            m_textType = snow_shot::storage::PinnedTextType::TranslationResults;
+            updateTextType(snow_shot::storage::PinnedTextType::TranslationResults);
             m_recognitionSession->beginTextTranslation();
         }
     }
@@ -5931,7 +5932,7 @@ void ScreenshotPinnedWindow::configureRecognitionSession() {
                    bool canReset, bool originalImage) {
                 if (available && translating &&
                     m_textType != snow_shot::storage::PinnedTextType::TranslationResults) {
-                    m_textType = snow_shot::storage::PinnedTextType::TranslationResults;
+                    updateTextType(snow_shot::storage::PinnedTextType::TranslationResults);
                     refreshContextMenu();
                     schedulePersistence();
                 }
@@ -6136,6 +6137,7 @@ void ScreenshotPinnedWindow::configureRecognitionSession() {
     connect(m_recognitionSession.get(), &ScreenshotRecognitionSessionController::textResultChanged,
             this, [this](bool available) {
                 m_ocrReady = available;
+                notifyBatchClipboardTextChanged();
                 synchronizeHiddenTextSelection();
                 refreshContextMenu();
                 updateRecognitionToolbarState();
@@ -6154,14 +6156,21 @@ void ScreenshotPinnedWindow::configureRecognitionSession() {
                     schedulePersistence();
                 }
             });
+    connect(m_recognitionSession.get(),
+            &ScreenshotRecognitionSessionController::translationCompleted, this, [this] {
+                notifyBatchClipboardTextChanged();
+                schedulePersistence();
+            });
     connect(m_recognitionSession.get(), &ScreenshotRecognitionSessionController::textEditingChanged,
             this, [this](bool) {
+                notifyBatchClipboardTextChanged();
                 updateRecognitionToolbarState();
                 refreshContextMenu();
                 schedulePersistence();
             });
     connect(m_recognitionSession.get(),
             &ScreenshotRecognitionSessionController::recognitionResultsChanged, this, [this]() {
+                notifyBatchClipboardTextChanged();
                 synchronizeHiddenTextSelection();
                 refreshContextMenu();
                 updateRecognitionToolbarState();
@@ -7028,7 +7037,7 @@ void ScreenshotPinnedWindow::copyRenderedImage(
 
 void ScreenshotPinnedWindow::activateTextTranslation() {
 #if SNOW_SHOT_ENABLE_TEXT_TRANSLATION
-    m_textType = snow_shot::storage::PinnedTextType::TranslationResults;
+    updateTextType(snow_shot::storage::PinnedTextType::TranslationResults);
     m_preferCachedTranslation = false;
     m_automationRecognition = false;
     if (m_closing || m_recognitionSession == nullptr ||
@@ -7845,6 +7854,7 @@ bool ScreenshotPinnedWindow::replaceContent(ScreenshotClipboardContent content,
     }
     configureAnimationPlayback();
     configureRecognitionTarget();
+    notifyBatchClipboardTextChanged();
     scheduleDeferredPresentationSetup();
     refreshContextMenu();
     schedulePersistence();
@@ -7856,7 +7866,7 @@ void ScreenshotPinnedWindow::printContent() {
         return;
     auto& service = m_printService ? *m_printService : ScreenshotPrintService::shared();
     if (m_closing || m_printPending || property("saveDialogOpen").toBool() || service.busy() ||
-        QApplication::activeModalWidget())
+        adqt::widgets::detail::blockingModalWindow(windowHandle()))
         return;
     m_printPending = true;
     setProperty("saveDialogOpen", true);
@@ -8017,7 +8027,8 @@ void ScreenshotPinnedWindow::airDropContent() {
     using Service = ScreenshotAirDropService;
     auto& service = m_airDropService ? *m_airDropService : Service::shared();
     if (m_closing || m_airDropPending || m_quickSavePending ||
-        property("saveDialogOpen").toBool() || service.busy() || QApplication::activeModalWidget())
+        property("saveDialogOpen").toBool() || service.busy() ||
+        adqt::widgets::detail::blockingModalWindow(windowHandle()))
         return;
     m_airDropPending = true;
     setProperty("saveDialogOpen", true);
@@ -8267,8 +8278,7 @@ void ScreenshotPinnedWindow::saveAsFile() {
                         setFocus();
                     }
                 },
-                m_editController ? m_editController->toolbarWindow() : nullptr,
-                Qt::ApplicationModal,
+                m_editController ? m_editController->toolbarWindow() : nullptr, Qt::WindowModal,
                 [this, tasks] {
                     auto writeTasks = tasks;
                     writeTasks.deferClipboardPublication();
@@ -9496,13 +9506,12 @@ void ScreenshotPinnedWindow::updateThumbnailPresentation() {
 }
 
 void ScreenshotPinnedWindow::setThumbnailMode(bool enabled, bool animate) {
-    if (enabled)
-        endCropSelection(true);
-    if (isLiveWindow())
+    if (m_closing || isLiveWindow())
         return;
-    if (enabled && m_selectionController)
-        m_selectionController->deselectWindow(this);
+    if (m_selectionController && m_thumbnailMode != enabled)
+        m_selectionController->cancelPointerInteraction(this);
     if (enabled) {
+        endCropSelection(true);
         if (m_clickThroughActive && !setClickThroughMode(false)) {
             return;
         }
@@ -9564,6 +9573,8 @@ void ScreenshotPinnedWindow::restoreFromThumbnailImmediately() {
     if (!m_thumbnailMode && !m_geometryAnimating) {
         return;
     }
+    if (m_selectionController)
+        m_selectionController->cancelPointerInteraction(this);
     invalidatePendingCopy();
     if (m_geometryAnimation != nullptr) {
         m_geometryAnimation->stop();
@@ -9877,6 +9888,9 @@ void ScreenshotPinnedWindow::createBatchActionsMenu(adqt::widgets::AdContextMenu
     add(tr("Copy files to clipboard"), "Copy files to clipboard",
         "screenshotPinnedBatchCopyFilesToClipboardAction",
         [this] { copyPinnedWindowFiles(displayedPinnedWindows()); });
+    add(tr("Copy text to clipboard"), "Copy text to clipboard",
+        "screenshotPinnedBatchCopyTextToClipboardAction",
+        [this] { copyPinnedWindowText(displayedPinnedWindows()); });
     add(tr("Save as file"), "Save as file", "screenshotPinnedBatchSaveAsFileAction",
         [this] { saveDisplayedPinnedWindows(); });
     menu->addSeparator();
@@ -9954,8 +9968,24 @@ void ScreenshotPinnedWindow::refreshBatchActionsMenu() {
             if (name == QStringLiteral("screenshotPinnedBatchSaveAsFileAction") ||
                 name == QStringLiteral("screenshotPinnedBatchCopyFilesToClipboardAction"))
                 enabled = enabled && !batchSavePending();
+            if (name == QStringLiteral("screenshotPinnedBatchCopyTextToClipboardAction"))
+                enabled = hasBatchClipboardText(targets);
             action->setEnabled(enabled);
         }
+    }
+}
+
+void ScreenshotPinnedWindow::notifyBatchClipboardTextChanged() {
+    if (!m_firstContentFramePublished || isLiveWindow())
+        return;
+    emit batchClipboardTextChanged();
+    for (const auto& window : livePinnedWindows()) {
+        if (window && window->m_batchActionsMenu &&
+            (window->m_batchActionsMenu->isPopupVisible() ||
+             (window->m_contextMenu && window->m_contextMenu->isPopupVisible())))
+            QMetaObject::invokeMethod(window.data(),
+                                      &ScreenshotPinnedWindow::refreshBatchActionsMenu,
+                                      Qt::QueuedConnection);
     }
 }
 
@@ -10131,36 +10161,7 @@ void ScreenshotPinnedWindow::requestUserClose() {
         closeAfterConfirmation();
         return;
     }
-    if (m_closeConfirmation != nullptr) {
-        m_closeConfirmation->setOpen(true);
-        return;
-    }
-
-    auto* modal = new adqt::widgets::AdModal(this);
-    m_closeConfirmation = modal;
-    modal->setObjectName(QStringLiteral("screenshotPinnedCloseConfirmation"));
-    modal->setOwnerWindow(this);
-    modal->setMode(adqt::widgets::AdModal::Mode::Window);
-    modal->setWindowModality(Qt::WindowModal);
-    modal->setPreset(adqt::widgets::AdModal::Preset::Confirm);
-    modal->setWindowTitle(tr("Close pinned window"));
-    modal->setText(tr("Close this pinned window?"));
-    modal->setAcceptText(tr("Close"));
-    modal->setRejectText(tr("Cancel"));
-    modal->setStandardButtons(adqt::widgets::AdModal::StandardButton::Ok |
-                              adqt::widgets::AdModal::StandardButton::Cancel);
-    connect(modal, &adqt::widgets::AdModal::accepted, this,
-            &ScreenshotPinnedWindow::closeAfterConfirmation);
-    connect(modal, &adqt::widgets::AdModal::finished, this, [this, modal](auto) {
-        if (m_closeConfirmation == modal) {
-            m_closeConfirmation = nullptr;
-        }
-        modal->deleteLater();
-    });
-    modal->open();
-    new snow_shot::presentation::ConfirmationSkipButton(*modal, [] {
-        return snow_shot::storage::PinToScreenSettings().setConfirmBeforeClosingWindow(false);
-    });
+    showCloseConfirmation(snow_shot::storage::PinnedWindowCloseIntent::Close);
 }
 
 bool ScreenshotPinnedWindow::requestHide() {
@@ -10349,37 +10350,55 @@ void ScreenshotPinnedWindow::confirmDestroy() {
         requestDestroy();
         return;
     }
+    showCloseConfirmation(snow_shot::storage::PinnedWindowCloseIntent::Destroy);
+}
+
+void ScreenshotPinnedWindow::retranslateCloseConfirmations() {
+    if (m_closeConfirmation != nullptr) {
+        m_closeConfirmation->setWindowTitle(tr("Close pinned window"));
+        m_closeConfirmation->setText(tr("Close this pinned window?"));
+        m_closeConfirmation->setAcceptText(tr("Close"));
+        m_closeConfirmation->setRejectText(tr("Cancel"));
+    }
     if (m_destroyConfirmation != nullptr) {
-        m_destroyConfirmation->setOpen(true);
+        m_destroyConfirmation->setWindowTitle(tr("Destroy pinned window"));
+        m_destroyConfirmation->setText(
+            tr("Destroy this pinned window? This action cannot be undone"));
+        m_destroyConfirmation->setAcceptText(tr("Destroy"));
+        m_destroyConfirmation->setRejectText(tr("Cancel"));
+    }
+}
+
+void ScreenshotPinnedWindow::showCloseConfirmation(
+    snow_shot::storage::PinnedWindowCloseIntent intent) {
+    using adqt::widgets::AdModal;
+    const bool destroy = intent == snow_shot::storage::PinnedWindowCloseIntent::Destroy;
+    auto& active = destroy ? m_destroyConfirmation : m_closeConfirmation;
+    if (active) {
+        active->present();
         return;
     }
 
-    auto* modal = new adqt::widgets::AdModal(this);
-    m_destroyConfirmation = modal;
-    modal->setObjectName(QStringLiteral("screenshotPinnedDestroyConfirmation"));
-    modal->setOwnerWindow(this);
-    modal->setMode(adqt::widgets::AdModal::Mode::Window);
-    modal->setWindowModality(Qt::WindowModal);
-    modal->setPreset(adqt::widgets::AdModal::Preset::Confirm);
-    modal->setWindowTitle(tr("Destroy pinned window"));
-    modal->setText(tr("Destroy this pinned window? This action cannot be undone"));
-    modal->setAcceptText(tr("Destroy"));
-    modal->setRejectText(tr("Cancel"));
-    modal->setAcceptAccentRole(adqt::widgets::AdButton::AccentRole::Danger);
-    modal->setStandardButtons(adqt::widgets::AdModal::StandardButton::Ok |
-                              adqt::widgets::AdModal::StandardButton::Cancel);
-    connect(modal, &adqt::widgets::AdModal::accepted, this,
-            &ScreenshotPinnedWindow::requestDestroy);
-    connect(modal, &adqt::widgets::AdModal::finished, this, [this, modal](auto) {
-        if (m_destroyConfirmation == modal) {
-            m_destroyConfirmation = nullptr;
-        }
-        modal->deleteLater();
+    auto* modal =
+        snow_shot::presentation::modal_window::createConfirmation(this, this, {}, [destroy] {
+            const snow_shot::storage::PinToScreenSettings settings;
+            return destroy ? settings.setConfirmBeforeDestroyingWindow(false)
+                           : settings.setConfirmBeforeClosingWindow(false);
+        });
+    active = modal;
+    modal->setObjectName(destroy ? QStringLiteral("screenshotPinnedDestroyConfirmation")
+                                 : QStringLiteral("screenshotPinnedCloseConfirmation"));
+    if (destroy)
+        modal->setAcceptAccentRole(adqt::widgets::AdButton::AccentRole::Danger);
+    retranslateCloseConfirmations();
+    connect(modal, &AdModal::accepted, this,
+            destroy ? &ScreenshotPinnedWindow::requestDestroy
+                    : &ScreenshotPinnedWindow::closeAfterConfirmation);
+    connect(modal, &AdModal::finished, this, [&active, modal] {
+        if (active == modal)
+            active.clear();
     });
     modal->open();
-    new snow_shot::presentation::ConfirmationSkipButton(*modal, [] {
-        return snow_shot::storage::PinToScreenSettings().setConfirmBeforeDestroyingWindow(false);
-    });
 }
 
 std::optional<QPoint> ScreenshotPinnedWindow::physicalCursorPosition() const {
@@ -10573,6 +10592,8 @@ bool ScreenshotPinnedWindow::handleDoubleClick(const QPoint& position) {
     if (action == QStringLiteral("reset_zoom")) {
         applyScale(100);
     } else if (action == QStringLiteral("thumbnail_mode")) {
+        if (m_selectionController)
+            m_selectionController->clearSelection();
         setThumbnailMode(!m_thumbnailMode);
     } else if (action == QStringLiteral("hide_to_top")) {
         toggleHideToTop();
@@ -11136,7 +11157,7 @@ QJsonObject ScreenshotPinnedWindow::automationEdit(const QString& action,
         if (!snow_shot::app::editionRecognitionModeAvailable(static_cast<int>(mode)))
             return fail("action_unavailable");
         if (mode == static_cast<int>(ScreenshotRecognitionSessionController::Mode::Text))
-            m_textType = snow_shot::storage::PinnedTextType::RecognitionResults;
+            updateTextType(snow_shot::storage::PinnedTextType::RecognitionResults);
         m_translateAfterRecognition = false;
         ensureRecognitionProviders();
         activateRecognitionMode(static_cast<int>(mode), false);

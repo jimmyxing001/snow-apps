@@ -344,6 +344,7 @@ class ScreenshotPinnedWindow final : public QWidget {
 
   signals:
     void renderedImageSnapshotInvalidated();
+    void batchClipboardTextChanged();
     void automationWorkflowStateChanged() const;
     void showMainWindowRequested();
     void splitRequested(const ScreenshotPinnedImageSnapshot& snapshot);
@@ -465,6 +466,8 @@ class ScreenshotPinnedWindow final : public QWidget {
     void stopLiveSource();
     void executeImageCommand(const QString& id);
     void confirmDestroy();
+    void showCloseConfirmation(snow_shot::storage::PinnedWindowCloseIntent intent);
+    void retranslateCloseConfirmations();
     void rebuildGroupMenu();
     void refreshContextMenuIfVisible();
     void refreshContextMenuForGroup(const QString& groupId);
@@ -526,6 +529,7 @@ class ScreenshotPinnedWindow final : public QWidget {
     void activateRecognitionMode(int mode, bool showToolbar = true);
     void toggleTextRecognitionResults();
     void initializeTextType(const Config& config);
+    void updateTextType(snow_shot::storage::PinnedTextType type);
     void setTextType(snow_shot::storage::PinnedTextType type);
     void activateSelectedTextResults();
     void completePendingTextTranslation();
@@ -567,6 +571,11 @@ class ScreenshotPinnedWindow final : public QWidget {
     void saveDisplayedPinnedWindowsToDirectory(const QString& directory);
     void savePinnedWindows(const QList<QPointer<ScreenshotPinnedWindow>>& targets, bool selected);
     void copyPinnedWindowFiles(const QList<QPointer<ScreenshotPinnedWindow>>& targets);
+    void copyPinnedWindowText(const QList<QPointer<ScreenshotPinnedWindow>>& targets);
+    [[nodiscard]] QString batchClipboardText() const;
+    [[nodiscard]] static bool
+    hasBatchClipboardText(const QList<QPointer<ScreenshotPinnedWindow>>& targets);
+    void notifyBatchClipboardTextChanged();
     void stitchDisplayedPinnedWindows();
     [[nodiscard]] static bool batchSavePending();
     void uploadToCloud();

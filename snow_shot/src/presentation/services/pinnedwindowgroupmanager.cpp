@@ -1,4 +1,5 @@
 #include "snow_shot/presentation/pinnedwindowgroupmanager.h"
+#include "snow_shot/presentation/components/windowconfirmation.h"
 #include "snow_shot/presentation/pinnedwindowstackingcoordinator.h"
 #include <QScopeGuard>
 #include "snow_shot/presentation/automationrevision.h"
@@ -39,35 +40,6 @@ QVector<::ScreenshotPinnedWindow*> PinnedWindowGroupManager::liveWindows() const
     return result;
 }
 
-QVector<QPointer<::ScreenshotPinnedWindow>>
-PinnedWindowGroupManager::activeGroupOpenWindows() const {
-    QVector<QPointer<::ScreenshotPinnedWindow>> windows;
-    for (auto it = m_windows.cbegin(); it != m_windows.cend(); ++it) {
-        if (it.value() && it.value()->groupId() == m_activeGroupId &&
-            !m_inactiveClosing.contains(it.key())) {
-            windows.append(it.value());
-        }
-    }
-    return windows;
-}
-
-QSet<storage::PinnedTransparentLayerMode>
-PinnedWindowGroupManager::activeGroupTransparentLayerModes() const {
-    QSet<storage::PinnedTransparentLayerMode> modes;
-    for (const auto& window : activeGroupOpenWindows())
-        modes.insert(window->transparentLayerMode());
-    return modes;
-}
-
-void PinnedWindowGroupManager::setActiveGroupTransparentLayerMode(
-    storage::PinnedTransparentLayerMode mode) {
-    for (const auto& window : activeGroupOpenWindows()) {
-        if (window)
-            QMetaObject::invokeMethod(window, "setTransparentLayerMode", Qt::DirectConnection,
-                                      mode);
-    }
-}
-
 namespace {
 constexpr auto kDefaultGroupId = "default";
 constexpr auto kDefaultGroupName = "Default";
@@ -81,23 +53,15 @@ storage::PinnedWindowGroup defaultGroup() {
 
 adqt::widgets::AdModal* createDeletionModal(QWidget* owner, QObject* lifetimeOwner,
                                             const QString& objectName) {
-    auto* modal =
-        new adqt::widgets::AdModal(owner != nullptr ? static_cast<QObject*>(owner) : lifetimeOwner);
+    auto* modal = modal_window::createConfirmation(
+        owner != nullptr ? static_cast<QObject*>(owner) : lifetimeOwner, owner);
     modal->setObjectName(objectName);
-    modal->setOwnerWindow(owner);
-    modal->setMode(adqt::widgets::AdModal::Mode::Window);
     if (owner == nullptr) {
-        modal->setWindowModeDetached(true);
         QScreen* screen = QApplication::screenAt(QCursor::pos());
         modal->setWindowScreen(screen != nullptr ? screen : QApplication::primaryScreen());
     }
-    modal->setWindowModality(owner != nullptr ? Qt::WindowModal : Qt::ApplicationModal);
-    modal->setCentered(true);
-    modal->setPreset(adqt::widgets::AdModal::Preset::Confirm);
+
     modal->setAcceptAccentRole(adqt::widgets::AdButton::AccentRole::Danger);
-    modal->setStandardButtons(adqt::widgets::AdModal::StandardButton::Ok |
-                              adqt::widgets::AdModal::StandardButton::Cancel);
-    QObject::connect(modal, &adqt::widgets::AdModal::finished, modal, &QObject::deleteLater);
     return modal;
 }
 } // namespace
@@ -769,22 +733,15 @@ void PinnedWindowGroupManager::openCreateGroupModal(
         return result;
     });
 
-    auto* modal = new adqt::widgets::AdModal(owner);
+    auto* modal = modal_window::create(owner ? static_cast<QObject*>(owner) : this, owner);
     modal->setObjectName(QStringLiteral("pinnedWindowGroupCreateModal"));
-    modal->setOwnerWindow(owner);
-    modal->setMode(adqt::widgets::AdModal::Mode::Window);
     if (owner == nullptr) {
         // Tray creation belongs to the cursor's screen, independent of visible pinned windows.
-        modal->setWindowModeDetached(true);
         QScreen* screen = QApplication::screenAt(QCursor::pos());
         modal->setWindowScreen(screen != nullptr ? screen : QApplication::primaryScreen());
     }
-    modal->setWindowModality(Qt::ApplicationModal);
     modal->setWindowTitle(tr("New group"));
-    modal->setCentered(true);
     modal->setPreferredWidth(400);
-    modal->setMaskVisible(false);
-    modal->setCloseOnMaskClick(false);
     modal->setClosePolicy(adqt::widgets::AdModal::ClosePolicy::Manual);
     modal->setAcceptText(tr("Add"));
     modal->setRejectText(tr("Cancel"));
