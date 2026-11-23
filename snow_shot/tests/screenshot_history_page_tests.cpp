@@ -768,14 +768,19 @@ void entriesUseBordersAndSupportCrossPageSelection() {
                 selectAll != nullptr && batchActions != nullptr && deselectAll != nullptr &&
                 pagination != nullptr && sourceFilter != nullptr && dateFilter != nullptr,
             "history selection controls must be discoverable");
-    require(!selectionBar->isVisible(), "selection bar must be hidden before selection");
-    require(!batchActions->isVisible(),
-            "Batch Actions must be hidden when no history entry is selected");
+    const auto selectionIsEmpty = [&] {
+        return selectionBar->isVisible() && summary->text() == QStringLiteral("Selected 0 items") &&
+               batchActions->isVisible() && !batchActions->isEnabled() &&
+               !deleteSelected->isEnabled() && !deselectAll->isEnabled();
+    };
+    require(selectionIsEmpty() && selectAll->isEnabled(),
+            "the inline selection bar starts with only Select all enabled");
     QWidget* firstEntry = checkboxes.first()->parentWidget()->parentWidget();
     require(verticalLayoutGap(page, filters, firstEntry) > 0,
             "history entries must retain a gap below the filters when selection is empty");
-    require(selectionActions->layout() != nullptr && selectionActions->layout()->spacing() == 0,
-            "selection actions must not add redundant spacing between link buttons");
+    require(!deleteSelected->contentPaddingEnabled() && !selectAll->contentPaddingEnabled() &&
+                !batchActions->contentPaddingEnabled() && !deselectAll->contentPaddingEnabled(),
+            "selection actions use text-sized links");
     require(selectionActions->layout()->indexOf(batchActions) + 1 ==
                 selectionActions->layout()->indexOf(selectAll),
             "Batch Actions must appear immediately to the left of Select all");
@@ -883,22 +888,21 @@ void entriesUseBordersAndSupportCrossPageSelection() {
     deselectAll->click();
     flushEvents();
     checkboxes = entryCheckboxes(page);
-    require(!selectionBar->isVisible() &&
+    require(selectionIsEmpty() &&
                 std::none_of(checkboxes.cbegin(), checkboxes.cend(),
                              [](const auto* checkbox) { return checkbox->isChecked(); }),
             "Deselect all must clear the complete cross-page selection");
-    require(!batchActions->isVisible(), "clearing history selection hides Batch Actions");
 
     entryCheckboxes(page).first()->click();
     sourceFilter->setCurrentValues({QStringLiteral("clipboard")});
     flushEvents();
-    require(!selectionBar->isVisible(), "changing the source filter must clear selection");
+    require(selectionIsEmpty(), "changing the source filter must clear selection");
     sourceFilter->setCurrentValues({});
     flushEvents();
     entryCheckboxes(page).first()->click();
     dateFilter->setRange(QDate::currentDate(), QDate::currentDate());
     flushEvents();
-    require(!selectionBar->isVisible(), "changing the date filter must clear selection");
+    require(selectionIsEmpty(), "changing the date filter must clear selection");
 
     dateFilter->clear();
     flushEvents();
@@ -954,8 +958,7 @@ void entriesUseBordersAndSupportCrossPageSelection() {
         require(dataSource.removedBatches.first()[index] == records[index].id,
                 "bulk deletion IDs must follow deterministic repository order");
     }
-    require(!selectionBar->isVisible(),
-            "an accepted bulk deletion request must clear the selection bar");
+    require(selectionIsEmpty(), "an accepted bulk deletion request must clear selection");
 }
 
 void emptyStateRemainsVisibleAfterFilteringEmptyHistory() {
@@ -1058,11 +1061,13 @@ void pageTextAndEmptyStateMatchPinnedWindowManagement() {
                     historyIcon->pixmap().toImage() == pinnedIcon->pixmap().toImage(),
                 "the empty-state icon must use identical colors on both pages in each theme");
         for (QLabel* label : {historyCount, pinnedCount, historySelection, pinnedSelection}) {
-            require(
-                label->font().pixelSize() == scheme.metricAlias.fontSize &&
-                    label->font().weight() == QFont::Normal &&
-                    label->palette().color(QPalette::WindowText) == scheme.map.colorTextSecondary,
-                "both page subtitles and selection summaries must use the same theme text style");
+            require(label->font().pixelSize() == scheme.metricAlias.fontSize &&
+                        label->font().weight() == QFont::Normal,
+                    "both page subtitles and selection summaries use the body font");
+        }
+        for (QLabel* label : {historySelection, pinnedSelection}) {
+            require(label->palette().color(QPalette::WindowText) == scheme.map.colorTextTertiary,
+                    "both selection summaries use the alert text color");
         }
     }
 }

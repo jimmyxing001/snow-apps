@@ -2198,6 +2198,10 @@
             <translation>選擇何時可以在固定到螢幕的截圖上選取辨識出的文字</translation>
         </message>
         <message>
+            <source>Choose when to play the shutter sound</source>
+            <translation>選擇在哪些截圖情境播放快門聲</translation>
+        </message>
+        <message>
             <source>Choose where images are written for automatic save and copy-file actions</source>
             <translation>選擇自動儲存和複製檔案操作寫入影像的位置</translation>
         </message>
@@ -2914,6 +2918,10 @@
             <translation>焦點視窗</translation>
         </message>
         <message>
+            <source>Focused window and current display</source>
+            <translation>焦點視窗和目前顯示器</translation>
+        </message>
+        <message>
             <source>Follow mouse movement</source>
             <translation>跟隨滑鼠移動</translation>
         </message>
@@ -3566,6 +3574,10 @@
             <translation>正常</translation>
         </message>
         <message>
+            <source>Normal screenshot</source>
+            <translation>一般截圖</translation>
+        </message>
+        <message>
             <source>Notify after export completes</source>
             <translation>匯出完成後通知</translation>
         </message>
@@ -3816,14 +3828,6 @@
         <message>
             <source>Play / pause</source>
             <translation>播放 / 暫停</translation>
-        </message>
-        <message>
-            <source>Play a shutter sound when capturing the focused window or current display</source>
-            <translation>擷取焦點視窗或目前顯示器時播放快門聲音</translation>
-        </message>
-        <message>
-            <source>Play a shutter sound when screenshot capture starts</source>
-            <translation>開始截圖時播放快門聲音</translation>
         </message>
         <message>
             <source>Play saved GIF, APNG, and WebP recordings repeatedly</source>
@@ -4398,10 +4402,6 @@
             <translation>截圖快速鍵和操作</translation>
         </message>
         <message>
-            <source>Screenshot sound notification</source>
-            <translation>截圖聲音通知</translation>
-        </message>
-        <message>
             <source>Screenshot toolbar</source>
             <translation>截圖工具列</translation>
         </message>
@@ -4436,6 +4436,10 @@
         <message>
             <source>Select image save directory</source>
             <translation>選擇影像儲存目錄</translation>
+        </message>
+        <message>
+            <source>Select scenarios</source>
+            <translation>選擇場景</translation>
         </message>
         <message>
             <source>Select skin image</source>
@@ -5452,24 +5456,64 @@
     <context>
         <name>SettingsVariableHelp</name>
         <message>
-            <source>%1: Application name</source>
-            <translation>%1：應用程式名稱</translation>
+            <source>Application name</source>
+            <translation>應用程式名稱</translation>
         </message>
         <message>
-            <source>%1: Current time</source>
-            <translation>%1：目前時間</translation>
+            <source>Date and time</source>
+            <translation>日期和時間</translation>
         </message>
         <message>
-            <source>%1: Window name</source>
-            <translation>%1：視窗名稱</translation>
+            <source>Desktop</source>
+            <translation>桌面</translation>
+        </message>
+        <message>
+            <source>Documents</source>
+            <translation>文件</translation>
+        </message>
+        <message>
+            <source>Downloads</source>
+            <translation>下載</translation>
+        </message>
+        <message>
+            <source>Home</source>
+            <translation>個人目錄</translation>
         </message>
         <message>
             <source>OK</source>
             <translation>確定</translation>
         </message>
         <message>
+            <source>Path prefix only</source>
+            <translation>僅用於路徑開頭</translation>
+        </message>
+        <message>
+            <source>Pictures</source>
+            <translation>圖片</translation>
+        </message>
+        <message>
+            <source>Source display (Display-1, Display-2, or Multi)</source>
+            <translation>來源顯示器（Display-1、Display-2 或 Multi）</translation>
+        </message>
+        <message>
+            <source>System folders</source>
+            <translation>系統目錄</translation>
+        </message>
+        <message>
+            <source>Time and source</source>
+            <translation>時間與來源</translation>
+        </message>
+        <message>
             <source>Variable description</source>
             <translation>變數說明</translation>
+        </message>
+        <message>
+            <source>Videos</source>
+            <translation>影片</translation>
+        </message>
+        <message>
+            <source>Window name</source>
+            <translation>視窗名稱</translation>
         </message>
     </context>
     <context>

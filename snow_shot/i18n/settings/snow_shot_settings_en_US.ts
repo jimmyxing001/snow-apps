@@ -2198,6 +2198,10 @@
             <translation>Choose when recognized text can be selected on pinned screenshots</translation>
         </message>
         <message>
+            <source>Choose when to play the shutter sound</source>
+            <translation>Choose when to play the shutter sound</translation>
+        </message>
+        <message>
             <source>Choose where images are written for automatic save and copy-file actions</source>
             <translation>Choose where images are written for automatic save and copy-file actions</translation>
         </message>
@@ -2914,6 +2918,10 @@
             <translation>Focused window</translation>
         </message>
         <message>
+            <source>Focused window and current display</source>
+            <translation>Focused window and current display</translation>
+        </message>
+        <message>
             <source>Follow mouse movement</source>
             <translation>Follow mouse movement</translation>
         </message>
@@ -3566,6 +3574,10 @@
             <translation>Normal</translation>
         </message>
         <message>
+            <source>Normal screenshot</source>
+            <translation>Normal screenshot</translation>
+        </message>
+        <message>
             <source>Notify after export completes</source>
             <translation>Notify after export completes</translation>
         </message>
@@ -3816,14 +3828,6 @@
         <message>
             <source>Play / pause</source>
             <translation>Play / pause</translation>
-        </message>
-        <message>
-            <source>Play a shutter sound when capturing the focused window or current display</source>
-            <translation>Play a shutter sound when capturing the focused window or current display</translation>
-        </message>
-        <message>
-            <source>Play a shutter sound when screenshot capture starts</source>
-            <translation>Play a shutter sound when screenshot capture starts</translation>
         </message>
         <message>
             <source>Play saved GIF, APNG, and WebP recordings repeatedly</source>
@@ -4398,10 +4402,6 @@
             <translation>Screenshot shortcuts and actions</translation>
         </message>
         <message>
-            <source>Screenshot sound notification</source>
-            <translation>Screenshot sound notification</translation>
-        </message>
-        <message>
             <source>Screenshot toolbar</source>
             <translation>Screenshot toolbar</translation>
         </message>
@@ -4436,6 +4436,10 @@
         <message>
             <source>Select image save directory</source>
             <translation>Select image save directory</translation>
+        </message>
+        <message>
+            <source>Select scenarios</source>
+            <translation>Select scenarios</translation>
         </message>
         <message>
             <source>Select skin image</source>
@@ -5452,24 +5456,64 @@
     <context>
         <name>SettingsVariableHelp</name>
         <message>
-            <source>%1: Application name</source>
-            <translation>%1: Application name</translation>
+            <source>Application name</source>
+            <translation>Application name</translation>
         </message>
         <message>
-            <source>%1: Current time</source>
-            <translation>%1: Current time</translation>
+            <source>Date and time</source>
+            <translation>Date and time</translation>
         </message>
         <message>
-            <source>%1: Window name</source>
-            <translation>%1: Window name</translation>
+            <source>Desktop</source>
+            <translation>Desktop</translation>
+        </message>
+        <message>
+            <source>Documents</source>
+            <translation>Documents</translation>
+        </message>
+        <message>
+            <source>Downloads</source>
+            <translation>Downloads</translation>
+        </message>
+        <message>
+            <source>Home</source>
+            <translation>Home</translation>
         </message>
         <message>
             <source>OK</source>
             <translation>OK</translation>
         </message>
         <message>
+            <source>Path prefix only</source>
+            <translation>Path prefix only</translation>
+        </message>
+        <message>
+            <source>Pictures</source>
+            <translation>Pictures</translation>
+        </message>
+        <message>
+            <source>Source display (Display-1, Display-2, or Multi)</source>
+            <translation>Source display (Display-1, Display-2, or Multi)</translation>
+        </message>
+        <message>
+            <source>System folders</source>
+            <translation>System folders</translation>
+        </message>
+        <message>
+            <source>Time and source</source>
+            <translation>Time and source</translation>
+        </message>
+        <message>
             <source>Variable description</source>
             <translation>Variable description</translation>
+        </message>
+        <message>
+            <source>Videos</source>
+            <translation>Videos</translation>
+        </message>
+        <message>
+            <source>Window name</source>
+            <translation>Window name</translation>
         </message>
     </context>
     <context>
