@@ -840,6 +840,15 @@ void builtInCatalogIsCompleteAndValid() {
                 history->items[1].id == QStringLiteral("history.keep-permanently") &&
                 history->items[2].id == QStringLiteral("history.compression-level"),
             "permanent history must follow persistent history in Storage and Privacy");
+    const auto& retentionMode = history->items.front();
+    const auto& modes = std::get<settings::SettingsSelectDefinition>(retentionMode.payload).options;
+    require(retentionMode.title.translated() == QStringLiteral("Retain screenshot history") &&
+                modes.size() == 3 && modes[0].value == QStringLiteral("full") &&
+                modes[1].value == QStringLiteral("results_only") &&
+                modes[2].value == QStringLiteral("disabled") &&
+                storage::ConfigurationSchema::defaultValue(retentionMode.configurationKey) ==
+                    QStringLiteral("full"),
+            "history retention offers all three modes and defaults to full history");
     const auto& permanent = history->items[1];
     require(permanent.title.translated() == QStringLiteral("Keep records permanently") &&
                 std::get<settings::SettingsSwitchDefinition>(permanent.payload).binding ==
@@ -1905,7 +1914,7 @@ void builtInCatalogIsCompleteAndValid() {
             std::get<settings::SettingsLocalShortcutDefinition>(
                 screenshotShortcuts->items.constFirst().payload)
                     .scope == settings::SettingsLocalShortcutScope::Screenshot &&
-            drawingShortcuts != nullptr && drawingShortcuts->items.size() == 20 &&
+            drawingShortcuts != nullptr && drawingShortcuts->items.size() == 21 &&
             drawingShortcuts->itemLayout == settings::SettingsSectionItemLayout::TwoColumnGrid &&
             drawingShortcuts->items.at(2).id == QStringLiteral("drawing-shortcut.speech_bubble") &&
             drawingShortcuts->items.at(2).title.translated() == QStringLiteral("Speech bubble") &&
@@ -2013,8 +2022,10 @@ void builtInCatalogIsCompleteAndValid() {
             drawingShortcuts->items.at(16).title.translated() == QStringLiteral("Reset canvas") &&
             drawingShortcuts->items.at(16).configurationKey ==
                 QStringLiteral("drawing_shortcuts/reset_canvas") &&
-            drawingShortcuts->items.at(18).id == QStringLiteral("screenshot-shortcut.undo") &&
-            drawingShortcuts->items.at(19).id == QStringLiteral("screenshot-shortcut.redo") &&
+            drawingShortcuts->items.at(18).configurationKey ==
+                QStringLiteral("drawing_shortcuts/cycle_annotation_tool_options") &&
+            drawingShortcuts->items.at(19).id == QStringLiteral("screenshot-shortcut.undo") &&
+            drawingShortcuts->items.at(20).id == QStringLiteral("screenshot-shortcut.redo") &&
             drawingShortcuts->items.at(4).configurationKey ==
                 QStringLiteral("drawing_shortcuts/distance") &&
             drawingShortcuts->items.at(5).id == QStringLiteral("drawing-shortcut.bracket") &&
@@ -4094,21 +4105,19 @@ void memoryOptimizationPolicyCatalog() {
                 item != nullptr && item->configurationKey == key &&
                 item->title.translated() == QStringLiteral("Memory optimization policy"),
             "supported platforms expose memory policy last in Application performance");
+    require(item->description.translated() ==
+                QStringLiteral("Smart control releases unused heap memory while the app is "
+                               "idle. Active captures and pinned images are kept"),
+            "supported platforms describe idle heap reclamation");
 #ifdef Q_OS_MACOS
     require(section->items.size() == 2 &&
-                section->items.first().id == QStringLiteral("system.application-qos") &&
-                item->description.translated() ==
-                    QStringLiteral("Smart control releases unused heap memory while the app is "
-                                   "idle. Active captures and pinned images are kept"),
-            "macOS exposes memory policy after QoS with heap reclamation guidance");
+                section->items.first().id == QStringLiteral("system.application-qos"),
+            "macOS exposes memory policy after QoS");
 #else
     require(section->items.size() == 3 &&
                 section->items.first().id == QStringLiteral("system.application-priority") &&
-                section->items.at(1).id == QStringLiteral("system.power-qos") &&
-                item->description.translated() ==
-                    QStringLiteral("Smart control trims resident memory while the app is idle. "
-                                   "The next use may briefly take longer"),
-            "Windows exposes memory policy after Power QoS with resident memory guidance");
+                section->items.at(1).id == QStringLiteral("system.power-qos"),
+            "Windows exposes memory policy after Power QoS");
 #endif
     const auto* select = std::get_if<settings::SettingsSelectDefinition>(&item->payload);
     require(select != nullptr &&

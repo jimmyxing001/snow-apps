@@ -278,9 +278,6 @@ storage::CaptureHistoryPolicy defaultHistoryPolicy() {
     policy.keepPermanently = storage::ConfigurationSchema::defaultValue(
                                  QStringLiteral("capture_history/keep_permanently"))
                                  .toBool();
-    policy.enabled =
-        storage::ConfigurationSchema::defaultValue(QStringLiteral("capture_history/enabled"))
-            .toBool();
     policy.retentionDays =
         storage::ConfigurationSchema::defaultValue(QStringLiteral("capture_history/retention_days"))
             .toInt();
@@ -293,14 +290,14 @@ storage::CaptureHistoryPolicy defaultHistoryPolicy() {
     return policy;
 }
 
-platform::windows::AdministratorResult
-applyNativeStartupSettings(bool enabled, bool elevated,
-                           platform::macos::LoginItemService* loginItems,
-                           platform::macos::LoginItemService::Completion completion) {
+platform::windows::AdministratorResult applyNativeStartupSettings(
+    bool enabled, bool elevated, platform::macos::LoginItemService* loginItems,
+    platform::macos::LoginItemService::Completion completion, bool restartOnElevation) {
     if (app::distribution::isStoreManaged())
         elevated = false;
 #ifdef Q_OS_MACOS
     Q_UNUSED(elevated);
+    Q_UNUSED(restartOnElevation);
     const auto result = loginItems->setEnabled(enabled, std::move(completion));
     platform::windows::AdministratorResult converted;
     converted.success = result.success;
@@ -310,7 +307,8 @@ applyNativeStartupSettings(bool enabled, bool elevated,
     Q_UNUSED(loginItems);
     Q_UNUSED(completion);
     using namespace platform::windows;
-    auto& configuration = storage::ApplicationStorage::instance().configuration();
+    auto& applicationStorage = storage::ApplicationStorage::instance();
+    auto& configuration = applicationStorage.configuration();
     const bool oldEnabled = storage::SystemSettings().autoStartAtBoot();
     const bool oldElevated = storage::SystemSettings().launchAsAdministrator();
     const auto save = [&](bool start, bool admin) {
@@ -319,10 +317,16 @@ applyNativeStartupSettings(bool enabled, bool elevated,
                     {QStringLiteral("system/launch_as_administrator"), admin}}) &&
                configuration.flushNow().success;
     };
-    const auto result = changeStartupMode(!enabled   ? StartupMode::Off
-                                          : elevated ? StartupMode::ElevatedTask
-                                                     : StartupMode::Registry,
-                                          [&] { return save(enabled, enabled && elevated); });
+    std::function<bool()> flushBeforeRestart;
+    if (restartOnElevation)
+        flushBeforeRestart = [&applicationStorage] {
+            return applicationStorage.flushNow().success;
+        };
+    const auto result = changeStartupMode(
+        !enabled   ? StartupMode::Off
+        : elevated ? StartupMode::ElevatedTask
+                   : StartupMode::Registry,
+        [&] { return save(enabled, enabled && elevated); }, flushBeforeRestart);
     const auto observed = result.success ? std::optional<StartupMode>() : observedStartupMode();
     const bool restoredEnabled = observed ? *observed != StartupMode::Off : oldEnabled;
     const bool restoredElevated = observed ? *observed == StartupMode::ElevatedTask : oldElevated;
@@ -440,7 +444,8 @@ bool BuiltInSettingsBackend::eventFilter(QObject* watched, QEvent* event) {
 }
 
 platform::windows::AdministratorResult
-BuiltInSettingsBackend::applyStartupSettings(bool enabled, bool elevated, bool reportError) {
+BuiltInSettingsBackend::applyStartupSettings(bool enabled, bool elevated, bool reportError,
+                                             bool restartOnElevation) {
     if (app::distribution::isStoreManaged())
         elevated = false;
     platform::macos::LoginItemService::Completion completion;
@@ -452,7 +457,8 @@ BuiltInSettingsBackend::applyStartupSettings(bool enabled, bool elevated, bool r
         };
     return m_startupSettingsApply
                ? m_startupSettingsApply(enabled, elevated)
-               : applyNativeStartupSettings(enabled, elevated, m_loginItems, std::move(completion));
+               : applyNativeStartupSettings(enabled, elevated, m_loginItems, std::move(completion),
+                                            restartOnElevation);
 }
 
 void BuiltInSettingsBackend::connectSkinControllerIfNeeded() {
@@ -522,6 +528,9 @@ QString BuiltInSettingsBackend::selectOptionsError(SettingsSelectBinding binding
 }
 
 bool BuiltInSettingsBackend::selectEnabled(SettingsSelectBinding binding) const {
+    if (binding == SettingsSelectBinding::HistoryCompressionLevel)
+        return storage::ApplicationStorage::instance().captureHistoryPolicy().mode !=
+               storage::CaptureHistoryMode::ResultsOnly;
     if (app::distribution::isStoreManaged() && binding == SettingsSelectBinding::UpdateMode)
         return false;
 #if SNOW_SHOT_ENABLE_TEXT_TRANSLATION
@@ -654,6 +663,9 @@ QVariant BuiltInSettingsBackend::selectValue(SettingsSelectBinding binding) cons
         return storage::ScreenshotSettings().apiMode();
     case SettingsSelectBinding::ScreenRecordingApiMode:
         return storage::RecordingSettings().apiMode();
+    case SettingsSelectBinding::HistoryRetentionMode:
+        return storage::captureHistoryModeId(
+            storage::ApplicationStorage::instance().captureHistoryPolicy().mode);
     case SettingsSelectBinding::SmartSelection:
         return smartSelectionModeId(storage::ApplicationStorage::instance().smartSelectionMode());
     case SettingsSelectBinding::WindowElementApi:
@@ -915,6 +927,16 @@ bool BuiltInSettingsBackend::applySelectValue(SettingsSelectBinding binding,
         return storage::ScreenshotSettings().setApiMode(value.toString());
     case SettingsSelectBinding::ScreenRecordingApiMode:
         return storage::RecordingSettings().setApiMode(value.toString());
+    case SettingsSelectBinding::HistoryRetentionMode: {
+        const auto normalized = storage::ConfigurationSchema::normalize(
+            QStringLiteral("capture_history/retention_mode"), QJsonValue::fromVariant(value));
+        if (!normalized.valid)
+            return false;
+        auto& appStorage = storage::ApplicationStorage::instance();
+        auto policy = appStorage.captureHistoryPolicy();
+        policy.mode = storage::captureHistoryModeFromId(normalized.value.toString());
+        return appStorage.requestCaptureHistoryPolicy(policy);
+    }
     case SettingsSelectBinding::SmartSelection: {
         const auto normalized = storage::ConfigurationSchema::normalize(
             QStringLiteral("screenshot_selection/smart_selection"), QJsonValue::fromVariant(value));
@@ -1009,8 +1031,6 @@ bool BuiltInSettingsBackend::switchValue(SettingsSwitchBinding binding) const {
             .configuration()
             .value(QStringLiteral("text_recognition/hardware_acceleration"))
             .toBool();
-    case SettingsSwitchBinding::HistoryEnabled:
-        return storage::ApplicationStorage::instance().captureHistoryPolicy().enabled;
     case SettingsSwitchBinding::PinnedHistoryEnabled:
         return storage::ApplicationStorage::instance().pinnedWindowPolicy().enabled;
     case SettingsSwitchBinding::HistoryKeepPermanently:
@@ -1532,13 +1552,11 @@ bool BuiltInSettingsBackend::applySwitchValue(SettingsSwitchBinding binding, boo
         if (!switchEnabled(binding))
             return false;
         emit synchronized();
-        const auto result =
-            applyStartupSettings(binding == SettingsSwitchBinding::AutoStartAtBoot
-                                     ? value
-                                     : storage::SystemSettings().autoStartAtBoot(),
-                                 binding == SettingsSwitchBinding::LaunchAsAdministrator
-                                     ? value
-                                     : storage::SystemSettings().launchAsAdministrator());
+        const bool administratorSwitch = binding == SettingsSwitchBinding::LaunchAsAdministrator;
+        const auto result = applyStartupSettings(
+            administratorSwitch ? storage::SystemSettings().autoStartAtBoot() : value,
+            administratorSwitch ? value : storage::SystemSettings().launchAsAdministrator(),
+            /*reportError=*/true, /*restartOnElevation=*/administratorSwitch && value);
         if (!result.success)
             emit operationMessage(result.error, false);
         emit synchronized();
@@ -1547,9 +1565,6 @@ bool BuiltInSettingsBackend::applySwitchValue(SettingsSwitchBinding binding, boo
 
     auto policy = storage::ApplicationStorage::instance().captureHistoryPolicy();
     switch (binding) {
-    case SettingsSwitchBinding::HistoryEnabled:
-        policy.enabled = value;
-        break;
     case SettingsSwitchBinding::PinnedHistoryEnabled: {
         auto pinnedPolicy = storage::ApplicationStorage::instance().pinnedWindowPolicy();
         pinnedPolicy.enabled = value;

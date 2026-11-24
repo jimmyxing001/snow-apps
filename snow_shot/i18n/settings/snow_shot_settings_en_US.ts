@@ -2210,6 +2210,10 @@
             <translation>Choose where recording output files are written</translation>
         </message>
         <message>
+            <source>Choose whether to keep editable screenshot sessions, only final images, or no new history</source>
+            <translation>Choose whether to keep editable screenshot sessions, only final images, or no new history</translation>
+        </message>
+        <message>
             <source>Choose which fullscreen windows trigger automatic disabling</source>
             <translation>Choose which fullscreen windows trigger automatic disabling</translation>
         </message>
@@ -3226,6 +3230,10 @@
             <translation>Keep closed windows available for restoration; disabling does not delete existing records</translation>
         </message>
         <message>
+            <source>Keep full history</source>
+            <translation>Keep full history</translation>
+        </message>
+        <message>
             <source>Keep group main buttons visible</source>
             <translation>Keep group main buttons visible</translation>
         </message>
@@ -3234,12 +3242,12 @@
             <translation>Keep records permanently</translation>
         </message>
         <message>
-            <source>Keep screenshot annotations editable with undo and redo history. Pinned images retain the original layout without layout compaction</source>
-            <translation>Keep screenshot annotations editable with undo and redo history. Pinned images retain the original layout without layout compaction</translation>
+            <source>Keep results only</source>
+            <translation>Keep results only</translation>
         </message>
         <message>
-            <source>Keep screenshots available after the application closes</source>
-            <translation>Keep screenshots available after the application closes</translation>
+            <source>Keep screenshot annotations editable with undo and redo history. Pinned images retain the original layout without layout compaction</source>
+            <translation>Keep screenshot annotations editable with undo and redo history. Pinned images retain the original layout without layout compaction</translation>
         </message>
         <message>
             <source>Keep selection width and height consistent</source>
@@ -3722,10 +3730,6 @@
             <translation>Permission status and access</translation>
         </message>
         <message>
-            <source>Persistent screenshot history</source>
-            <translation>Persistent screenshot history</translation>
-        </message>
-        <message>
             <source>Pin clipboard content to screen</source>
             <translation>Pin clipboard content to screen</translation>
         </message>
@@ -4124,6 +4128,10 @@
         <message>
             <source>Retain closed windows</source>
             <translation>Retain closed windows</translation>
+        </message>
+        <message>
+            <source>Retain screenshot history</source>
+            <translation>Retain screenshot history</translation>
         </message>
         <message>
             <source>Retention limits apply only to closed windows; retained windows are always protected</source>
@@ -4796,10 +4804,6 @@
         <message>
             <source>Smart control releases unused heap memory while the app is idle. Active captures and pinned images are kept</source>
             <translation>Smart control releases unused heap memory while the app is idle. Active captures and pinned images are kept</translation>
-        </message>
-        <message>
-            <source>Smart control trims resident memory while the app is idle. The next use may briefly take longer</source>
-            <translation>Smart control trims resident memory while the app is idle. The next use may briefly take longer</translation>
         </message>
         <message>
             <source>Smart merge</source>
@@ -6109,9 +6113,12 @@ Unavailable: %2</translation>
     </context>
     <context>
         <name>snow_shot::app::AccountSessionService</name>
-        <message>
+        <message numerus="yes">
             <source>%1 credits</source>
-            <translation>%1 credits</translation>
+            <translation>
+                <numerusform>%1 credit</numerusform>
+                <numerusform>%1 credits</numerusform>
+            </translation>
         </message>
         <message>
             <source>Confirm your password</source>

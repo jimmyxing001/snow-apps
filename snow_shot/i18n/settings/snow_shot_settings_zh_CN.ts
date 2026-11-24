@@ -2210,6 +2210,10 @@
             <translation>选择录制输出文件的保存位置</translation>
         </message>
         <message>
+            <source>Choose whether to keep editable screenshot sessions, only final images, or no new history</source>
+            <translation>选择保留可编辑的截图会话、仅保留最终图像或停用新历史记录</translation>
+        </message>
+        <message>
             <source>Choose which fullscreen windows trigger automatic disabling</source>
             <translation>选择哪些全屏窗口会触发自动禁用</translation>
         </message>
@@ -3226,6 +3230,10 @@
             <translation>保留已关闭窗口以便恢复；禁用不会删除现有记录</translation>
         </message>
         <message>
+            <source>Keep full history</source>
+            <translation>保留完整历史</translation>
+        </message>
+        <message>
             <source>Keep group main buttons visible</source>
             <translation>保持显示分组主按钮</translation>
         </message>
@@ -3234,12 +3242,12 @@
             <translation>永久保留记录</translation>
         </message>
         <message>
-            <source>Keep screenshot annotations editable with undo and redo history. Pinned images retain the original layout without layout compaction</source>
-            <translation>保留截图标注的可编辑状态及撤销、重做历史。固定的图像保留原始布局，不使用紧凑布局</translation>
+            <source>Keep results only</source>
+            <translation>仅保留结果</translation>
         </message>
         <message>
-            <source>Keep screenshots available after the application closes</source>
-            <translation>关闭应用程序后仍保留可用的截图</translation>
+            <source>Keep screenshot annotations editable with undo and redo history. Pinned images retain the original layout without layout compaction</source>
+            <translation>保留截图标注的可编辑状态及撤销、重做历史。固定的图像保留原始布局，不使用紧凑布局</translation>
         </message>
         <message>
             <source>Keep selection width and height consistent</source>
@@ -3722,10 +3730,6 @@
             <translation>权限状态与授权</translation>
         </message>
         <message>
-            <source>Persistent screenshot history</source>
-            <translation>持久化截图历史</translation>
-        </message>
-        <message>
             <source>Pin clipboard content to screen</source>
             <translation>将剪贴板内容固定到屏幕</translation>
         </message>
@@ -4124,6 +4128,10 @@
         <message>
             <source>Retain closed windows</source>
             <translation>保留已关闭窗口</translation>
+        </message>
+        <message>
+            <source>Retain screenshot history</source>
+            <translation>保留截图历史</translation>
         </message>
         <message>
             <source>Retention limits apply only to closed windows; retained windows are always protected</source>
@@ -4796,10 +4804,6 @@
         <message>
             <source>Smart control releases unused heap memory while the app is idle. Active captures and pinned images are kept</source>
             <translation>智能控制会在应用空闲时释放未使用的堆内存。正在进行的捕获和已固定到屏幕的图像会保留</translation>
-        </message>
-        <message>
-            <source>Smart control trims resident memory while the app is idle. The next use may briefly take longer</source>
-            <translation>智能控制会在应用空闲时缩减驻留内存。下次使用时可能会短暂增加响应时间</translation>
         </message>
         <message>
             <source>Smart merge</source>
@@ -6109,9 +6113,11 @@ Unavailable: %2</source>
     </context>
     <context>
         <name>snow_shot::app::AccountSessionService</name>
-        <message>
+        <message numerus="yes">
             <source>%1 credits</source>
-            <translation>%1 积分</translation>
+            <translation>
+                <numerusform>%1 积分</numerusform>
+            </translation>
         </message>
         <message>
             <source>Confirm your password</source>
