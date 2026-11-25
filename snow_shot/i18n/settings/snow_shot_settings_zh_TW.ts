@@ -489,6 +489,33 @@
         </message>
     </context>
     <context>
+        <name>CloudSettingsSyncWidget</name>
+        <message>
+            <source>Last sync: %1</source>
+            <translation>上次同步：%1</translation>
+        </message>
+        <message>
+            <source>Not synced yet</source>
+            <translation>尚未同步</translation>
+        </message>
+        <message>
+            <source>Settings</source>
+            <translation>設定</translation>
+        </message>
+        <message>
+            <source>Sign in to sync settings</source>
+            <translation>登入以同步設定</translation>
+        </message>
+        <message>
+            <source>Sync now</source>
+            <translation>立即同步</translation>
+        </message>
+        <message>
+            <source>Sync on this device</source>
+            <translation>在此裝置上同步</translation>
+        </message>
+    </context>
+    <context>
         <name>CloudUploadSettingsWidget</name>
         <message>
             <source>%1 (Copy %2)</source>
@@ -971,36 +998,12 @@
             <translation>啟用按鍵</translation>
         </message>
         <message>
-            <source>Alt</source>
-            <translation>Alt</translation>
-        </message>
-        <message>
             <source>Cancel</source>
             <translation>取消</translation>
         </message>
         <message>
-            <source>Command</source>
-            <translation>Command</translation>
-        </message>
-        <message>
             <source>Configure mouse combination for %1</source>
             <translation>為%1設定滑鼠組合</translation>
-        </message>
-        <message>
-            <source>Control</source>
-            <translation>Control</translation>
-        </message>
-        <message>
-            <source>Ctrl</source>
-            <translation>Ctrl</translation>
-        </message>
-        <message>
-            <source>Left-button drag</source>
-            <translation>按住左鍵拖曳</translation>
-        </message>
-        <message>
-            <source>Middle-button drag</source>
-            <translation>按住中鍵拖曳</translation>
         </message>
         <message>
             <source>Mouse button</source>
@@ -1011,20 +1014,8 @@
             <translation>「%1」的滑鼠設定</translation>
         </message>
         <message>
-            <source>None</source>
-            <translation>無</translation>
-        </message>
-        <message>
             <source>OK</source>
             <translation>確定</translation>
-        </message>
-        <message>
-            <source>Option</source>
-            <translation>Option</translation>
-        </message>
-        <message>
-            <source>Right-button drag</source>
-            <translation>按住右鍵拖曳</translation>
         </message>
         <message>
             <source>Select a mouse button</source>
@@ -1035,28 +1026,8 @@
             <translation>請至少選擇一個啟用按鍵</translation>
         </message>
         <message>
-            <source>Shift</source>
-            <translation>Shift</translation>
-        </message>
-        <message>
-            <source>Side button 1 (back) drag</source>
-            <translation>按住側鍵 1（返回）拖曳</translation>
-        </message>
-        <message>
-            <source>Side button 2 (forward) drag</source>
-            <translation>按住側鍵 2（前進）拖曳</translation>
-        </message>
-        <message>
             <source>This mouse combination is already assigned to another action. Choose a different combination</source>
             <translation>此滑鼠組合已指派給其他操作。請選擇不同的組合</translation>
-        </message>
-        <message>
-            <source>Unset</source>
-            <translation>未設定</translation>
-        </message>
-        <message>
-            <source>Windows</source>
-            <translation>Windows</translation>
         </message>
     </context>
     <context>
@@ -1107,6 +1078,248 @@
         <message>
             <source>The skin image exceeds processing limits</source>
             <translation>佈景影像超出處理限制</translation>
+        </message>
+    </context>
+    <context>
+        <name>MouseOperationRow</name>
+        <message>
+            <source>Keyboard modifiers</source>
+            <translation>鍵盤修飾鍵</translation>
+        </message>
+        <message>
+            <source>Mouse operation</source>
+            <translation>滑鼠操作</translation>
+        </message>
+        <message>
+            <source>The mouse operation could not be saved.</source>
+            <translation>無法儲存滑鼠操作。</translation>
+        </message>
+        <message>
+            <source>The unmodified left single-click is reserved for selection.</source>
+            <translation>未搭配修飾鍵的左鍵單擊已保留供選取使用。</translation>
+        </message>
+        <message>
+            <source>This gesture is assigned to %1.</source>
+            <translation>此手勢已指派給「%1」。</translation>
+        </message>
+        <message>
+            <source>Unmodified right clicks are reserved for Go back one step.</source>
+            <translation>未搭配修飾鍵的右鍵點擊已保留給「返回上一步」。</translation>
+        </message>
+    </context>
+    <context>
+        <name>MouseOperations</name>
+        <message>
+            <source>Adjust opacity</source>
+            <translation>調整不透明度</translation>
+        </message>
+        <message>
+            <source>Alt</source>
+            <translation>Alt</translation>
+        </message>
+        <message>
+            <source>Annotation mode</source>
+            <translation>標註模式</translation>
+        </message>
+        <message>
+            <source>Cancel screenshot</source>
+            <translation>取消截圖</translation>
+        </message>
+        <message>
+            <source>Close</source>
+            <translation>關閉</translation>
+        </message>
+        <message>
+            <source>Command</source>
+            <translation>Command</translation>
+        </message>
+        <message>
+            <source>Control</source>
+            <translation>Control</translation>
+        </message>
+        <message>
+            <source>Copy after text recognition</source>
+            <translation>文字辨識後複製</translation>
+        </message>
+        <message>
+            <source>Copy text to clipboard</source>
+            <translation>複製文字到剪貼簿</translation>
+        </message>
+        <message>
+            <source>Copy to clipboard</source>
+            <translation>複製到剪貼簿</translation>
+        </message>
+        <message>
+            <source>Copy to clipboard and close</source>
+            <translation>複製到剪貼簿並關閉</translation>
+        </message>
+        <message>
+            <source>Ctrl</source>
+            <translation>Ctrl</translation>
+        </message>
+        <message>
+            <source>Destroy</source>
+            <translation>銷毀</translation>
+        </message>
+        <message>
+            <source>Drag image</source>
+            <translation>拖出圖片</translation>
+        </message>
+        <message>
+            <source>Fine opacity adjustment</source>
+            <translation>微調不透明度</translation>
+        </message>
+        <message>
+            <source>Fine zoom</source>
+            <translation>微調縮放</translation>
+        </message>
+        <message>
+            <source>Force window move</source>
+            <translation>強制移動視窗</translation>
+        </message>
+        <message>
+            <source>Go back one step</source>
+            <translation>返回上一步</translation>
+        </message>
+        <message>
+            <source>Hide at top</source>
+            <translation>頂部隱藏</translation>
+        </message>
+        <message>
+            <source>Left-button double-click</source>
+            <translation>左鍵雙擊</translation>
+        </message>
+        <message>
+            <source>Left-button drag</source>
+            <translation>左鍵拖曳</translation>
+        </message>
+        <message>
+            <source>Left-button single-click</source>
+            <translation>左鍵單擊</translation>
+        </message>
+        <message>
+            <source>Menu</source>
+            <translation>選單</translation>
+        </message>
+        <message>
+            <source>Middle-button double-click</source>
+            <translation>中鍵雙擊</translation>
+        </message>
+        <message>
+            <source>Middle-button drag</source>
+            <translation>中鍵拖曳</translation>
+        </message>
+        <message>
+            <source>Middle-button single-click</source>
+            <translation>中鍵單擊</translation>
+        </message>
+        <message>
+            <source>Mouse wheel</source>
+            <translation>滑鼠滾輪</translation>
+        </message>
+        <message>
+            <source>Move or resize window</source>
+            <translation>移動視窗或調整大小</translation>
+        </message>
+        <message>
+            <source>Multi-select</source>
+            <translation>多選</translation>
+        </message>
+        <message>
+            <source>None</source>
+            <translation>無</translation>
+        </message>
+        <message>
+            <source>Option</source>
+            <translation>Option</translation>
+        </message>
+        <message>
+            <source>Pan within crop</source>
+            <translation>平移裁切區域內的圖片</translation>
+        </message>
+        <message>
+            <source>Pin to screen</source>
+            <translation>固定到螢幕</translation>
+        </message>
+        <message>
+            <source>Quick save</source>
+            <translation>快速儲存</translation>
+        </message>
+        <message>
+            <source>Reset zoom</source>
+            <translation>重設縮放</translation>
+        </message>
+        <message>
+            <source>Right-button double-click</source>
+            <translation>右鍵雙擊</translation>
+        </message>
+        <message>
+            <source>Right-button drag</source>
+            <translation>右鍵拖曳</translation>
+        </message>
+        <message>
+            <source>Right-button single-click</source>
+            <translation>右鍵單擊</translation>
+        </message>
+        <message>
+            <source>Save as file</source>
+            <translation>儲存為檔案</translation>
+        </message>
+        <message>
+            <source>Select crop region</source>
+            <translation>選取裁切區域</translation>
+        </message>
+        <message>
+            <source>Shift</source>
+            <translation>Shift</translation>
+        </message>
+        <message>
+            <source>Show text recognition results</source>
+            <translation>顯示文字辨識結果</translation>
+        </message>
+        <message>
+            <source>Side button 1 (back) double-click</source>
+            <translation>側鍵 1（後退）雙擊</translation>
+        </message>
+        <message>
+            <source>Side button 1 (back) drag</source>
+            <translation>側鍵 1（後退）拖曳</translation>
+        </message>
+        <message>
+            <source>Side button 1 (back) single-click</source>
+            <translation>側鍵 1（後退）單擊</translation>
+        </message>
+        <message>
+            <source>Side button 2 (forward) double-click</source>
+            <translation>側鍵 2（前進）雙擊</translation>
+        </message>
+        <message>
+            <source>Side button 2 (forward) drag</source>
+            <translation>側鍵 2（前進）拖曳</translation>
+        </message>
+        <message>
+            <source>Side button 2 (forward) single-click</source>
+            <translation>側鍵 2（前進）單擊</translation>
+        </message>
+        <message>
+            <source>Text recognition</source>
+            <translation>文字辨識</translation>
+        </message>
+        <message>
+            <source>Thumbnail mode</source>
+            <translation>縮圖模式</translation>
+        </message>
+        <message>
+            <source>Unset</source>
+            <translation>未設定</translation>
+        </message>
+        <message>
+            <source>Windows</source>
+            <translation>Windows</translation>
+        </message>
+        <message>
+            <source>Zoom</source>
+            <translation>縮放</translation>
         </message>
     </context>
     <context>
@@ -1425,6 +1638,10 @@
         <message>
             <source>Enter a valid HTTP proxy address, for example http://127.0.0.1:7890</source>
             <translation>請輸入有效的 HTTP 代理位址，例如 http://127.0.0.1:7890</translation>
+        </message>
+        <message>
+            <source>Language %1 is unavailable on this device</source>
+            <translation>此裝置不支援語言 %1</translation>
         </message>
         <message>
             <source>The clipboard is unavailable</source>
@@ -2042,10 +2259,6 @@
             <translation>選擇網路請求連線代理的方式</translation>
         </message>
         <message>
-            <source>Choose how text detection resizes images. Limiting the long side is faster; enlarging the short side may find smaller text</source>
-            <translation>選擇文字偵測時的影像縮放方式。限制長邊可提高速度；放大短邊可能辨識出更小的文字</translation>
-        </message>
-        <message>
             <source>Choose how the area behind recognized text is filled</source>
             <translation>選擇辨識文字後方區域的填滿方式</translation>
         </message>
@@ -2064,22 +2277,6 @@
         <message>
             <source>Choose the OCR model version and size to balance recognition speed and accuracy</source>
             <translation>選擇 OCR 模型版本和大小，以平衡辨識速度和準確率</translation>
-        </message>
-        <message>
-            <source>Choose the action for double-clicking a draggable area of a pinned screenshot</source>
-            <translation>選擇按兩下固定到螢幕的截圖可拖曳區域時執行的操作</translation>
-        </message>
-        <message>
-            <source>Choose the action for double-clicking while moving or annotating in a screenshot</source>
-            <translation>選擇在截圖中移動或標註時按兩下所執行的動作</translation>
-        </message>
-        <message>
-            <source>Choose the action for middle-clicking a draggable area of a pinned screenshot</source>
-            <translation>選擇在固定到螢幕的截圖可拖曳區域按一下滑鼠中鍵時執行的操作</translation>
-        </message>
-        <message>
-            <source>Choose the action for middle-clicking while moving or annotating in a screenshot</source>
-            <translation>選擇在截圖中移動或標註時按一下滑鼠中鍵所執行的動作</translation>
         </message>
         <message>
             <source>Choose the bundled icon used in dark theme, or reuse the regular icon settings</source>
@@ -2250,6 +2447,10 @@
             <translation>清除截圖歷史？</translation>
         </message>
         <message>
+            <source>Click, wheel, and drag actions for pinned windows</source>
+            <translation>釘選視窗的點擊、滾輪和拖曳操作</translation>
+        </message>
+        <message>
             <source>Click-through</source>
             <translation>滑鼠穿透</translation>
         </message>
@@ -2262,16 +2463,16 @@
             <translation>剪貼簿內容</translation>
         </message>
         <message>
-            <source>Close</source>
-            <translation>關閉</translation>
-        </message>
-        <message>
             <source>Close window</source>
             <translation>關閉視窗</translation>
         </message>
         <message>
             <source>Closed window count</source>
             <translation>已關閉視窗數量</translation>
+        </message>
+        <message>
+            <source>Cloud settings sync</source>
+            <translation>雲端設定同步</translation>
         </message>
         <message>
             <source>Cloud upload</source>
@@ -2686,10 +2887,6 @@
             <translation>不自動選取使用這些工具建立的元素</translation>
         </message>
         <message>
-            <source>Double-click action</source>
-            <translation>按兩下動作</translation>
-        </message>
-        <message>
             <source>Download automatically</source>
             <translation>自動下載</translation>
         </message>
@@ -2788,10 +2985,6 @@
         <message>
             <source>End recording</source>
             <translation>結束螢幕錄製</translation>
-        </message>
-        <message>
-            <source>Enlarge short side (more detail)</source>
-            <translation>放大短邊（更多細節）</translation>
         </message>
         <message>
             <source>Enter an HTTP or HTTPS address. Changes apply immediately. Clear to use the default server</source>
@@ -3330,10 +3523,6 @@
             <translation>限制截圖歷史可使用的磁碟空間</translation>
         </message>
         <message>
-            <source>Limit long side (faster)</source>
-            <translation>限制長邊（更快）</translation>
-        </message>
-        <message>
             <source>Limit the width of pinned text, including padding</source>
             <translation>限制固定到螢幕的文字寬度，包括內距</translation>
         </message>
@@ -3486,8 +3675,20 @@
             <translation>顯示器中央輔助線顏色</translation>
         </message>
         <message>
+            <source>Mouse actions for the current selection or smart selection preview</source>
+            <translation>目前選取區域或智慧選取預覽的滑鼠操作</translation>
+        </message>
+        <message>
             <source>Mouse combinations for screenshot actions</source>
             <translation>截圖操作的滑鼠組合</translation>
+        </message>
+        <message>
+            <source>Mouse gestures for screenshots and pinned windows</source>
+            <translation>擷取畫面與釘選視窗的滑鼠手勢</translation>
+        </message>
+        <message>
+            <source>Mouse operations</source>
+            <translation>滑鼠操作</translation>
         </message>
         <message>
             <source>Mouse pointer</source>
@@ -4066,10 +4267,6 @@
             <translation>重設變換</translation>
         </message>
         <message>
-            <source>Reset zoom</source>
-            <translation>重設縮放</translation>
-        </message>
-        <message>
             <source>Resident recognition process</source>
             <translation>常駐辨識程序</translation>
         </message>
@@ -4630,6 +4827,10 @@
             <translation>圖形</translation>
         </message>
         <message>
+            <source>Share preferences across devices signed in to the same account</source>
+            <translation>在登入同一帳號的裝置間共用偏好設定</translation>
+        </message>
+        <message>
             <source>Shared image export settings for screenshot and pin-to-screen windows</source>
             <translation>截圖視窗和固定到螢幕視窗共用的影像匯出設定</translation>
         </message>
@@ -4720,10 +4921,6 @@
         <message>
             <source>Show text highlighting</source>
             <translation>顯示文字醒目提示</translation>
-        </message>
-        <message>
-            <source>Show text recognition results</source>
-            <translation>顯示文字辨識結果</translation>
         </message>
         <message>
             <source>Show the annotation and close buttons in the upper-right corner of pinned windows</source>
@@ -5008,10 +5205,6 @@
         <message>
             <source>Text detection processing</source>
             <translation>文字偵測處理</translation>
-        </message>
-        <message>
-            <source>Text detection scaling</source>
-            <translation>文字偵測縮放</translation>
         </message>
         <message>
             <source>Text recognition</source>
@@ -6116,8 +6309,8 @@ Unavailable: %2</source>
         <message numerus="yes">
             <source>%1 credits</source>
             <translation>
-                <numerusform>%1 積分</numerusform>
-            </translation>
+            <numerusform>%1 積分</numerusform>
+        </translation>
         </message>
         <message>
             <source>Confirm your password</source>
@@ -6234,6 +6427,10 @@ Unavailable: %2</source>
         <message>
             <source>Some custom API configurations are invalid and were ignored</source>
             <translation>部分自訂 API 設定無效，已被忽略</translation>
+        </message>
+        <message>
+            <source>The mouse operation is already assigned.</source>
+            <translation>此滑鼠操作已指派給其他動作。</translation>
         </message>
     </context>
 </TS>

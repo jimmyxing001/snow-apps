@@ -1,4 +1,5 @@
 #include "snow_shot/globalmouseactivationkeys.h"
+#include "snow_shot/mouseoperations.h"
 #include "snow_shot/storage/configurationschema.h"
 #include "snow_shot/storage/exporttasks.h"
 #include "snow_shot/ocrtextoptions.h"
@@ -18,7 +19,9 @@
 #include "snow_shot/storage/capturehistorytypes.h"
 #include "snow_shot/storage/persistedselectioncodec.h"
 #include "snow_shot/storage/recordingareahistory.h"
+#include "snow_shot/storage/settingsadapters.h"
 #include "snow_shot/shortcuts/shortcutbinding.h"
+#include "snow_shot/shortcuts/localshortcutcontext.h"
 #include "snow_shot/shortcuts/menuaccesskey.h"
 #include "snow_shot/shortcuts/screenshotregiontypeshortcut.h"
 #include "snow_draw_engine.h"
@@ -466,7 +469,7 @@ constexpr SchemaString kFloatingToolbarDropBehaviors[] = {u"pin_to_screen", u"im
                                                           u"image_splitting", u"image_editing"};
 constexpr SchemaAllowedValues kFloatingToolbarDropBehaviorValues = {
     kFloatingToolbarDropBehaviors, std::size(kFloatingToolbarDropBehaviors)};
-constexpr int kConfigurationSchemaVersion = 9;
+constexpr int kConfigurationSchemaVersion = 10;
 constexpr ConfigurationIntegerRange kSchemaRange1{kConfigurationSchemaVersion,
                                                   kConfigurationSchemaVersion, 1};
 constexpr SchemaString kSchemaStrings4[] = {u"system", u"light", u"dark"};
@@ -497,8 +500,6 @@ constexpr SchemaString kSchemaStrings12[] = {u"none", u"system", u"manual"};
 constexpr SchemaAllowedValues kSchemaAllowed10 = {kSchemaStrings12, std::size(kSchemaStrings12)};
 constexpr SchemaString kSchemaStrings13[] = {u"extra_small", u"small", u"medium"};
 constexpr SchemaAllowedValues kSchemaAllowed11 = {kSchemaStrings13, std::size(kSchemaStrings13)};
-constexpr SchemaString kSchemaStrings14[] = {u"max", u"min"};
-constexpr SchemaAllowedValues kSchemaAllowed12 = {kSchemaStrings14, std::size(kSchemaStrings14)};
 constexpr SchemaString kSchemaStrings15[] = {u"accuracy_first", u"speed_first"};
 constexpr SchemaAllowedValues kSchemaAllowed13 = {kSchemaStrings15, std::size(kSchemaStrings15)};
 constexpr SchemaString kSchemaStrings16[] = {u"auto", u"ar", u"de", u"en",      u"es",     u"fr",
@@ -829,7 +830,7 @@ constexpr SchemaString kSchemaStrings129[] = {u"png", u"jpeg", u"bmp",  u"webp",
 constexpr SchemaAllowedValues kSchemaAllowed60 = {kSchemaStrings129, std::size(kSchemaStrings129)};
 constexpr SchemaString kSchemaStrings130[] = {u"system", u"snow_shot"};
 constexpr SchemaAllowedValues kSchemaAllowed61 = {kSchemaStrings130, std::size(kSchemaStrings130)};
-constexpr SchemaString kSchemaStrings131[] = {u"vertical", u"horizontal", u"custom"};
+constexpr SchemaString kSchemaStrings131[] = {u"vertical", u"horizontal", u"free", u"custom"};
 constexpr SchemaAllowedValues kSchemaAllowed62 = {kSchemaStrings131, std::size(kSchemaStrings131)};
 constexpr ConfigurationIntegerRange kSchemaRange22{1, std::numeric_limits<int>::max(), 1};
 constexpr SchemaString kSchemaStrings132[] = {u"original", u"uniform"};
@@ -961,8 +962,6 @@ constexpr SchemaEntryDescriptor kEntryDescriptors[] = {
      ConfigurationValueKind::Boolean},
     {u"text_recognition/model_type", stringDefault(u"small"), ConfigurationValueKind::String,
      nullptr, &kSchemaAllowed11},
-    {u"text_recognition/detector_resize_policy", stringDefault(u"max"),
-     ConfigurationValueKind::String, nullptr, &kSchemaAllowed12},
     {u"text_recognition/text_detection_processing", stringDefault(u"accuracy_first"),
      ConfigurationValueKind::String, nullptr, &kSchemaAllowed13},
 #if SNOW_SHOT_ENABLE_TEXT_TRANSLATION
@@ -1380,6 +1379,8 @@ constexpr SchemaEntryDescriptor kEntryDescriptors[] = {
      ConfigurationValueKind::StringList, nullptr, nullptr, 2},
     {u"screenshot_shortcuts/text_recognition", stringsDefault(kSchemaStrings69),
      ConfigurationValueKind::StringList, nullptr, nullptr, 2},
+    {u"screenshot_shortcuts/text_recognition_copy", emptyArrayDefault(),
+     ConfigurationValueKind::StringList, nullptr, nullptr, 2},
 #if SNOW_SHOT_ENABLE_TEXT_TRANSLATION
     {u"screenshot_shortcuts/text_translation", stringsDefault(kSchemaStrings70),
      ConfigurationValueKind::StringList, nullptr, nullptr, 2},
@@ -1433,8 +1434,6 @@ constexpr SchemaEntryDescriptor kEntryDescriptors[] = {
     {u"pin_to_screen_shortcuts/batch_save_as_file", stringsDefault(kSchemaStrings87),
      ConfigurationValueKind::StringList, nullptr, nullptr, 2},
     {u"pin_to_screen_shortcuts/save_as_file", stringsDefault(kSchemaStrings74),
-     ConfigurationValueKind::StringList, nullptr, nullptr, 2},
-    {u"pin_to_screen_shortcuts/show_text_recognition_results", stringsDefault(kSchemaStrings69),
      ConfigurationValueKind::StringList, nullptr, nullptr, 2},
     {u"pin_to_screen_shortcuts/drawing_mode", stringsDefault(kSchemaStrings53),
      ConfigurationValueKind::StringList, nullptr, nullptr, 2},
@@ -1903,6 +1902,11 @@ QVector<ConfigurationSchemaEntry> buildEntries() {
     for (const auto& row : exportTaskRows)
         result.push_back({row.key.toString(), QJsonArray{}, ConfigurationValueKind::StringList,
                           std::nullopt, exportTaskIds(row.allowed)});
+    for (const auto& action : mouse::definitions()) {
+        if (action.action != mouse::Action::Back)
+            result.push_back(
+                {action.key(), mouse::encode(action.factory), ConfigurationValueKind::Structured});
+    }
     for (ConfigurationSchemaEntry& entry : result) {
         if (!shortcutConfigurationKey(entry.key) ||
             entry.valueKind != ConfigurationValueKind::StringList) {
@@ -2793,6 +2797,13 @@ ConfigurationNormalization ConfigurationSchema::normalize(const QString& key,
     if (schemaEntry == nullptr) {
         return {};
     }
+    if (const auto* action = mouse::forKey(key)) {
+        const auto binding = mouse::decode(value);
+        if (!binding || !mouse::allowed(*action, *binding))
+            return {};
+        const auto normalized = mouse::encode(*binding);
+        return {normalized, true, normalized != value};
+    }
     if (key == QStringLiteral("context_menu_shortcuts/edit_with_snow_shot")) {
         if (!value.isArray() || value.toArray().size() > 1)
             return {};
@@ -3075,8 +3086,58 @@ bool ConfigurationSchema::parseIntegerVersion(const QJsonValue& value, int* vers
     return true;
 }
 
+namespace {
+void migratePinnedOcrShortcut(QMap<QString, QJsonValue>& values) {
+    const auto legacy =
+        values.take(QStringLiteral("pin_to_screen_shortcuts/show_text_recognition_results"));
+    if (!legacy.isArray())
+        return;
+
+    const QString key = QStringLiteral("screenshot_shortcuts/text_recognition");
+    const auto factory = ConfigurationSchema::defaultValue(key);
+    const auto configured = ConfigurationSchema::normalize(key, values.value(key));
+    if (configured.valid && configured.value != factory)
+        return;
+
+    const auto normalizedLegacy = ConfigurationSchema::normalize(key, legacy).value;
+    if (normalizedLegacy == factory || normalizedLegacy.toArray().isEmpty())
+        return;
+
+    QMap<QString, QJsonValue> otherShortcuts;
+    for (const auto& entry : ConfigurationSchema::entries()) {
+        if (entry.valueKind != ConfigurationValueKind::ShortcutList || entry.key == key ||
+            !shortcuts::localShortcutKeysMayConflict(key, entry.key))
+            continue;
+        const auto stored = ConfigurationSchema::normalize(entry.key, values.value(entry.key));
+        otherShortcuts.insert(entry.key, stored.valid ? stored.value : entry.defaultValue);
+    }
+    QJsonArray migrated;
+    for (const auto& binding : normalizedLegacy.toArray()) {
+        auto proposed = migrated;
+        proposed.append(binding);
+        if (localShortcutChangesValid(otherShortcuts, {{key, proposed}}))
+            migrated = std::move(proposed);
+    }
+    if (!migrated.isEmpty())
+        values.insert(key, migrated);
+}
+
+void repairOcrCopyShortcut(QMap<QString, QJsonValue>& values) {
+    const QString key = QStringLiteral("screenshot_shortcuts/text_recognition_copy");
+    auto bindings = shortcuts::shortcutBindingsFromJson(values.value(key), true);
+    if (bindings.removeIf([](const auto& binding) {
+            return ScreenshotShortcutSettings::isReservedShortcut(
+                binding, QStringLiteral("text_recognition_copy"));
+        }) > 0)
+        values.insert(key, shortcuts::shortcutBindingsToJson(bindings));
+}
+} // namespace
+
 QMap<QString, QJsonValue>
 ConfigurationSchema::migrateLegacyValues(QMap<QString, QJsonValue> values) {
+    repairOcrCopyShortcut(values);
+    migratePinnedOcrShortcut(values);
+    mouse::migrate(values);
     const QString shutterKey = QStringLiteral("screenshot/shutter_sound_notification");
     const auto directSound = values.value(shutterKey);
     const auto normalSound =

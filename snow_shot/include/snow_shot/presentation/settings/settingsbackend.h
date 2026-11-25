@@ -19,6 +19,7 @@
 #include <QObject>
 #include <QHash>
 #include <QPointer>
+#include <QSet>
 #include <QVariant>
 #include <QVector>
 #include <algorithm>
@@ -194,7 +195,8 @@ class SettingsBackend : public QObject {
 #endif
     virtual bool
     importConfigurationSnapshot(const QMap<QString, QJsonValue>&, int,
-                                std::shared_future<storage::StorageResult>* completion = nullptr) {
+                                std::shared_future<storage::StorageResult>* completion = nullptr,
+                                const QSet<QString>* = nullptr) {
         if (completion)
             *completion = {};
         return false;
@@ -230,6 +232,13 @@ class SettingsBackend : public QObject {
                                 const SettingsGlobalMouseCombination& combination) {
         Q_UNUSED(action);
         Q_UNUSED(combination);
+        return false;
+    }
+
+    virtual mouse::Bindings mouseBindings() const {
+        return mouse::Bindings{};
+    }
+    virtual bool applyMouseOperation(mouse::Action, mouse::Binding) {
         return false;
     }
 
@@ -313,6 +322,8 @@ class BuiltInSettingsBackend final : public SettingsBackend {
         return m_permissions;
     }
 
+    mouse::Bindings mouseBindings() const override;
+    bool applyMouseOperation(mouse::Action action, mouse::Binding binding) override;
     GlobalMousePermissionState globalMousePermissionState() const override;
     void requestGlobalMousePermission() override;
     void openGlobalMousePermissionSettings() override;
@@ -393,9 +404,10 @@ class BuiltInSettingsBackend final : public SettingsBackend {
     bool applyTextTranslationConfigurations(const TextTranslationConfigurations& values) override;
 #endif
 
-    bool importConfigurationSnapshot(
-        const QMap<QString, QJsonValue>& values, int schemaVersion,
-        std::shared_future<storage::StorageResult>* completion = nullptr) override;
+    bool
+    importConfigurationSnapshot(const QMap<QString, QJsonValue>& values, int schemaVersion,
+                                std::shared_future<storage::StorageResult>* completion = nullptr,
+                                const QSet<QString>* explicitlyImported = nullptr) override;
     [[nodiscard]] storage::StorageStatus storageStatus() const override;
     void refreshPlatformSettings() override;
     QString fieldError(const QString& fieldId) const override;

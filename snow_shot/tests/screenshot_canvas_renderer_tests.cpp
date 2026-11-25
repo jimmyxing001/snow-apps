@@ -5309,6 +5309,12 @@ void ocrGlyphDeviceCachesMatchDirectPaintingAndInvalidate() {
         require(layer.glyphRasterBuildCount() == previewBuilds,
                 "entering and leaving a box preview must reuse cached committed glyph pixels");
 
+        // A whole-line highlight can cover the same quad after text replacement.
+        // Select a prefix so its changed width is visible in SelectionOnly as well.
+        presentation->beginTextSelection(ScreenshotOcrTextPosition{0, 0});
+        presentation->updateTextSelection(ScreenshotOcrTextPosition{1, 5});
+        presentation->finishTextSelection();
+        layer.updateSelection();
         const QImage beforeTextReplacement = renderOcrSelectionLayer(layer, 1.5);
         const auto textBuilds = layer.glyphRasterBuildCount();
         const auto textGeometry = layer.geometrySynchronizationCount();
@@ -5322,8 +5328,9 @@ void ocrGlyphDeviceCachesMatchDirectPaintingAndInvalidate() {
                 "pixels before painting");
         compareWithDirect(1.5);
         require(renderOcrSelectionLayer(layer, 1.5) != beforeTextReplacement,
-                "a streaming replacement must display changed glyph pixels even when its new "
-                "geometry requires direct painting");
+                "streaming replacement must update visible glyphs and partial selection geometry");
+        presentation->selectAll();
+        layer.updateSelection();
         presentation->setLineText(
             0, QStringLiteral("A long original OCR line constrained by the source box width"));
         const auto sourceLines = presentation->lines;
@@ -6106,16 +6113,16 @@ void ocrPresentationRendersWhileCanvasContentIsHidden() {
     const QRect paintedTextBounds = paintedInkBounds(output, QRect(24, 32, 32, 16), 80);
     require(!paintedTextBounds.isEmpty(),
             "OCR graphics items should render text over the region fill");
-    require(paintedTextBounds.width() < 30 && paintedTextBounds.height() >= 13,
-            "short OCR text must retain natural spacing while using the full estimated height");
+    require(paintedTextBounds.width() >= 30 && paintedTextBounds.height() >= 13,
+            "source OCR text must fill the detected width at its fitted height");
     require(std::abs(paintedTextBounds.left() - 24) <= 1,
-            "naturally spaced OCR text must remain left-aligned");
+            "fitted source OCR text must remain left-aligned");
     auto* textLayer = canvas.findChild<QGraphicsView*>(QStringLiteral("snowShotOcrTextLayer"));
     require(textLayer != nullptr && textLayer->isVisible(),
             "OCR text widgets should live in a visible layer above the canvas");
     require(!textLayer->scene()->items().isEmpty() &&
                 textLayer->scene()->items().constFirst()->sceneBoundingRect().width() >= 31.0,
-            "natural glyph spacing must preserve the original recognition region for hit testing");
+            "fitted source glyphs must preserve the original recognition region for hit testing");
 
     const ScreenshotOcrTextPosition lineStart = renderer.ocrTextPositionAt(QPointF(-15.5, 0.0));
     const ScreenshotOcrTextPosition lineMiddle =
@@ -7636,8 +7643,11 @@ void regionEventsRemainOwnedByOverlay() {
             ++doubles;
             return true;
         }
-        void handleUnhandledLeftDoubleClick() override {
+        std::optional<snow_shot::mouse::Action> lastAction;
+        void handleMouseCompletion(snow_shot::mouse::Action action, ScreenshotOverlayWindow*,
+                                   const QPointF&) override {
             ++completions;
+            lastAction = action;
         }
     } sink;
     auto* canvas = new SnowCanvasWidget;
@@ -7655,6 +7665,34 @@ void regionEventsRemainOwnedByOverlay() {
     }
     require(sink.presses == 1 && sink.releases == 2 && sink.doubles == 1 && sink.completions == 0,
             "Qt double-click sequence must reach region handling without invoking completion");
+    {
+        namespace mouse = snow_shot::mouse;
+        auto& config = snow_shot::storage::ApplicationStorage::instance().configuration();
+        const auto key = mouse::definition(mouse::Action::ShotPin).key();
+        const auto previous = config.value(key);
+        const auto restore = qScopeGuard([&] { config.setValue(key, previous); });
+        require(config.setValue(key, mouse::encode({mouse::Kind::Click, Qt::BackButton})),
+                "rebind Pin to side button 1");
+        const auto send = [&](QEvent::Type type, Qt::MouseButton button, Qt::MouseButtons held,
+                              QPointF local, Qt::KeyboardModifiers keys = {}) {
+            QMouseEvent event(type, local, canvas->mapToGlobal(local), button, held, keys);
+            QApplication::sendEvent(canvas, &event);
+        };
+        for (auto button : {Qt::MiddleButton, Qt::BackButton}) {
+            send(QEvent::MouseButtonPress, button, button, point);
+            require(sink.completions == 0, "no action is dispatched on press");
+            send(QEvent::MouseButtonRelease, button, {}, point);
+        }
+        require(sink.completions == 1 && sink.lastAction == mouse::Action::ShotPin,
+                "only the rebound side button completes Pin");
+        send(QEvent::MouseButtonPress, Qt::BackButton, Qt::BackButton, point);
+        send(QEvent::MouseMove, Qt::NoButton, Qt::BackButton, point + QPointF(40, 0));
+        send(QEvent::MouseButtonRelease, Qt::BackButton, {}, point);
+        send(QEvent::MouseButtonPress, Qt::BackButton, Qt::BackButton, point, Qt::ShiftModifier);
+        send(QEvent::MouseButtonRelease, Qt::BackButton, {}, point, Qt::ShiftModifier);
+        require(sink.completions == 1,
+                "crossing the drag threshold and extra modifiers suppress completion");
+    }
     overlay.setRegionTypeControlVisible(true, ScreenshotRegionType::Polyline);
     QApplication::processEvents();
     auto* control = overlay.findChild<QWidget*>(QStringLiteral("screenshotRegionTypeControl"));
@@ -8632,10 +8670,21 @@ void overlayRightQuickSelection() {
     actions.cancelCapture = [&] { ++cancellations; };
     ScreenshotOverlayInputHandler handler(
         {capture, interaction, selection, intelligent, geometry, displays, actions});
-    NoopOverlayEventSink sink;
-    sink.rightClick = [&](ScreenshotOverlayWindow* window, const QPointF& point) {
-        return handler.handleRightClick(window, point);
-    };
+    class Sink final : public NoopOverlayEventSink {
+      public:
+        explicit Sink(ScreenshotOverlayInputHandler& handler) : m_handler(handler) {
+            rightClick = [&](ScreenshotOverlayWindow* window, const QPointF& point) {
+                return m_handler.handleRightClick(window, point);
+            };
+        }
+        bool backTakesPriority(ScreenshotOverlayWindow* window,
+                               const QPointF& point) const override {
+            return m_handler.backTakesPriority(window, point);
+        }
+
+      private:
+        ScreenshotOverlayInputHandler& m_handler;
+    } sink(handler);
     SnowCanvasRuntime runtime;
     require(runtime.setQuickSelectionDisabledTools({SnowCanvasTool::FreeDraw}),
             "disable left stroke selection in overlay");
@@ -9049,14 +9098,25 @@ void overlayRightClickClosesOnRelease(bool native = false) {
     Q_UNUSED(native)
 #endif
     auto* canvas = overlay.canvas();
-    QMouseEvent press(QEvent::MouseButtonPress, QPointF(50, 50), QPointF(200, 200), Qt::RightButton,
-                      Qt::RightButton, Qt::NoModifier);
-    QApplication::sendEvent(canvas, &press);
+    const QPointF start(1, 50);
+    const auto press = [&] {
+        QMouseEvent event(QEvent::MouseButtonPress, start, canvas->mapToGlobal(start),
+                          Qt::RightButton, Qt::RightButton, Qt::NoModifier);
+        QApplication::sendEvent(canvas, &event);
+        QApplication::processEvents();
+        require(overlay.isVisible(), "right press must leave screenshot overlay visible");
+    };
+    const auto release = [&](const QPointF& position) {
+        QMouseEvent event(QEvent::MouseButtonRelease, position, overlay.mapToGlobal(position),
+                          Qt::RightButton, Qt::NoButton, Qt::NoModifier);
+        QApplication::sendEvent(&overlay, &event);
+    };
+    press();
+    release(start + QPointF(50, 50));
     QApplication::processEvents();
-    require(overlay.isVisible(), "right press must leave screenshot overlay visible");
-    QMouseEvent release(QEvent::MouseButtonRelease, QPointF(-10, -10), QPointF(140, 140),
-                        Qt::RightButton, Qt::NoButton, Qt::NoModifier);
-    QApplication::sendEvent(&overlay, &release);
+    require(overlay.isVisible(), "right drag must leave screenshot overlay visible");
+    press();
+    release(QPointF(-1, start.y()));
     require(overlay.isVisible(), "close must wait until release dispatch finishes");
     QApplication::processEvents();
     require(!overlay.isVisible(), "right release must close screenshot overlay");

@@ -5,6 +5,7 @@
 #include "snow_shot/presentation/apppermissionservice.h"
 #include "widgets/alert.h"
 #include "snow_shot/presentation/components/globalmouserow.h"
+#include "snow_shot/presentation/components/mouseoperationrow.h"
 #include "snow_shot/presentation/components/sectionheaderwidget.h"
 #include "snow_shot/presentation/components/settingscustomwidget.h"
 #include "snow_shot/presentation/components/formfields.h"
@@ -100,6 +101,7 @@ permissionForRenderer(settings::SettingsCustomRenderer renderer) {
     case Renderer::TextTranslationConfigurations:
     case Renderer::CustomAiModels:
     case Renderer::McpStatus:
+    case Renderer::CloudSettingsSync:
     case Renderer::StorageStatus:
     case Renderer::DrawingToolbarEditor:
     case Renderer::ScreenshotToolbarEditor:
@@ -125,6 +127,7 @@ class SettingsPageWidget::Impl {
         QLabel* description = nullptr;
         settings::SettingsFormField* formField = nullptr;
         ShortcutKeyRow* shortcutControl = nullptr;
+        MouseOperationRow* mouseOperationControl = nullptr;
         GlobalMouseRow* globalMouseControl = nullptr;
         adqt::widgets::AdButton* actionControl = nullptr;
         adqt::widgets::AdButton* permissionControl = nullptr;
@@ -620,6 +623,16 @@ class SettingsPageWidget::Impl {
                                 }
                             });
                     } else if constexpr (std::is_same_v<
+                                             Payload, settings::SettingsMouseOperationDefinition>) {
+                        auto* control = new MouseOperationRow(payload.action, runtimeSession,
+                                                              colorScheme, list);
+                        control->setObjectName(settings::generatedObjectName(
+                            QStringLiteral("settings-item"), definition.id));
+                        runtime.mouseOperationControl = control;
+                        runtime.focusTarget = control;
+                        runtime.anchor = control;
+                        addItemWidget(control);
+                    } else if constexpr (std::is_same_v<
                                              Payload,
                                              settings::SettingsGlobalMouseActionDefinition>) {
                         auto* control =
@@ -731,7 +744,12 @@ class SettingsPageWidget::Impl {
                             return;
                         }
                         auto* control = createSettingsCustomWidget(
-                            payload.renderer, registry, definition, runtimeSession, list);
+                            payload.renderer, registry, definition, runtimeSession, list, [this] {
+                                settings::SettingsCommand command;
+                                command.kind = settings::SettingsCommandKind::Navigate;
+                                command.location = {QStringLiteral("account"), {}, {}};
+                                emit q.commandRequested(command);
+                            });
                         Q_ASSERT(control != nullptr);
                         if (control == nullptr) {
                             return;
@@ -1061,6 +1079,8 @@ class SettingsPageWidget::Impl {
                     runtime.shortcutControl->setEnabled(fieldEnabled);
                 }
             }
+            if (runtime.mouseOperationControl)
+                runtime.mouseOperationControl->refresh();
             if (runtime.globalMouseControl != nullptr) {
                 const auto* definition = std::get_if<settings::SettingsGlobalMouseActionDefinition>(
                     &runtime.definition->payload);
@@ -1320,6 +1340,8 @@ class SettingsPageWidget::Impl {
             if (runtime.shortcutControl != nullptr && !initializing) {
                 runtime.shortcutControl->applyTheme(scheme);
             }
+            if (runtime.mouseOperationControl && !initializing)
+                runtime.mouseOperationControl->applyTheme(scheme);
             if (runtime.globalMouseControl != nullptr && !initializing) {
                 runtime.globalMouseControl->applyTheme(scheme);
             }
@@ -1725,6 +1747,9 @@ void SettingsPageWidget::changeEvent(QEvent* event) {
 
 void SettingsPageWidget::showEvent(QShowEvent* event) {
     QWidget::showEvent(event);
+#if !SNOW_SHOT_EDITION_MINI
+    emit m_impl->runtimeSession.cloudSettingsSyncCheckRequested();
+#endif
     m_impl->runtimeSession.refreshPlatformSettings();
     m_impl->observePermissionPage(true);
     m_impl->requestVisibleSectionSync();

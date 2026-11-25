@@ -715,6 +715,7 @@ set(SNOW_SHOT_STORAGE_SOURCES
     include/snow_shot/storage/capturehistoryrepository.h
     include/snow_shot/storage/capturehistorytypes.h
     include/snow_shot/storage/configurationarchive.h
+    include/snow_shot/storage/cloudsyncconfiguration.h
     include/snow_shot/storage/configurationstore.h
     include/snow_shot/storage/configurationschema.h
     include/snow_shot/storage/exportfilename.h
@@ -732,6 +733,7 @@ set(SNOW_SHOT_STORAGE_SOURCES
     src/storage/capturehistorypolicy_p.h
     src/storage/capturehistoryrepository.cpp
     src/storage/configurationarchive.cpp
+    src/storage/cloudsyncconfiguration.cpp
     src/storage/configurationstore.cpp
     src/storage/configurationschema.cpp
     src/storage/exportfilename.cpp
@@ -741,6 +743,7 @@ set(SNOW_SHOT_STORAGE_SOURCES
     src/storage/persistedwindowgeometry.cpp
     src/storage/pinnedwindowrepository.cpp
     src/storage/preparedpngimage.cpp
+    src/storage/mouseoperations.cpp
     src/storage/settingsadapters.cpp
     src/storage/storagedirectoryutils_p.h
     src/storage/storagelogging.cpp
@@ -871,6 +874,14 @@ target_compile_definitions(snow_shot_translation PRIVATE
     SNOW_SHOT_FREE_TRANSLATION_API_BASE_URL=\"${SNOW_SHOT_FREE_TRANSLATION_API_BASE_URL}\"
 )
 
+add_library(snow_shot_cloud_settings_sync STATIC
+    include/snow_shot/app/cloudsettingssyncservice.h
+    src/app/cloudsettingslayout_p.h
+    src/app/cloudsettingssyncservice.cpp
+)
+target_include_directories(snow_shot_cloud_settings_sync PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_link_libraries(snow_shot_cloud_settings_sync PUBLIC snow_shot_translation)
+
 add_library(snow_shot_window_shortcuts STATIC
     include/snow_shot/presentation/mousereleaseactioncontroller.h
     src/presentation/services/mousereleaseactioncontroller.cpp
@@ -990,6 +1001,8 @@ set(SNOW_SHOT_SETTINGS_SOURCES
     src/presentation/components/aboutpagewidget.cpp
     src/presentation/components/infotooltipicon.cpp
     src/presentation/components/globalmouserow.cpp
+    src/presentation/components/mouseoperationrow.cpp
+    include/snow_shot/presentation/components/mouseoperationrow.h
     src/presentation/components/pathinput.cpp
     src/presentation/components/formfields.cpp
     src/presentation/settings/settingsformfield.cpp
@@ -1325,6 +1338,7 @@ endif()
 add_library(snow_shot_collage_core STATIC
     include/snow_shot/presentation/collagedocument.h
     src/presentation/collage/collagedocument.cpp
+    src/presentation/collage/collagefreelayout.cpp
     src/presentation/collage/collagetransformedrows_p.h
     src/presentation/collage/collageresourcebudget.cpp
     src/presentation/collage/collageresourcebudget_p.h)
@@ -2262,6 +2276,7 @@ if(WIN32)
     )
 endif()
 target_link_libraries(snow_shot PRIVATE
+    snow_shot_cloud_settings_sync
     snow_shot_export_naming
     snow_shot_collage
     snow_shot_image_split
@@ -2679,6 +2694,9 @@ if(SNOW_SHOT_BUILD_TESTS)
     set_tests_properties(snow-shot-scrolling-interval-settings-tests PROPERTIES
         LABELS "unit" TIMEOUT 60
         ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
+    add_test(NAME snow-shot-pinned-mouse-operations-tests
+        COMMAND snow-shot-pinned-window-tests --mouse-operations-only -platform offscreen)
+    set_tests_properties(snow-shot-pinned-mouse-operations-tests PROPERTIES LABELS "unit" TIMEOUT 60)
     add_test(NAME snow-shot-pin-to-screen-storage-tests
         COMMAND snow-shot-application-storage-tests --pin-shortcuts-only)
     set_tests_properties(snow-shot-pin-to-screen-storage-tests PROPERTIES LABELS "unit")
@@ -3542,6 +3560,12 @@ if(SNOW_SHOT_BUILD_TESTS)
         COMMAND snow-shot-settings-page-loading-tests --shutter-sound-only)
     add_test(NAME snow-shot-settings-select-tests
         COMMAND snow-shot-settings-page-loading-tests --selects-only)
+    add_test(NAME snow-shot-cloud-settings-sync-ui-tests
+        COMMAND snow-shot-settings-page-loading-tests --cloud-settings-sync-only)
+    set_tests_properties(snow-shot-cloud-settings-sync-ui-tests PROPERTIES
+        LABELS "unit" TIMEOUT 60
+        ENVIRONMENT "${_SNOW_SHOT_OFFSCREEN_QPA_ENVIRONMENT}"
+        ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
     add_test(NAME snow-shot-pinned-text-color-settings-tests
         COMMAND snow-shot-settings-page-loading-tests --pinned-text-colors-only)
     set_tests_properties(snow-shot-pinned-text-color-settings-tests PROPERTIES
@@ -5874,7 +5898,9 @@ if(SNOW_SHOT_BUILD_TESTS)
         ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
     add_test(NAME snow-shot-pinned-text-type-tests
         COMMAND snow-shot-pinned-window-tests --text-type-only -platform offscreen)
-    set_tests_properties(snow-shot-pinned-text-type-tests PROPERTIES
+    add_test(NAME snow-shot-window-ocr-copy-shortcut-tests
+        COMMAND snow-shot-pinned-window-tests --ocr-copy-shortcut-only -platform offscreen)
+    set_tests_properties(snow-shot-pinned-text-type-tests snow-shot-window-ocr-copy-shortcut-tests PROPERTIES
         LABELS "unit" TIMEOUT 60 SNOW_TEST_CROSS_PLATFORM TRUE
         ENVIRONMENT "${_SNOW_SHOT_OFFSCREEN_QPA_ENVIRONMENT}"
         ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
@@ -10133,6 +10159,16 @@ if(SNOW_SHOT_BUILD_TESTS)
     set_tests_properties(snow-shot-account-tests PROPERTIES TIMEOUT 90)
     set_tests_properties(snow-shot-account-cancellation-tests PROPERTIES TIMEOUT 45)
 
+    add_executable(snow-shot-cloud-settings-sync-tests
+        tests/cloud_settings_sync_tests.cpp tests/cloud_settings_layout_tests.cpp)
+    target_link_libraries(snow-shot-cloud-settings-sync-tests PRIVATE
+        snow_shot_cloud_settings_sync Qt6::Gui)
+    snow_shot_import_offscreen_platform(snow-shot-cloud-settings-sync-tests)
+    add_test(NAME snow-shot-cloud-settings-sync-tests
+        COMMAND snow-shot-cloud-settings-sync-tests -platform offscreen)
+    set_tests_properties(snow-shot-cloud-settings-sync-tests PROPERTIES LABELS unit TIMEOUT 45
+        ENVIRONMENT "${_SNOW_SHOT_OFFSCREEN_QPA_ENVIRONMENT}")
+
     add_executable(snow-shot-api-client-tests
         tests/snowshot_api_client_tests.cpp
     )
@@ -12141,6 +12177,8 @@ if(SNOW_SHOT_BUILD_TESTS)
         LABELS unit SNOW_TEST_CROSS_PLATFORM TRUE TIMEOUT 30
         ENVIRONMENT "${_SNOW_SHOT_OFFSCREEN_QPA_ENVIRONMENT}")
     snow_shot_offscreen_qpa_environment(_snow_controller_clipboard_qpa_environment)
+    add_test(NAME snow-shot-screenshot-ocr-copy-shortcut-tests
+        COMMAND snow_shot --clipboard-pin-tests --ocr-copy-shortcut-only -platform offscreen)
     add_test(NAME snow-shot-screenshot-controller-clipboard-tests
         COMMAND snow_shot --clipboard-pin-tests -platform offscreen)
     add_test(NAME snow-shot-screenshot-export-tasks-tests
@@ -12165,7 +12203,8 @@ if(SNOW_SHOT_BUILD_TESTS)
         COMMAND snow_shot --clipboard-pin-tests --mcp-scrolling-admission-tests -platform offscreen)
     add_test(NAME snow-shot-mcp-selection-admission-tests
         COMMAND snow_shot --clipboard-pin-tests --mcp-selection-admission-tests -platform offscreen)
-    set_tests_properties(snow-shot-screenshot-controller-clipboard-tests snow-shot-screenshot-export-tasks-tests
+    set_tests_properties(snow-shot-screenshot-ocr-copy-shortcut-tests
+        snow-shot-screenshot-controller-clipboard-tests snow-shot-screenshot-export-tasks-tests
         snow-shot-clipboard-pin-selection-priority-tests
         snow-shot-clipboard-formula-pin-tests snow-shot-history-pin-admission-tests
         snow-shot-mcp-scrolling-admission-tests snow-shot-mcp-selection-admission-tests PROPERTIES

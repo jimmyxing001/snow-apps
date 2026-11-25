@@ -489,6 +489,33 @@
         </message>
     </context>
     <context>
+        <name>CloudSettingsSyncWidget</name>
+        <message>
+            <source>Last sync: %1</source>
+            <translation>Последняя синхронизация: %1</translation>
+        </message>
+        <message>
+            <source>Not synced yet</source>
+            <translation>Синхронизация ещё не выполнялась</translation>
+        </message>
+        <message>
+            <source>Settings</source>
+            <translation>Настройки</translation>
+        </message>
+        <message>
+            <source>Sign in to sync settings</source>
+            <translation>Войдите в аккаунт, чтобы синхронизировать настройки</translation>
+        </message>
+        <message>
+            <source>Sync now</source>
+            <translation>Синхронизировать сейчас</translation>
+        </message>
+        <message>
+            <source>Sync on this device</source>
+            <translation>Синхронизация на этом устройстве</translation>
+        </message>
+    </context>
+    <context>
         <name>CloudUploadSettingsWidget</name>
         <message>
             <source>%1 (Copy %2)</source>
@@ -971,36 +998,12 @@
             <translation>Клавиши активации</translation>
         </message>
         <message>
-            <source>Alt</source>
-            <translation>Alt</translation>
-        </message>
-        <message>
             <source>Cancel</source>
             <translation>Отмена</translation>
         </message>
         <message>
-            <source>Command</source>
-            <translation>Command</translation>
-        </message>
-        <message>
             <source>Configure mouse combination for %1</source>
             <translation>Настройка сочетания мыши для %1</translation>
-        </message>
-        <message>
-            <source>Control</source>
-            <translation>Control</translation>
-        </message>
-        <message>
-            <source>Ctrl</source>
-            <translation>Ctrl</translation>
-        </message>
-        <message>
-            <source>Left-button drag</source>
-            <translation>Перетаскивание левой кнопкой</translation>
-        </message>
-        <message>
-            <source>Middle-button drag</source>
-            <translation>Перетаскивание средней кнопкой</translation>
         </message>
         <message>
             <source>Mouse button</source>
@@ -1011,20 +1014,8 @@
             <translation>Настройка мыши для «%1»</translation>
         </message>
         <message>
-            <source>None</source>
-            <translation>Нет</translation>
-        </message>
-        <message>
             <source>OK</source>
             <translation>ОК</translation>
-        </message>
-        <message>
-            <source>Option</source>
-            <translation>Option</translation>
-        </message>
-        <message>
-            <source>Right-button drag</source>
-            <translation>Перетаскивание правой кнопкой</translation>
         </message>
         <message>
             <source>Select a mouse button</source>
@@ -1035,28 +1026,8 @@
             <translation>Выберите хотя бы одну клавишу активации</translation>
         </message>
         <message>
-            <source>Shift</source>
-            <translation>Shift</translation>
-        </message>
-        <message>
-            <source>Side button 1 (back) drag</source>
-            <translation>Перетаскивание боковой кнопкой 1 (назад)</translation>
-        </message>
-        <message>
-            <source>Side button 2 (forward) drag</source>
-            <translation>Перетаскивание боковой кнопкой 2 (вперёд)</translation>
-        </message>
-        <message>
             <source>This mouse combination is already assigned to another action. Choose a different combination</source>
             <translation>Это сочетание мыши уже назначено другому действию. Выберите другое сочетание</translation>
-        </message>
-        <message>
-            <source>Unset</source>
-            <translation>Не задано</translation>
-        </message>
-        <message>
-            <source>Windows</source>
-            <translation>Windows</translation>
         </message>
     </context>
     <context>
@@ -1107,6 +1078,248 @@
         <message>
             <source>The skin image exceeds processing limits</source>
             <translation>Изображение оформления превышает пределы обработки</translation>
+        </message>
+    </context>
+    <context>
+        <name>MouseOperationRow</name>
+        <message>
+            <source>Keyboard modifiers</source>
+            <translation>Клавиши-модификаторы</translation>
+        </message>
+        <message>
+            <source>Mouse operation</source>
+            <translation>Действие мышью</translation>
+        </message>
+        <message>
+            <source>The mouse operation could not be saved.</source>
+            <translation>Не удалось сохранить действие мышью.</translation>
+        </message>
+        <message>
+            <source>The unmodified left single-click is reserved for selection.</source>
+            <translation>Одиночный щелчок левой кнопкой без модификаторов зарезервирован для выделения.</translation>
+        </message>
+        <message>
+            <source>This gesture is assigned to %1.</source>
+            <translation>Этот жест уже назначен действию «%1».</translation>
+        </message>
+        <message>
+            <source>Unmodified right clicks are reserved for Go back one step.</source>
+            <translation>Щелчки правой кнопкой без модификаторов зарезервированы для действия «Вернуться на шаг назад».</translation>
+        </message>
+    </context>
+    <context>
+        <name>MouseOperations</name>
+        <message>
+            <source>Adjust opacity</source>
+            <translation>Настроить непрозрачность</translation>
+        </message>
+        <message>
+            <source>Alt</source>
+            <translation>Alt</translation>
+        </message>
+        <message>
+            <source>Annotation mode</source>
+            <translation>Режим разметок</translation>
+        </message>
+        <message>
+            <source>Cancel screenshot</source>
+            <translation>Отменить скриншот</translation>
+        </message>
+        <message>
+            <source>Close</source>
+            <translation>Закрыть</translation>
+        </message>
+        <message>
+            <source>Command</source>
+            <translation>Command</translation>
+        </message>
+        <message>
+            <source>Control</source>
+            <translation>Control</translation>
+        </message>
+        <message>
+            <source>Copy after text recognition</source>
+            <translation>Копировать после распознавания текста</translation>
+        </message>
+        <message>
+            <source>Copy text to clipboard</source>
+            <translation>Копировать текст в буфер обмена</translation>
+        </message>
+        <message>
+            <source>Copy to clipboard</source>
+            <translation>Копировать в буфер обмена</translation>
+        </message>
+        <message>
+            <source>Copy to clipboard and close</source>
+            <translation>Скопировать в буфер обмена и закрыть</translation>
+        </message>
+        <message>
+            <source>Ctrl</source>
+            <translation>Ctrl</translation>
+        </message>
+        <message>
+            <source>Destroy</source>
+            <translation>Уничтожить</translation>
+        </message>
+        <message>
+            <source>Drag image</source>
+            <translation>Перетащить изображение</translation>
+        </message>
+        <message>
+            <source>Fine opacity adjustment</source>
+            <translation>Точная настройка непрозрачности</translation>
+        </message>
+        <message>
+            <source>Fine zoom</source>
+            <translation>Точное масштабирование</translation>
+        </message>
+        <message>
+            <source>Force window move</source>
+            <translation>Принудительно переместить окно</translation>
+        </message>
+        <message>
+            <source>Go back one step</source>
+            <translation>Вернуться на шаг назад</translation>
+        </message>
+        <message>
+            <source>Hide at top</source>
+            <translation>Скрытие у верхнего края экрана</translation>
+        </message>
+        <message>
+            <source>Left-button double-click</source>
+            <translation>Двойной щелчок левой кнопкой</translation>
+        </message>
+        <message>
+            <source>Left-button drag</source>
+            <translation>Перетаскивание левой кнопкой</translation>
+        </message>
+        <message>
+            <source>Left-button single-click</source>
+            <translation>Щелчок левой кнопкой</translation>
+        </message>
+        <message>
+            <source>Menu</source>
+            <translation>Меню</translation>
+        </message>
+        <message>
+            <source>Middle-button double-click</source>
+            <translation>Двойной щелчок средней кнопкой</translation>
+        </message>
+        <message>
+            <source>Middle-button drag</source>
+            <translation>Перетаскивание средней кнопкой</translation>
+        </message>
+        <message>
+            <source>Middle-button single-click</source>
+            <translation>Щелчок средней кнопкой</translation>
+        </message>
+        <message>
+            <source>Mouse wheel</source>
+            <translation>Колесо мыши</translation>
+        </message>
+        <message>
+            <source>Move or resize window</source>
+            <translation>Переместить окно или изменить его размер</translation>
+        </message>
+        <message>
+            <source>Multi-select</source>
+            <translation>Множественный выбор</translation>
+        </message>
+        <message>
+            <source>None</source>
+            <translation>Нет</translation>
+        </message>
+        <message>
+            <source>Option</source>
+            <translation>Option</translation>
+        </message>
+        <message>
+            <source>Pan within crop</source>
+            <translation>Сдвинуть изображение в области обрезки</translation>
+        </message>
+        <message>
+            <source>Pin to screen</source>
+            <translation>Закрепить на экране</translation>
+        </message>
+        <message>
+            <source>Quick save</source>
+            <translation>Быстрое сохранение</translation>
+        </message>
+        <message>
+            <source>Reset zoom</source>
+            <translation>Сбросить масштаб</translation>
+        </message>
+        <message>
+            <source>Right-button double-click</source>
+            <translation>Двойной щелчок правой кнопкой</translation>
+        </message>
+        <message>
+            <source>Right-button drag</source>
+            <translation>Перетаскивание правой кнопкой</translation>
+        </message>
+        <message>
+            <source>Right-button single-click</source>
+            <translation>Щелчок правой кнопкой</translation>
+        </message>
+        <message>
+            <source>Save as file</source>
+            <translation>Сохранить как файл</translation>
+        </message>
+        <message>
+            <source>Select crop region</source>
+            <translation>Выбрать область обрезки</translation>
+        </message>
+        <message>
+            <source>Shift</source>
+            <translation>Shift</translation>
+        </message>
+        <message>
+            <source>Show text recognition results</source>
+            <translation>Показывать результаты распознавания текста</translation>
+        </message>
+        <message>
+            <source>Side button 1 (back) double-click</source>
+            <translation>Двойной щелчок боковой кнопкой 1 (назад)</translation>
+        </message>
+        <message>
+            <source>Side button 1 (back) drag</source>
+            <translation>Перетаскивание боковой кнопкой 1 (назад)</translation>
+        </message>
+        <message>
+            <source>Side button 1 (back) single-click</source>
+            <translation>Щелчок боковой кнопкой 1 (назад)</translation>
+        </message>
+        <message>
+            <source>Side button 2 (forward) double-click</source>
+            <translation>Двойной щелчок боковой кнопкой 2 (вперёд)</translation>
+        </message>
+        <message>
+            <source>Side button 2 (forward) drag</source>
+            <translation>Перетаскивание боковой кнопкой 2 (вперёд)</translation>
+        </message>
+        <message>
+            <source>Side button 2 (forward) single-click</source>
+            <translation>Щелчок боковой кнопкой 2 (вперёд)</translation>
+        </message>
+        <message>
+            <source>Text recognition</source>
+            <translation>Распознавание текста</translation>
+        </message>
+        <message>
+            <source>Thumbnail mode</source>
+            <translation>Режим миниатюр</translation>
+        </message>
+        <message>
+            <source>Unset</source>
+            <translation>Не задано</translation>
+        </message>
+        <message>
+            <source>Windows</source>
+            <translation>Windows</translation>
+        </message>
+        <message>
+            <source>Zoom</source>
+            <translation>Масштаб</translation>
         </message>
     </context>
     <context>
@@ -1425,6 +1638,10 @@
         <message>
             <source>Enter a valid HTTP proxy address, for example http://127.0.0.1:7890</source>
             <translation>Введите допустимый адрес HTTP-прокси, например http://127.0.0.1:7890</translation>
+        </message>
+        <message>
+            <source>Language %1 is unavailable on this device</source>
+            <translation>Язык %1 недоступен на этом устройстве</translation>
         </message>
         <message>
             <source>The clipboard is unavailable</source>
@@ -2042,10 +2259,6 @@
             <translation>Выберите, как сетевые запросы подключаются через прокси</translation>
         </message>
         <message>
-            <source>Choose how text detection resizes images. Limiting the long side is faster; enlarging the short side may find smaller text</source>
-            <translation>Выберите, как изменяется размер изображения при обнаружении текста. Ограничение длинной стороны работает быстрее; увеличение короткой может выявить более мелкий текст.</translation>
-        </message>
-        <message>
             <source>Choose how the area behind recognized text is filled</source>
             <translation>Выберите способ заполнения области за распознанным текстом</translation>
         </message>
@@ -2064,22 +2277,6 @@
         <message>
             <source>Choose the OCR model version and size to balance recognition speed and accuracy</source>
             <translation>Выберите версию и размер модели OCR, чтобы сбалансировать скорость и точность распознавания</translation>
-        </message>
-        <message>
-            <source>Choose the action for double-clicking a draggable area of a pinned screenshot</source>
-            <translation>Выберите действие при двойном щелчке по перетаскиваемой области закреплённого скриншота</translation>
-        </message>
-        <message>
-            <source>Choose the action for double-clicking while moving or annotating in a screenshot</source>
-            <translation>Выберите действие при двойном щелчке во время перемещения или аннотирования на скриншоте</translation>
-        </message>
-        <message>
-            <source>Choose the action for middle-clicking a draggable area of a pinned screenshot</source>
-            <translation>Выберите действие при щелчке средней кнопкой по перетаскиваемой области закреплённого скриншота</translation>
-        </message>
-        <message>
-            <source>Choose the action for middle-clicking while moving or annotating in a screenshot</source>
-            <translation>Выберите действие при щелчке средней кнопкой во время перемещения или аннотирования на скриншоте</translation>
         </message>
         <message>
             <source>Choose the bundled icon used in dark theme, or reuse the regular icon settings</source>
@@ -2250,6 +2447,10 @@
             <translation>Очистить историю скриншотов?</translation>
         </message>
         <message>
+            <source>Click, wheel, and drag actions for pinned windows</source>
+            <translation>Действия при щелчке, прокрутке и перетаскивании в закреплённых окнах</translation>
+        </message>
+        <message>
             <source>Click-through</source>
             <translation>Пропускать клики</translation>
         </message>
@@ -2262,16 +2463,16 @@
             <translation>Содержимое буфера обмена</translation>
         </message>
         <message>
-            <source>Close</source>
-            <translation>Закрыть</translation>
-        </message>
-        <message>
             <source>Close window</source>
             <translation>Закрыть окно</translation>
         </message>
         <message>
             <source>Closed window count</source>
             <translation>Число закрытых окон</translation>
+        </message>
+        <message>
+            <source>Cloud settings sync</source>
+            <translation>Синхронизация настроек через облако</translation>
         </message>
         <message>
             <source>Cloud upload</source>
@@ -2686,10 +2887,6 @@
             <translation>Не выбирать автоматически элементы, созданные этими инструментами</translation>
         </message>
         <message>
-            <source>Double-click action</source>
-            <translation>Действие двойного щелчка</translation>
-        </message>
-        <message>
             <source>Download automatically</source>
             <translation>Загружать автоматически</translation>
         </message>
@@ -2788,10 +2985,6 @@
         <message>
             <source>End recording</source>
             <translation>Завершить запись экрана</translation>
-        </message>
-        <message>
-            <source>Enlarge short side (more detail)</source>
-            <translation>Увеличить короткую сторону (больше деталей)</translation>
         </message>
         <message>
             <source>Enter an HTTP or HTTPS address. Changes apply immediately. Clear to use the default server</source>
@@ -3330,10 +3523,6 @@
             <translation>Ограничить место на диске для истории скриншотов</translation>
         </message>
         <message>
-            <source>Limit long side (faster)</source>
-            <translation>Ограничить по длинной стороне (быстрее)</translation>
-        </message>
-        <message>
             <source>Limit the width of pinned text, including padding</source>
             <translation>Ограничить ширину закреплённого текста с учётом отступов</translation>
         </message>
@@ -3486,8 +3675,20 @@
             <translation>Цвет центральной направляющей монитора</translation>
         </message>
         <message>
+            <source>Mouse actions for the current selection or smart selection preview</source>
+            <translation>Действия мыши для текущей области или предпросмотра умного выделения</translation>
+        </message>
+        <message>
             <source>Mouse combinations for screenshot actions</source>
             <translation>Сочетания кнопок мыши для действий со скриншотами</translation>
+        </message>
+        <message>
+            <source>Mouse gestures for screenshots and pinned windows</source>
+            <translation>Жесты мыши для снимков экрана и закреплённых окон</translation>
+        </message>
+        <message>
+            <source>Mouse operations</source>
+            <translation>Действия мышью</translation>
         </message>
         <message>
             <source>Mouse pointer</source>
@@ -4066,10 +4267,6 @@
             <translation>Сбросить преобразование</translation>
         </message>
         <message>
-            <source>Reset zoom</source>
-            <translation>Сбросить масштаб</translation>
-        </message>
-        <message>
             <source>Resident recognition process</source>
             <translation>Постоянный процесс распознавания</translation>
         </message>
@@ -4630,6 +4827,10 @@
             <translation>Инструмент фигур</translation>
         </message>
         <message>
+            <source>Share preferences across devices signed in to the same account</source>
+            <translation>Синхронизируйте настройки между устройствами, на которых выполнен вход в один аккаунт</translation>
+        </message>
+        <message>
             <source>Shared image export settings for screenshot and pin-to-screen windows</source>
             <translation>Общие настройки экспорта изображений для окон скриншотов и закреплённых окон</translation>
         </message>
@@ -4720,10 +4921,6 @@
         <message>
             <source>Show text highlighting</source>
             <translation>Показывать подсветку текста</translation>
-        </message>
-        <message>
-            <source>Show text recognition results</source>
-            <translation>Показывать результаты распознавания текста</translation>
         </message>
         <message>
             <source>Show the annotation and close buttons in the upper-right corner of pinned windows</source>
@@ -5008,10 +5205,6 @@
         <message>
             <source>Text detection processing</source>
             <translation>Обработка обнаружения текста</translation>
-        </message>
-        <message>
-            <source>Text detection scaling</source>
-            <translation>Масштабирование обнаружения текста</translation>
         </message>
         <message>
             <source>Text recognition</source>
@@ -6116,10 +6309,10 @@ Unavailable: %2</source>
         <message numerus="yes">
             <source>%1 credits</source>
             <translation>
-                <numerusform>%1 кредит</numerusform>
-                <numerusform>%1 кредита</numerusform>
-                <numerusform>%1 кредитов</numerusform>
-            </translation>
+            <numerusform>%1 кредит</numerusform>
+            <numerusform>%1 кредита</numerusform>
+            <numerusform>%1 кредитов</numerusform>
+        </translation>
         </message>
         <message>
             <source>Confirm your password</source>
@@ -6236,6 +6429,10 @@ Unavailable: %2</source>
         <message>
             <source>Some custom API configurations are invalid and were ignored</source>
             <translation>Некоторые пользовательские конфигурации API недопустимы и были пропущены</translation>
+        </message>
+        <message>
+            <source>The mouse operation is already assigned.</source>
+            <translation>Это действие мыши уже назначено.</translation>
         </message>
     </context>
 </TS>

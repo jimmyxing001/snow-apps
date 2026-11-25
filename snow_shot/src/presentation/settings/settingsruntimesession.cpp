@@ -1,4 +1,5 @@
 #include "snow_shot/presentation/settings/settingsruntimesession.h"
+#include "snow_shot/storage/cloudsyncconfiguration.h"
 #include "snow_shot/proxyconfiguration.h"
 #if SNOW_SHOT_ENABLE_API_CONFIGURATION
 #include "snow_shot/serverconfiguration.h"
@@ -201,6 +202,14 @@ QStringList SettingsRuntimeSession::dirtyFieldIds() const {
 
 bool SettingsRuntimeSession::submitDraft(const QString& fieldId, const QVariant& value) {
     return submitDraftInternal(fieldId, value, false);
+}
+
+bool SettingsRuntimeSession::submitExplicitDraft(const QString& fieldId, const QVariant& value) {
+    const auto* descriptor = descriptorFor(fieldId);
+    // An explicit assignment can replace an unset or reset cloud operation even when
+    // the accepted value is already displayed locally.
+    return submitDraftInternal(
+        fieldId, value, descriptor && storage::cloudSettingSupported(descriptor->configurationKey));
 }
 
 bool SettingsRuntimeSession::submitDraftInternal(const QString& fieldId, const QVariant& value,
@@ -997,6 +1006,8 @@ QVariant SettingsRuntimeSession::readValue(const SettingsFieldDescriptor& descri
             } else if constexpr (std::is_same_v<Payload, SettingsLocalShortcutDefinition>) {
                 return shortcutListVariant(
                     m_backend.localShortcuts(payload.scope, payload.shortcutId));
+            } else if constexpr (std::is_same_v<Payload, SettingsMouseOperationDefinition>) {
+                return mouse::encode(m_backend.mouseBindings().get(payload.action));
             } else if constexpr (std::is_same_v<Payload, SettingsGlobalMouseActionDefinition>) {
                 return globalMouseCombinationVariant(
                     m_backend.globalMouseCombination(payload.action));
@@ -1008,6 +1019,7 @@ QVariant SettingsRuntimeSession::readValue(const SettingsFieldDescriptor& descri
                 case SettingsCustomRenderer::CloudUploadConfigurations:
                     return QVariant::fromValue(m_backend.cloudUploadSettings());
                 case SettingsCustomRenderer::McpStatus:
+                case SettingsCustomRenderer::CloudSettingsSync:
                 case SettingsCustomRenderer::PermissionScreenRecording:
                 case SettingsCustomRenderer::PermissionAccessibility:
                 case SettingsCustomRenderer::PermissionInputMonitoring:
@@ -1090,6 +1102,9 @@ bool SettingsRuntimeSession::writeValue(const SettingsFieldDescriptor& descripto
             } else if constexpr (std::is_same_v<Payload, SettingsLocalShortcutDefinition>) {
                 return m_backend.applyLocalShortcuts(payload.scope, payload.shortcutId,
                                                      shortcutListValue(value));
+            } else if constexpr (std::is_same_v<Payload, SettingsMouseOperationDefinition>) {
+                const auto binding = mouse::decode(QJsonValue::fromVariant(value));
+                return binding && m_backend.applyMouseOperation(payload.action, *binding);
             } else if constexpr (std::is_same_v<Payload, SettingsGlobalMouseActionDefinition>) {
                 if (!value.canConvert<SettingsGlobalMouseCombination>()) {
                     return false;
@@ -1099,6 +1114,7 @@ bool SettingsRuntimeSession::writeValue(const SettingsFieldDescriptor& descripto
             } else if constexpr (std::is_same_v<Payload, SettingsCustomDefinition>) {
                 switch (payload.renderer) {
                 case SettingsCustomRenderer::McpStatus:
+                case SettingsCustomRenderer::CloudSettingsSync:
                 case SettingsCustomRenderer::PermissionScreenRecording:
                 case SettingsCustomRenderer::PermissionAccessibility:
                 case SettingsCustomRenderer::PermissionInputMonitoring:
@@ -1278,6 +1294,7 @@ bool SettingsRuntimeSession::isReadOnly(const SettingsFieldDescriptor& descripto
     if (const auto* custom = std::get_if<SettingsCustomDefinition>(&descriptor.definition->payload);
         custom != nullptr &&
         (custom->renderer == SettingsCustomRenderer::StorageStatus ||
+         custom->renderer == SettingsCustomRenderer::CloudSettingsSync ||
          custom->renderer == SettingsCustomRenderer::PermissionScreenRecording ||
          custom->renderer == SettingsCustomRenderer::PermissionAccessibility ||
          custom->renderer == SettingsCustomRenderer::PermissionInputMonitoring ||
@@ -1748,6 +1765,17 @@ void SettingsRuntimeSession::refreshStorageStatus() {
 
 void SettingsRuntimeSession::refreshStorageStatusIfStale() {
     m_backend.refreshStorageStatusIfStale();
+}
+
+const CloudSettingsSyncState& SettingsRuntimeSession::cloudSettingsSyncState() const {
+    return m_cloudSettingsSyncState;
+}
+
+void SettingsRuntimeSession::setCloudSettingsSyncState(CloudSettingsSyncState state) {
+    if (m_cloudSettingsSyncState == state)
+        return;
+    m_cloudSettingsSyncState = std::move(state);
+    emit cloudSettingsSyncStateChanged();
 }
 
 } // namespace snow_shot::presentation::settings

@@ -39,6 +39,7 @@
 #include <QApplication>
 #include <QCryptographicHash>
 #include <QDataStream>
+#include <QEvent>
 #include <QThreadPool>
 #include <QLocale>
 #include <QMimeData>
@@ -714,6 +715,7 @@ void ScreenshotRecognitionSessionController::seedRecognitionResults(
                                              &paragraphsToRestore, &smartMerge)
                                        : std::nullopt;
         if (sourceIndices) {
+            qApp->installEventFilter(this);
             entry.overlayTranslation.presentation = copyTextPresentation(results.translatedText);
             for (const int index : paragraphsToRestore)
                 entry.overlayTranslation.presentation->lines[index].paragraph = true;
@@ -814,7 +816,10 @@ void ScreenshotRecognitionSessionController::seedRecognitionResults(
         return;
     if (!updateTextState())
         return;
-    notify(&ScreenshotRecognitionSessionController::recognitionResultsChanged);
+    if (!notify(&ScreenshotRecognitionSessionController::recognitionResultsChanged))
+        return;
+    if (textInserted && results.isValidFor(m_target.key))
+        copyPendingSourceText();
 }
 
 std::optional<ScreenshotOcrRecognitionResult>
@@ -1528,10 +1533,87 @@ void ScreenshotRecognitionSessionController::prefetchText() {
         return;
 }
 
-void ScreenshotRecognitionSessionController::activate(Mode mode) {
+bool ScreenshotRecognitionSessionController::copySourceTextToClipboard(
+    ScreenshotClipboardService::PublicationId publication, std::function<void(bool)> finished) {
+    const auto entry = m_textCache.constFind(m_target.key);
+    if (!hasTarget() || entry == m_textCache.cend() || !QApplication::clipboard())
+        return false;
+    if (!publication)
+        publication = ScreenshotClipboardService::reservePublication(QApplication::clipboard());
+    if (!ScreenshotClipboardService::publicationCurrent(publication))
+        return false;
+
+    const auto publish = [this, publication, transition = m_transitionGeneration,
+                          finished = std::move(finished)](const QString& text) {
+        if (transition != m_transitionGeneration)
+            return;
+        if (!ScreenshotClipboardService::publicationCurrent(publication)) {
+            if (finished)
+                finished(false);
+            return;
+        }
+        auto mime = std::make_unique<QMimeData>();
+        mime->setText(text);
+        const QPointer<ScreenshotRecognitionSessionController> guard(this);
+        auto handle = ScreenshotClipboardService::publishMimeData(
+            QApplication::clipboard(), this, std::move(mime), publication,
+            [this, transition, finished](const ScreenshotClipboardCommitResult& result) {
+                if (transition != m_transitionGeneration)
+                    return;
+                if (!result.succeeded() && !result.superseded &&
+                    !showStatus(result.errorString(), true))
+                    return;
+                if (finished && transition == m_transitionGeneration)
+                    finished(result.succeeded() && !result.superseded);
+            });
+        if (guard && transition == m_transitionGeneration &&
+            !ScreenshotClipboardService::publicationSuperseded(publication))
+            m_sourceCopyCommit = std::move(handle);
+        else
+            handle.cancel();
+    };
+    if (entry->formatted) {
+        publish(entry->editingSession->originalText());
+    } else {
+        const snow_shot::storage::TextRecognitionSettings settings;
+        const QString formatting = settings.defaultFormatting();
+        const QString punctuation = settings.defaultPunctuation();
+        if (formatting == QStringLiteral("smart")) {
+            prepareParagraphs(m_target.key, [publish, punctuation](const auto& grouped) {
+                publish(snow_shot::presentation::applyOcrTextTransforms(
+                    *grouped, QStringLiteral("keep"), punctuation));
+            });
+        } else {
+            publish(snow_shot::presentation::applyOcrTextTransforms(
+                entry->editingSession->originalText(), formatting, punctuation));
+        }
+    }
+    return true;
+}
+
+void ScreenshotRecognitionSessionController::copyPendingSourceText() {
+    if (m_pendingSourceCopy && hasTextResult())
+        copySourceTextToClipboard(std::exchange(m_pendingSourceCopy, 0));
+}
+
+void ScreenshotRecognitionSessionController::activate(
+    Mode mode, ScreenshotClipboardService::PublicationId copySourceOnReady) {
     const QPointer<ScreenshotRecognitionSessionController> lifetime(this);
     if (!snow_shot::app::editionRecognitionModeAvailable(static_cast<int>(mode)))
         return;
+    if (copySourceOnReady &&
+        (mode != Mode::Text || !hasTarget() ||
+         (!m_textCache.contains(m_target.key) &&
+          (!m_recognition || !screenshotOcrImageWithinPixelLimit(m_target.image.size())))))
+        return;
+    m_sourceCopyCommit.cancel();
+    m_pendingSourceCopy = copySourceOnReady;
+    if (copySourceOnReady && m_active && m_mode == Mode::Text && !editing() && !translating() &&
+        !showOriginalImage() && ownsContentAttachment() &&
+        (hasTextResult() || m_textRequestToken)) {
+        copyPendingSourceText();
+        return;
+    }
     const auto transition = ++m_transitionGeneration;
     m_uiPublicationEnabled = true;
     if (m_active && m_mode == mode &&
@@ -1604,7 +1686,7 @@ void ScreenshotRecognitionSessionController::activate(Mode mode) {
             return;
         return;
     }
-    if (!m_active || mode != m_mode) {
+    if (!m_active || mode != m_mode || copySourceOnReady) {
         if (!notify(&ScreenshotRecognitionSessionController::setShowOriginalImage, false))
             return;
     }
@@ -1762,11 +1844,14 @@ void ScreenshotRecognitionSessionController::activate(Mode mode) {
         return;
     if (!lifetime || transition != m_transitionGeneration)
         return;
-    if (!updateTextState())
+    if (!updateTextState() || transition != m_transitionGeneration)
         return;
+    copyPendingSourceText();
 }
 
 void ScreenshotRecognitionSessionController::deactivate() {
+    m_pendingSourceCopy = 0;
+    m_sourceCopyCommit.cancel();
     const QPointer<ScreenshotRecognitionSessionController> lifetime(this);
     const auto transition = ++m_transitionGeneration;
     if (content() && m_active && m_mode == Mode::Table)
@@ -2614,10 +2699,9 @@ void ScreenshotRecognitionSessionController::applyTextTargetLanguage(const QStri
     const QPointer<ScreenshotRecognitionSessionController> lifetime(this);
     if (m_translationService == nullptr)
         return;
-    auto preferences = m_translationService->preferences();
-    if (preferences.targetLanguage != language) {
-        preferences.targetLanguage = language;
-        const bool saved = m_translationService->savePreferences(preferences);
+    if (m_translationService->preferences().targetLanguage != language) {
+        const bool saved =
+            m_translationService->savePreferenceChanges({.targetLanguage = language});
         if (!lifetime || !m_translationService)
             return;
         if (!saved)
@@ -2645,10 +2729,8 @@ void ScreenshotRecognitionSessionController::applyTextTranslationService(const Q
     const QPointer<ScreenshotRecognitionSessionController> lifetime(this);
     if (m_translationService == nullptr)
         return;
-    auto preferences = m_translationService->preferences();
-    if (preferences.modelId != service) {
-        preferences.modelId = service;
-        const bool saved = m_translationService->savePreferences(preferences);
+    if (m_translationService->preferences().modelId != service) {
+        const bool saved = m_translationService->savePreferenceChanges({.modelId = service});
         if (!lifetime || !m_translationService)
             return;
         if (!saved)
@@ -2832,6 +2914,34 @@ void ScreenshotRecognitionSessionController::startTranslation() {
 #endif
 }
 
+#if SNOW_SHOT_ENABLE_TEXT_TRANSLATION
+bool ScreenshotRecognitionSessionController::eventFilter(QObject* watched, QEvent* event) {
+    if (event->type() == QEvent::ApplicationFontChange && watched == qApp) {
+        // Update before Qt delivers the font change to the canvas and pinned text layers.
+        // The existing presentation retains its translation job, selection and captured text.
+        const QFont font = QApplication::font();
+        bool displayedLayoutChanged = false;
+        for (auto& entry : m_textCache) {
+            entry.overlayLayouts.clear();
+            entry.overlayLayoutFont = font;
+            const auto& overlay = entry.overlayTranslation.presentation;
+            if (!overlay || !entry.presentation)
+                continue;
+            bool smartMerge = false;
+            if (const auto indices = snow_shot::presentation::ocrTranslationSourceIndices(
+                    *overlay, *entry.presentation, nullptr, &smartMerge)) {
+                prepareScreenshotOcrTranslationLayout(overlay->lines, entry.presentation->lines,
+                                                      *indices, font, smartMerge);
+                displayedLayoutChanged |= overlay == m_presentation;
+            }
+        }
+        if (displayedLayoutChanged && !m_destroying && canPublishUi())
+            emit translationTypographyChanged();
+    }
+    return false;
+}
+#endif
+
 bool ScreenshotRecognitionSessionController::showOverlayTranslation() {
 #if SNOW_SHOT_ENABLE_TEXT_TRANSLATION
     const auto generation = m_translationGeneration;
@@ -2839,6 +2949,7 @@ bool ScreenshotRecognitionSessionController::showOverlayTranslation() {
     auto entry = m_textCache.find(key);
     if (entry == m_textCache.end() || !entry->presentation)
         return true;
+    qApp->installEventFilter(this);
     const auto configuration = snow_shot::storage::ScreenshotTranslationSettings().configuration();
     const QFont font = QApplication::font();
     if (entry->overlayLayoutFont != font) {
@@ -3643,6 +3754,7 @@ void ScreenshotRecognitionSessionController::startTextRecognition(
     if (!updateBusyState())
         return;
     if (m_textRequestToken == 0 && !*callbackCompleted) {
+        m_pendingSourceCopy = 0;
         if (m_active || m_textModelDownloadShown) {
             if (!showStatus(tr("Text recognition request could not be prepared"), true))
                 return;
@@ -4409,6 +4521,7 @@ void ScreenshotRecognitionSessionController::handleTextOutput(
         return;
     m_textModelDownloadInProgress = false;
     if (!output.error.isEmpty() || output.presentation == nullptr) {
+        m_pendingSourceCopy = 0;
         if ((m_active && m_mode == Mode::Text) || modelDownloadWasShown) {
             if (!showStatus(output.error.isEmpty() ? tr("Text recognition failed") : output.error,
                             true))
@@ -4454,7 +4567,10 @@ void ScreenshotRecognitionSessionController::handleTextOutput(
         return;
     if (!updateTextState())
         return;
-    notify(&ScreenshotRecognitionSessionController::recognitionResultsChanged);
+    if (!notify(&ScreenshotRecognitionSessionController::recognitionResultsChanged))
+        return;
+    if (key == m_target.key)
+        copyPendingSourceText();
 }
 
 void ScreenshotRecognitionSessionController::handleTableOutput(
@@ -4749,6 +4865,8 @@ bool ScreenshotRecognitionSessionController::canPublishUi() const {
 }
 
 void ScreenshotRecognitionSessionController::retireContentAttachment() {
+    m_pendingSourceCopy = 0;
+    m_sourceCopyCommit.cancel();
     ++m_transitionGeneration;
     m_uiPublicationEnabled = false;
     QObject::disconnect(m_recognitionRetryConnection);
@@ -5313,6 +5431,8 @@ bool ScreenshotRecognitionSessionController::showStatus(QString message, bool er
 }
 
 void ScreenshotRecognitionSessionController::cancelOutstandingRequests() {
+    m_pendingSourceCopy = 0;
+    m_sourceCopyCommit.cancel();
     cancelParagraphPreparations();
     if (!cancelTranslationRequests())
         return;
@@ -5384,6 +5504,7 @@ void ScreenshotRecognitionSessionController::handleRecognitionProviderDestroyed(
     case Mode::Html:
         return;
     case Mode::Text:
+        m_pendingSourceCopy = 0;
         requestWasPending = m_textRequestToken != 0;
         m_textRequestToken = 0;
         m_textRenderRequestToken = 0;

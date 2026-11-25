@@ -840,20 +840,16 @@ ScreenshotController::Impl::Impl(ScreenshotController& controller,
                         m_presentationServices->updateOverlayState();
                     }
                 } else if (key == QStringLiteral("text_recognition/model_type") &&
-                           m_ocrRecognition != nullptr) {
-                    m_ocrRecognition->setModelType(
+                           m_ownedOcrRecognition != nullptr) {
+                    m_ownedOcrRecognition->setModelType(
                         screenshotOcrModelTypeFromValue(value.toString()));
-                } else if (key == QStringLiteral("text_recognition/detector_resize_policy") &&
-                           m_ocrRecognition != nullptr) {
-                    m_ocrRecognition->setDetectorResizePolicy(
-                        screenshotOcrDetectorResizePolicyFromValue(value.toString()));
                 } else if (key == QStringLiteral("text_recognition/text_detection_processing") &&
-                           m_ocrRecognition != nullptr) {
-                    m_ocrRecognition->setTextDetectionProcessing(
+                           m_ownedOcrRecognition != nullptr) {
+                    m_ownedOcrRecognition->setTextDetectionProcessing(
                         screenshotOcrTextDetectionProcessingFromValue(value.toString()));
                 } else if (key == QStringLiteral("text_recognition/hardware_acceleration") &&
-                           m_ocrRecognition != nullptr) {
-                    m_ocrRecognition->setHardwareAcceleration(value.toBool());
+                           m_ownedOcrRecognition != nullptr) {
+                    m_ownedOcrRecognition->setHardwareAcceleration(value.toBool());
                 }
             });
     }
@@ -1301,10 +1297,6 @@ bool ScreenshotController::Impl::ensureRecognitionFeature() {
         screenshotOcrModelTypeFromValue(applicationStorage.configuration()
                                             .value(QStringLiteral("text_recognition/model_type"))
                                             .toString());
-    ocrOptions.detectorResizePolicy = screenshotOcrDetectorResizePolicyFromValue(
-        applicationStorage.configuration()
-            .value(QStringLiteral("text_recognition/detector_resize_policy"))
-            .toString());
     ocrOptions.textDetectionProcessing = screenshotOcrTextDetectionProcessingFromValue(
         applicationStorage.configuration()
             .value(QStringLiteral("text_recognition/text_detection_processing"))
@@ -2151,7 +2143,10 @@ void ScreenshotController::Impl::createOverlayInputPipeline() {
         [this](const QString& actionId) {
             const auto* toolbar = toolbarForShortcut();
             auto* palette = toolbar != nullptr ? toolbar->palette() : nullptr;
-            return palette != nullptr && palette->canActivateScreenshotShortcut(actionId);
+            return palette != nullptr && palette->canActivateScreenshotShortcut(
+                                             actionId == QStringLiteral("text_recognition_copy")
+                                                 ? QStringLiteral("text_recognition")
+                                                 : actionId);
         },
         [this](const QString& toolId) {
             const auto* toolbar = toolbarForShortcut();
@@ -2891,10 +2886,13 @@ void ScreenshotController::Impl::setOcrTool() {
     if (!ensureRecognitionFeature()) {
         return;
     }
-    if (m_activatingOcrCopy)
+    if (m_activatingOcrCopy) {
+        // This activation owns its follow-up, even when a newer clipboard write wins.
+        m_ocrAutoActionHandledActivationId = m_ocrActivationId;
         m_ocrController->activateAndCopy();
-    else
+    } else {
         m_ocrController->activate();
+    }
     m_presentationServices->updateOverlayState();
     restoreToolUiAfterScrollingCapture(scrollingCaptureStopped);
 }
