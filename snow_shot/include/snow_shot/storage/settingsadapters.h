@@ -191,6 +191,8 @@ class ShortcutSettings final {
     bool setScreenshotSave(const shortcuts::ShortcutBindingList& bindings) const;
     [[nodiscard]] shortcuts::ShortcutBindingList screenshotQuickSave() const;
     bool setScreenshotQuickSave(const shortcuts::ShortcutBindingList& bindings) const;
+    shortcuts::ShortcutBindingList screenshotPinWindowToScreen() const;
+    bool setScreenshotPinWindowToScreen(const shortcuts::ShortcutBindingList& bindings) const;
     [[nodiscard]] shortcuts::ShortcutBindingList screenshotFullScreen() const;
     bool setScreenshotFullScreen(const shortcuts::ShortcutBindingList& bindings) const;
     [[nodiscard]] shortcuts::ShortcutBindingList screenshotFocusedWindow() const;
@@ -290,7 +292,10 @@ class ScreenshotSettings final {
     bool setHiDpiImageScaling(const QString& mode) const;
     [[nodiscard]] QString selectionResizeMode() const;
     bool setSelectionResizeMode(const QString& mode) const;
-    [[nodiscard]] ExportTasks exportTasks(ExportTrigger trigger) const;
+    [[nodiscard]] QStringList selectedExportTaskIds(ExportTrigger trigger) const;
+    bool setSelectedExportTaskIds(ExportTrigger trigger, const QStringList& ids) const;
+    [[nodiscard]] ExportTasks exportTasks(ExportTrigger trigger,
+                                          ScreenshotType type = ScreenshotType::All) const;
     bool setExportTasks(ExportTrigger trigger, ExportTasks tasks) const;
     [[nodiscard]] bool copyImageFileToClipboard() const;
     bool setCopyImageFileToClipboard(bool enabled) const;
@@ -423,6 +428,7 @@ class DrawingShortcutSettings final {
 
 class PinToScreenShortcutSettings final {
   public:
+    [[nodiscard]] static bool isReservedShortcut(const shortcuts::ShortcutBinding& shortcut);
     [[nodiscard]] static bool actionsMayConflict(const QString& first, const QString& second);
     [[nodiscard]] shortcuts::ShortcutBindingList screenshotShortcuts(const QString& actionId) const;
     [[nodiscard]] shortcuts::ShortcutBindingList shortcuts(const QString& actionId) const;

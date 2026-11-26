@@ -1126,8 +1126,20 @@
             <translation>Cancel screenshot</translation>
         </message>
         <message>
+            <source>Click-through</source>
+            <translation>Click-through</translation>
+        </message>
+        <message>
             <source>Close</source>
             <translation>Close</translation>
+        </message>
+        <message>
+            <source>Close all windows</source>
+            <translation>Close all windows</translation>
+        </message>
+        <message>
+            <source>Close other windows</source>
+            <translation>Close other windows</translation>
         </message>
         <message>
             <source>Command</source>
@@ -1186,6 +1198,10 @@
             <translation>Hide at top</translation>
         </message>
         <message>
+            <source>Hide other windows</source>
+            <translation>Hide other windows</translation>
+        </message>
+        <message>
             <source>Left-button double-click</source>
             <translation>Left-button double-click</translation>
         </message>
@@ -1196,6 +1212,10 @@
         <message>
             <source>Left-button single-click</source>
             <translation>Left-button single-click</translation>
+        </message>
+        <message>
+            <source>Lock mode</source>
+            <translation>Lock mode</translation>
         </message>
         <message>
             <source>Menu</source>
@@ -1272,6 +1292,10 @@
         <message>
             <source>Shift</source>
             <translation>Shift</translation>
+        </message>
+        <message>
+            <source>Show all windows</source>
+            <translation>Show all windows</translation>
         </message>
         <message>
             <source>Show text recognition results</source>
@@ -2003,6 +2027,22 @@
             <translation>Auto-save</translation>
         </message>
         <message>
+            <source>Auto-save (Current monitor)</source>
+            <translation>Auto-save (Current monitor)</translation>
+        </message>
+        <message>
+            <source>Auto-save (Focused window)</source>
+            <translation>Auto-save (Focused window)</translation>
+        </message>
+        <message>
+            <source>Auto-save (Normal)</source>
+            <translation>Auto-save (Normal)</translation>
+        </message>
+        <message>
+            <source>Auto-save (Scrolling screenshot)</source>
+            <translation>Auto-save (Scrolling screenshot)</translation>
+        </message>
+        <message>
             <source>Auto-save image filename format</source>
             <translation>Auto-save image filename format</translation>
         </message>
@@ -2463,6 +2503,14 @@
             <translation>Clipboard content</translation>
         </message>
         <message>
+            <source>Close all windows</source>
+            <translation>Close all windows</translation>
+        </message>
+        <message>
+            <source>Close other windows</source>
+            <translation>Close other windows</translation>
+        </message>
+        <message>
             <source>Close window</source>
             <translation>Close window</translation>
         </message>
@@ -2583,6 +2631,14 @@
             <translation>Copy file</translation>
         </message>
         <message>
+            <source>Copy file (Normal)</source>
+            <translation>Copy file (Normal)</translation>
+        </message>
+        <message>
+            <source>Copy file (Scrolling screenshot)</source>
+            <translation>Copy file (Scrolling screenshot)</translation>
+        </message>
+        <message>
             <source>Copy image file to clipboard</source>
             <translation>Copy image file to clipboard</translation>
         </message>
@@ -2625,6 +2681,14 @@
         <message>
             <source>Copy to clipboard</source>
             <translation>Copy to clipboard</translation>
+        </message>
+        <message>
+            <source>Copy to clipboard (Normal)</source>
+            <translation>Copy to clipboard (Normal)</translation>
+        </message>
+        <message>
+            <source>Copy to clipboard (Scrolling screenshot)</source>
+            <translation>Copy to clipboard (Scrolling screenshot)</translation>
         </message>
         <message>
             <source>Copy translation results as an image</source>
@@ -3039,6 +3103,10 @@
             <translation>Export logs</translation>
         </message>
         <message>
+            <source>Export recognition result as image</source>
+            <translation>Export recognition result as image</translation>
+        </message>
+        <message>
             <source>Export recording</source>
             <translation>Export recording</translation>
         </message>
@@ -3255,6 +3323,10 @@
             <translation>Hide or show all windows in the current group</translation>
         </message>
         <message>
+            <source>Hide other windows</source>
+            <translation>Hide other windows</translation>
+        </message>
+        <message>
             <source>Hide the toolbar near the left or right screen edge. Hover over the edge control to show it again</source>
             <translation>Hide the toolbar near the left or right screen edge. Hover over the edge control to show it again</translation>
         </message>
@@ -3289,6 +3361,10 @@
         <message>
             <source>Image and document files</source>
             <translation>Image and document files</translation>
+        </message>
+        <message>
+            <source>Image compression</source>
+            <translation>Image compression</translation>
         </message>
         <message>
             <source>Image editing</source>
@@ -3355,12 +3431,12 @@
             <translation>Import settings</translation>
         </message>
         <message>
-            <source>Include saved annotation styles in the configuration archive</source>
-            <translation>Include saved annotation styles in the configuration archive</translation>
+            <source>Include recognition results when exporting an image with the text recognition tool active.</source>
+            <translation>Include recognition results when exporting an image with the text recognition tool active.</translation>
         </message>
         <message>
-            <source>Include the displayed text recognition or original-image translation result when saving a screenshot selection</source>
-            <translation>Include the displayed text recognition or original-image translation result when saving a screenshot selection</translation>
+            <source>Include saved annotation styles in the configuration archive</source>
+            <translation>Include saved annotation styles in the configuration archive</translation>
         </message>
         <message>
             <source>Include the pointer and capture controls in screenshots</source>
@@ -3931,6 +4007,10 @@
             <translation>Permission status and access</translation>
         </message>
         <message>
+            <source>Pin a live view of the window in the selected area</source>
+            <translation>Pin a live view of the window in the selected area</translation>
+        </message>
+        <message>
             <source>Pin clipboard content to screen</source>
             <translation>Pin clipboard content to screen</translation>
         </message>
@@ -3961,6 +4041,22 @@
         <message>
             <source>Pin to screen</source>
             <translation>Pin to screen</translation>
+        </message>
+        <message>
+            <source>Pin to screen (Current monitor)</source>
+            <translation>Pin to screen (Current monitor)</translation>
+        </message>
+        <message>
+            <source>Pin to screen (Focused window)</source>
+            <translation>Pin to screen (Focused window)</translation>
+        </message>
+        <message>
+            <source>Pin to screen (Normal)</source>
+            <translation>Pin to screen (Normal)</translation>
+        </message>
+        <message>
+            <source>Pin to screen (Scrolling screenshot)</source>
+            <translation>Pin to screen (Scrolling screenshot)</translation>
         </message>
         <message>
             <source>Pin to screen management</source>
@@ -4439,10 +4535,6 @@
             <translation>Save locations, clipboard behavior, history and cleanup</translation>
         </message>
         <message>
-            <source>Save recognition result as image</source>
-            <translation>Save recognition result as image</translation>
-        </message>
-        <message>
             <source>Save system audio and microphone audio as separate MP4 tracks for independent editing. Most players play one track at a time</source>
             <translation>Save system audio and microphone audio as separate MP4 tracks for independent editing. Most players play one track at a time</translation>
         </message>
@@ -4865,6 +4957,10 @@
         <message>
             <source>Show a system notification when export finishes. Click it to locate the exported file</source>
             <translation>Show a system notification when export finishes. Click it to locate the exported file</translation>
+        </message>
+        <message>
+            <source>Show all windows</source>
+            <translation>Show all windows</translation>
         </message>
         <message>
             <source>Show border</source>
@@ -5437,6 +5533,22 @@
         <message>
             <source>Upload to cloud</source>
             <translation>Upload to cloud</translation>
+        </message>
+        <message>
+            <source>Upload to cloud (Current monitor)</source>
+            <translation>Upload to cloud (Current monitor)</translation>
+        </message>
+        <message>
+            <source>Upload to cloud (Focused window)</source>
+            <translation>Upload to cloud (Focused window)</translation>
+        </message>
+        <message>
+            <source>Upload to cloud (Normal)</source>
+            <translation>Upload to cloud (Normal)</translation>
+        </message>
+        <message>
+            <source>Upload to cloud (Scrolling screenshot)</source>
+            <translation>Upload to cloud (Scrolling screenshot)</translation>
         </message>
         <message>
             <source>Use GPU acceleration when available. Recognition uses the CPU while acceleration is unavailable</source>

@@ -569,6 +569,10 @@ bool ScreenshotRecognitionWindow::present(const Config& config) {
     m_originalImagePreviewTransientOwner = config.transientOwner;
     m_formattedTextDevicePixelRatio = config.formattedTextDevicePixelRatio;
     m_presentationMode = config.presentationMode;
+#ifdef Q_OS_WIN
+    m_screenshotToolbar =
+        m_presentationMode == PresentationMode::TopLevelWindow ? config.screenshotToolbar : nullptr;
+#endif
     if (m_presentationMode == PresentationMode::TopLevelWindow) {
 #ifdef Q_OS_MACOS
         // Recognition is selection content: keep it below the toolbar and popovers,
@@ -822,8 +826,10 @@ void ScreenshotRecognitionWindow::updateOriginalImagePreview() {
 std::optional<ScreenshotRecognitionImageSnapshot> ScreenshotRecognitionWindow::imageSnapshot(
     QImage image, const QRectF& canvasRect, QImage filteredImage, const QRectF& filteredCanvasRect,
     const ScreenshotResultStyle& style, bool includeHiddenContent) const {
-    if ((!includeHiddenContent && m_showOriginalImage) || m_stack->currentWidget() != m_textLayer ||
-        image.isNull())
+    if ((!includeHiddenContent && (m_showOriginalImage || m_selectionOnly)) ||
+        m_stack->currentWidget() != m_textLayer || image.isNull() || !canvasRect.isValid() ||
+        !std::isfinite(canvasRect.left()) || !std::isfinite(canvasRect.top()) ||
+        !std::isfinite(canvasRect.right()) || !std::isfinite(canvasRect.bottom()))
         return std::nullopt;
     auto snapshot = ocrImageSnapshot();
     snapshot.image = std::move(image);
@@ -2135,7 +2141,10 @@ void ScreenshotRecognitionWindow::registerWindowShortcuts() {
         const auto token = m_attachmentToken;
         const auto callback = m_actions.handleCopy;
         const bool copyHandledByHost =
-            m_recognizedDocument || (m_ocrPresentation && m_actions.copyOcrResult);
+            m_recognizedDocument ||
+            (m_actions.copyOcrResult && (m_ocrPresentation || translationCopyActive()));
+        if (!lifetime || !commandAttachmentMatches(owner, token))
+            return true;
         const bool copied = copyVisibleContentToClipboard();
         if (!lifetime)
             return true;
@@ -2473,6 +2482,8 @@ bool ScreenshotRecognitionWindow::copyVisibleContentToClipboard() {
     if (!lifetime || !lifetime->commandAttachmentMatches(owner, token))
         return false;
     if (translating) {
+        if (const auto copy = m_actions.copyOcrResult)
+            return copy();
         if (!provider)
             return false;
         auto mime = provider();
@@ -2881,6 +2892,16 @@ bool ScreenshotRecognitionWindow::forwardFormattedTextPointerEvent(QObject* watc
 }
 
 bool ScreenshotRecognitionWindow::eventFilter(QObject* watched, QEvent* event) {
+#ifdef Q_OS_WIN
+    if (watched == this && event && m_screenshotToolbar &&
+        (event->type() == QEvent::WindowActivate || event->type() == QEvent::ZOrderChange)) {
+        // Reorder after Qt and Windows finish activating or raising the OCR window.
+        QTimer::singleShot(0, this, [this] {
+            if (isVisible() && m_screenshotToolbar && m_screenshotToolbar->isVisible())
+                m_screenshotToolbar->raise();
+        });
+    }
+#endif
     if (m_presentationMode == PresentationMode::EmbeddedChild && m_embeddedPointerEventHandler &&
         m_embeddedPointerEventHandler(watched, event))
         return true;

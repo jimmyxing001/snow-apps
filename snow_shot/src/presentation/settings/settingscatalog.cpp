@@ -203,6 +203,18 @@ SettingsItemDefinition screenshotQuickSaveItem() {
         []() { return custom_outlined_icons::QuickSave(); });
 }
 
+SettingsItemDefinition screenshotPinWindowToScreenItem() {
+    auto item = quickActionItem(
+        QStringLiteral("quick.screenshot-pin-window-to-screen"),
+        QT_TRANSLATE_NOOP("SettingsCatalog", "Pin window to screen"),
+        QT_TRANSLATE_NOOP("SettingsCatalog", "Pin a live view of the window in the selected area"),
+        {}, GlobalShortcutAction::ScreenshotPinWindowToScreen,
+        QStringLiteral("global_shortcuts/screenshot_pin_window_to_screen"),
+        []() { return custom_outlined_icons::PinWindowToScreen(); });
+    std::get<SettingsShortcutActionDefinition>(item.payload).showInTrayMenu = false;
+    return item;
+}
+
 SettingsItemDefinition screenshotFullScreenItem() {
     return quickActionItem(
         QStringLiteral("quick.screenshot-full-screen"),
@@ -1575,7 +1587,6 @@ SettingsItemDefinition screenshotSaveAsFileDialogItem() {
 }
 
 QVector<SettingsItemDefinition> exportTaskItems() {
-    using storage::ExportTask;
     using storage::ExportTrigger;
     const auto item = [](ExportTrigger trigger, TranslatableText title,
                          TranslatableText description) {
@@ -1583,29 +1594,8 @@ QVector<SettingsItemDefinition> exportTaskItems() {
         SettingsMultiSelectDefinition payload;
         payload.binding = exportTaskBinding(trigger);
         payload.placeholder = settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Select tasks"));
-        for (const auto& option : storage::exportTaskOptions) {
-            if (!row.allowed.testFlag(option.task))
-                continue;
-            TranslatableText label;
-            switch (option.task) {
-            case ExportTask::CopyImage:
-                label = settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Copy to clipboard"));
-                break;
-            case ExportTask::CopyFile:
-                label = settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Copy file"));
-                break;
-            case ExportTask::AutoSave:
-                label = settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Auto-save"));
-                break;
-            case ExportTask::Pin:
-                label = settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Pin to screen"));
-                break;
-            case ExportTask::Upload:
-                label = settingsText(QT_TRANSLATE_NOOP("SettingsCatalog", "Upload to cloud"));
-                break;
-            }
-            payload.options.push_back({option.id.toString(), label});
-        }
+        for (const auto& option : storage::exportTaskOptions(trigger))
+            payload.options.push_back({option.id.toString(), settingsText(option.label)});
         const QString key = row.key.toString();
         return SettingsItemDefinition{
             QString(key).replace(u'/', u'.'), title, description, {}, key, std::move(payload)};
@@ -2063,10 +2053,10 @@ SettingsItemDefinition pinZoomModeItem() {
 
 SettingsItemDefinition saveRecognitionResultAsImageItem() {
     return switchItem(QStringLiteral("text-recognition.save-recognition-result-as-image"),
-                      QT_TRANSLATE_NOOP("SettingsCatalog", "Save recognition result as image"),
+                      QT_TRANSLATE_NOOP("SettingsCatalog", "Export recognition result as image"),
                       QT_TRANSLATE_NOOP("SettingsCatalog",
-                                        "Include the displayed text recognition or original-image "
-                                        "translation result when saving a screenshot selection"),
+                                        "Include recognition results when exporting an image with "
+                                        "the text recognition tool active."),
                       QStringLiteral("text_recognition/save_recognition_result_as_image"),
                       SettingsSwitchBinding::SaveRecognitionResultAsImage);
 }
@@ -3094,6 +3084,32 @@ QVector<SettingsItemDefinition> pinToScreenShortcutItems() {
                           QStringLiteral("batch_save_as_file"),
                           QT_TRANSLATE_NOOP("SettingsCatalog", "Batch actions: save as file"),
                           []() { return custom_outlined_icons::Save(); }),
+        localShortcutItem(SettingsLocalShortcutScope::PinToScreen, QStringLiteral("split_image"),
+                          QT_TRANSLATE_NOOP("SettingsCatalog", "Image splitting"),
+                          []() { return custom_outlined_icons::ImageSplitting(); }),
+        localShortcutItem(SettingsLocalShortcutScope::PinToScreen, QStringLiteral("image_editing"),
+                          QT_TRANSLATE_NOOP("SettingsCatalog", "Image editing"),
+                          []() { return custom_outlined_icons::ImageEditing(); }),
+        localShortcutItem(SettingsLocalShortcutScope::PinToScreen,
+                          QStringLiteral("image_compression"),
+                          QT_TRANSLATE_NOOP("SettingsCatalog", "Image compression"),
+                          []() { return custom_outlined_icons::ImageCompression(); }),
+        localShortcutItem(SettingsLocalShortcutScope::PinToScreen,
+                          QStringLiteral("show_all_windows"),
+                          QT_TRANSLATE_NOOP("SettingsCatalog", "Show all windows"),
+                          []() { return outlined_icons::Expand(); }),
+        localShortcutItem(SettingsLocalShortcutScope::PinToScreen,
+                          QStringLiteral("hide_other_windows"),
+                          QT_TRANSLATE_NOOP("SettingsCatalog", "Hide other windows"),
+                          []() { return outlined_icons::EyeInvisible(); }),
+        localShortcutItem(SettingsLocalShortcutScope::PinToScreen,
+                          QStringLiteral("close_other_windows"),
+                          QT_TRANSLATE_NOOP("SettingsCatalog", "Close other windows"),
+                          []() { return outlined_icons::Close(); }),
+        localShortcutItem(SettingsLocalShortcutScope::PinToScreen,
+                          QStringLiteral("close_all_windows"),
+                          QT_TRANSLATE_NOOP("SettingsCatalog", "Close all windows"),
+                          []() { return outlined_icons::CloseCircle(); }),
     };
 }
 
@@ -3981,6 +3997,7 @@ constexpr CatalogItemFactory catalogPageGlobalHotkeysSectionScreenshotItems[] = 
     {screenshotCopyItem},
     {screenshotSaveItem},
     {screenshotQuickSaveItem},
+    {screenshotPinWindowToScreenItem},
     {screenshotFullScreenItem},
     {screenshotFocusedWindowItem},
     {openCaptureHistoryItem},
@@ -5638,6 +5655,8 @@ QString shortcutConfigurationKey(GlobalShortcutAction action) {
         return QStringLiteral("global_shortcuts/screenshot_save");
     case GlobalShortcutAction::ScreenshotQuickSave:
         return QStringLiteral("global_shortcuts/screenshot_quick_save");
+    case GlobalShortcutAction::ScreenshotPinWindowToScreen:
+        return QStringLiteral("global_shortcuts/screenshot_pin_window_to_screen");
     case GlobalShortcutAction::ScreenshotFullScreen:
         return QStringLiteral("global_shortcuts/screenshot_full_screen");
     case GlobalShortcutAction::ScreenshotFocusedWindow:
@@ -6718,6 +6737,7 @@ QStringList SettingsCatalog::validationErrors() const {
                 }
                 if (const auto* multi =
                         std::get_if<SettingsMultiSelectDefinition>(&itemDefinition.payload)) {
+                    QString scopedKey;
                     QString expectedKey;
                     switch (multi->binding) {
                     case SettingsMultiSelectBinding::DrawingAutomaticSelectionExcludedTools:
@@ -6730,8 +6750,10 @@ QStringList SettingsCatalog::validationErrors() const {
                         expectedKey = QStringLiteral("tray/menu_options");
                         break;
                     default:
-                        if (const auto trigger = exportTriggerForBinding(multi->binding))
+                        if (const auto trigger = exportTriggerForBinding(multi->binding)) {
                             expectedKey = storage::exportTaskRow(*trigger).key.toString();
+                            scopedKey = storage::exportTaskScopedKey(*trigger);
+                        }
                         break;
                     case SettingsMultiSelectBinding::ScreenshotShutterSoundNotification:
                         expectedKey = QStringLiteral("screenshot/shutter_sound_notification");
@@ -6753,6 +6775,10 @@ QStringList SettingsCatalog::validationErrors() const {
                     if (schemaEntry != nullptr) {
                         allowed = QSet<QString>(schemaEntry->allowedStringValues.cbegin(),
                                                 schemaEntry->allowedStringValues.cend());
+                    }
+                    if (const auto* scopedEntry = storage::ConfigurationSchema::entry(scopedKey)) {
+                        for (const auto& id : scopedEntry->allowedStringValues)
+                            allowed.insert(id);
                     }
                     if (itemDefinition.configurationKey != expectedKey || schemaEntry == nullptr ||
                         schemaEntry->valueKind != storage::ConfigurationValueKind::StringList ||

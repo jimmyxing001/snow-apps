@@ -362,12 +362,11 @@ ScreenshotOcrController::~ScreenshotOcrController() {
 
 std::optional<ScreenshotRecognitionImageSnapshot>
 ScreenshotOcrController::imageSnapshot(const ScreenshotResultStyle& style) const {
-    if (!m_active || !m_session->originalImageVisible() || m_recognitionWindow == nullptr ||
-        m_surfaceKey != currentCacheKey())
+    if (!m_active || m_surfaceKey != currentCacheKey())
         return std::nullopt;
-    return m_recognitionWindow->imageSnapshot(m_surfaceImage,
-                                              QRectF(m_context.selection.pixelSelection()),
-                                              m_filteredImage, m_filteredCanvasRect, style);
+    return m_session->imageExportSnapshot(m_surfaceImage,
+                                          QRectF(m_context.selection.pixelSelection()),
+                                          m_filteredImage, m_filteredCanvasRect, style);
 }
 
 bool ScreenshotOcrController::active() const {
@@ -1010,10 +1009,11 @@ bool ScreenshotOcrController::ensureRecognitionWindow() {
     }
 
     const ScreenshotRecognitionWindow::Config config{
-        screen,
-        overlay,
-        recognitionGeometryForDisplay(m_context.geometry, *display, QRectF(selection)),
-        QRectF(selection),
+        .screen = screen,
+        .transientOwner = overlay,
+        .geometry = recognitionGeometryForDisplay(m_context.geometry, *display, QRectF(selection)),
+        .canvasSelection = QRectF(selection),
+        .screenshotToolbar = m_context.overlayCoordinator.toolbar(),
     };
     if (m_recognitionWindow != nullptr && m_surfaceKey == key) {
         if (!m_recognitionWindow->present(config)) {

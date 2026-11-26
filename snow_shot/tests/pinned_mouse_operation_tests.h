@@ -17,6 +17,13 @@ void click(QWidget& surface, Qt::MouseButton button, Qt::KeyboardModifiers keys 
     pointer(surface, QEvent::MouseButtonRelease, global, button, {}, keys);
 }
 
+void doubleClick(QWidget& surface, Qt::MouseButton button) {
+    const QPointF global = surface.mapToGlobal(surface.rect().center());
+    click(surface, button);
+    pointer(surface, QEvent::MouseButtonDblClick, global, button, button, {});
+    pointer(surface, QEvent::MouseButtonRelease, global, button, {}, {});
+}
+
 void wheel(QWidget& surface, QPoint angleDelta, Qt::KeyboardModifiers keys,
            Qt::MouseButtons held = {}) {
     const QPointF local = surface.rect().center();
@@ -51,6 +58,38 @@ void nativeMoveKeepsPressAnchor() {
     require(Access::finishNativeInteraction(window) &&
                 Access::authority(window) == original.translated(delta),
             "releasing without another move keeps the initial displacement");
+}
+
+void annotationOnFreshPin() {
+    auto& store = snow_shot::storage::ApplicationStorage::instance().configuration();
+    const auto annotation = definition(Action::Annotation).key();
+    const auto thumbnail = definition(Action::Thumbnail).key();
+    const auto restore = qScopeGuard([&, original = store.snapshot()] {
+        store.setValues(
+            {{annotation, original.value(annotation)}, {thumbnail, original.value(thumbnail)}});
+    });
+    require(store.setValues({{thumbnail, QJsonObject{}},
+                             {annotation, encode({Kind::DoubleClick, Qt::LeftButton})}}),
+            "bind annotation mode to left-button double-click");
+
+    PinnedSelectionFixture fixture;
+    for (const bool editingEnabled : {true, false}) {
+        auto& pin = fixture.add({60, 80}, {240, 180}, [editingEnabled](auto& config) {
+            config.enableEditing = editingEnabled;
+        });
+        auto* canvas = pin.findChild<SnowCanvasWidget*>();
+        require(canvas && !pin.findChild<ScreenshotPinnedEditController*>(),
+                "a fresh pin starts with a canvas and a deferred annotation controller");
+        doubleClick(*canvas, Qt::LeftButton);
+        auto* edit = pin.findChild<ScreenshotPinnedEditController*>();
+        if (editingEnabled) {
+            require(edit && edit->editMode(), "the first double-click enters annotation mode");
+            doubleClick(*canvas, Qt::LeftButton);
+            require(!edit->editMode(), "the next double-click exits annotation mode");
+        } else {
+            require(!edit, "a pin with editing disabled ignores the annotation gesture");
+        }
+    }
 }
 
 void doubleClickModifiers() {
@@ -123,21 +162,15 @@ void textAndHandleBindings() {
     const auto thumbnail = definition(Action::Thumbnail).key();
     const auto original = store.snapshot();
     const auto leftDouble = encode({Kind::DoubleClick, Qt::LeftButton});
-    const auto doubleClickA = [&] {
-        const QPointF global = a.mapToGlobal(a.rect().center());
-        click(a, Qt::LeftButton);
-        pointer(a, QEvent::MouseButtonDblClick, global, Qt::LeftButton, Qt::LeftButton, {});
-        pointer(a, QEvent::MouseButtonRelease, global, Qt::LeftButton, {}, {});
-    };
     require(store.setValues({{thumbnail, QJsonObject{}}, {copyText, leftDouble}}),
             "bind Copy text to an unmodified left double-click");
-    doubleClickA();
+    doubleClick(a, Qt::LeftButton);
     require(QApplication::clipboard()->text() == QStringLiteral("Second\nFirst") &&
                 fixture.selection.selectedCount() == 2,
             "both releases of a double-click preserve the selected copy targets");
     require(store.setValues({{copyText, original.value(copyText)}, {menu, leftDouble}}),
             "bind Menu to an unmodified left double-click");
-    doubleClickA();
+    doubleClick(a, Qt::LeftButton);
     auto* groupMenu = a.findChild<adqt::widgets::AdContextMenu*>(
         QStringLiteral("screenshotPinnedMultiSelectionMenu"));
     require(groupMenu && groupMenu->isPopupVisible(),
@@ -302,7 +335,125 @@ void wheelCancelsCropGestures() {
             "wheel zoom cancels the pan and keeps the original crop");
 }
 
+void windowManagementBindings() {
+    auto& store = snow_shot::storage::ApplicationStorage::instance().configuration();
+    const snow_shot::storage::PinToScreenShortcutSettings shortcuts;
+    const struct {
+        Action action;
+        Qt::MouseButton button;
+        Qt::KeyboardModifiers modifiers;
+        Qt::Key key;
+    } commands[] = {
+        {Action::ShowAllWindows, Qt::BackButton, Qt::ShiftModifier, Qt::Key_F6},
+        {Action::HideOtherWindows, Qt::ForwardButton, Qt::ShiftModifier, Qt::Key_F7},
+        {Action::CloseOtherWindows, Qt::BackButton, Qt::AltModifier, Qt::Key_F8},
+        {Action::CloseAllWindows, Qt::ForwardButton, Qt::AltModifier, Qt::Key_F9},
+    };
+    for (const auto& cmd : commands) {
+        const auto& action = definition(cmd.action);
+        require(
+            shortcuts.setShortcuts(QString::fromLatin1(action.id),
+                                   {QKeySequence(cmd.key).toString(QKeySequence::PortableText)}) &&
+                store.setValue(action.key(), encode({Kind::Click, cmd.button, cmd.modifiers})),
+            "configure both inputs for a window management command");
+    }
+    require(
+        store.setValues(
+            {{definition(Action::ClickThrough).key(), encode({Kind::DoubleClick, Qt::BackButton})},
+             {definition(Action::Lock).key(), encode({Kind::Click, Qt::ForwardButton})}}),
+        "configure click-through and lock gestures");
+
+    for (bool keyboard : {false, true}) {
+        PinnedSelectionFixture fixture;
+        auto& pin = fixture.add({60, 80});
+        auto& other = fixture.add({260, 80});
+        const auto groupId = fixture.groups.createGroup(QStringLiteral("Parked"));
+        require(groupId.has_value(), "create an inactive group");
+        auto& parked = fixture.add({450, 80});
+        parked.setGroupId(*groupId);
+        const auto invoke = [keyboard, &other](ScreenshotPinnedWindow& target, const auto& cmd) {
+            if (keyboard) {
+                sendShortcut(target, cmd.key);
+                if (cmd.action == Action::CloseOtherWindows)
+                    require(other.isVisible(),
+                            "close others keeps its target visible until release");
+                if (cmd.action == Action::CloseAllWindows)
+                    require(target.isVisible(),
+                            "close all keeps the invoking pin visible until release");
+                PhysicalKeyEvent release(QEvent::KeyRelease, cmd.key, Qt::NoModifier);
+                QCoreApplication::sendEvent(&target, &release);
+            } else {
+                click(target, cmd.button, cmd.modifiers);
+            }
+        };
+        {
+            ScreenshotPinnedWindow live;
+            int visibilityRequests = 0;
+            auto config =
+                live_pinned_tests::config(std::make_shared<live_pinned_tests::FakeSource>());
+            config.showAllWindowsRequested = [&] { ++visibilityRequests; };
+            config.hideOtherWindowsRequested = [&](const QString&) { ++visibilityRequests; };
+            live_pinned_tests::present(live, config);
+            live.activateWindow();
+            live.setFocus();
+            waitForUi(10);
+            for (const auto& cmd : commands)
+                invoke(live, cmd);
+            require(visibilityRequests == 0 && live.isVisible() && pin.isVisible() &&
+                        other.isVisible(),
+                    "live pin input cannot invoke the omitted management commands");
+            live.closeLiveWindow();
+        }
+        pin.activateWindow();
+        pin.setFocus();
+        waitForUi(10);
+        int shows = 0;
+        QString exceptId;
+        QObject::connect(
+            &fixture.groups,
+            &snow_shot::presentation::PinnedWindowGroupManager::showAllWindowsRequested, &pin,
+            [&] { ++shows; });
+        QObject::connect(
+            &fixture.groups,
+            &snow_shot::presentation::PinnedWindowGroupManager::hideOtherWindowsRequested, &pin,
+            [&](const QString& id) { exceptId = id; });
+        invoke(pin, commands[0]);
+        invoke(pin, commands[1]);
+        require(shows == 1 && exceptId == pin.persistenceId(),
+                "show all and hide others reach the group manager with the invoking pin");
+        if (!keyboard) {
+            click(pin, Qt::ForwardButton);
+            require(pin.persistenceSnapshot().lockedMode && !other.persistenceSnapshot().lockedMode,
+                    "the lock gesture targets only its pin");
+            doubleClick(pin, Qt::BackButton);
+            auto* exit = Access::clickThroughExitButton(pin);
+            require(Access::clickThroughActive(pin) && exit && exit->isVisible(),
+                    "the click-through gesture exposes the exit button");
+            click(*exit, Qt::LeftButton);
+            click(pin, Qt::ForwardButton);
+            require(!Access::clickThroughActive(pin) && !pin.persistenceSnapshot().lockedMode,
+                    "the exit button restores pointer input for unlocking");
+        }
+        invoke(pin, commands[2]);
+        require(pin.isVisible() && !other.isVisible(), "close others keeps the invoking pin open");
+        invoke(pin, commands[3]);
+        require(!pin.isVisible() && parked.isVisible(),
+                "close all includes the invoking pin and preserves other groups");
+    }
+    for (const auto& cmd : commands) {
+        const auto& action = definition(cmd.action);
+        require(shortcuts.setShortcuts(QString::fromLatin1(action.id), {}) &&
+                    store.setValue(action.key(), QJsonObject{}),
+                "clear management bindings");
+    }
+    require(store.setValues({{definition(Action::ClickThrough).key(), QJsonObject{}},
+                             {definition(Action::Lock).key(), QJsonObject{}}}),
+            "clear mode gestures");
+}
+
 void run() {
+    windowManagementBindings();
+    annotationOnFreshPin();
     wheelCancelsCropGestures();
     auto& config = snow_shot::storage::ApplicationStorage::instance().configuration();
     require(config.setValues(

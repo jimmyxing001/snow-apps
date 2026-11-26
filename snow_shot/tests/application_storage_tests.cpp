@@ -591,9 +591,36 @@ void autoSaveAfterExecutionSettingsMigrateAndPersist() {
     using storage::ExportTask;
     using storage::ExportTrigger;
     const auto copy = storage::exportTaskRow(ExportTrigger::ScreenshotCopy).key.toString();
+    const auto scopedCopy = storage::exportTaskScopedKey(ExportTrigger::ScreenshotCopy);
     const auto pinned = storage::exportTaskRow(ExportTrigger::PinnedCopy).key.toString();
     const auto pin = storage::exportTaskRow(ExportTrigger::ScreenshotPin).key.toString();
     const QJsonArray save{QStringLiteral("auto_save")};
+    const int schemaVersion = storage::ConfigurationSchema::currentVersion();
+    require(schemaVersion > 10,
+            "scoped tasks must trigger read-only storage in version 10 readers");
+    const auto upgradePath = temporary.filePath(QStringLiteral("upgrade-export-tasks.json"));
+    const QJsonObject oldVersion{{QStringLiteral("schema_version"), 10}};
+    const QJsonArray mixed{QStringLiteral("auto_save"), QStringLiteral("pin_to_screen.normal")};
+    const QJsonObject oldTasks{{QStringLiteral("screenshot_copy"), mixed}};
+    writeBytes(upgradePath, QJsonDocument(QJsonObject{{QStringLiteral("storage"), oldVersion},
+                                                      {QStringLiteral("export_tasks"), oldTasks}})
+                                .toJson());
+    {
+        storage::ConfigurationStore store(upgradePath, true, true, 60000);
+        require(store.value(copy) == save &&
+                    store.value(scopedCopy) == QJsonArray{QStringLiteral("pin_to_screen.normal")} &&
+                    store.flushNow().success,
+                "upgrade separates scoped choices from the legacy export list");
+        const auto saved = readObject(upgradePath);
+        const auto tasks = saved.value(QStringLiteral("export_tasks")).toObject();
+        require(saved.value(QStringLiteral("storage"))
+                            .toObject()
+                            .value(QStringLiteral("schema_version")) == schemaVersion &&
+                    tasks.value(QStringLiteral("screenshot_copy")) == save &&
+                    tasks.value(QStringLiteral("screenshot_copy_scoped")) ==
+                        QJsonArray{QStringLiteral("pin_to_screen.normal")},
+                "upgrading persists both task records and marks the new schema for older readers");
+    }
     const QStringList legacyCopies{
         QStringLiteral("copy_screenshot"), QStringLiteral("copy_scrolling_screenshot"),
         QStringLiteral("capture_current_monitor"), QStringLiteral("capture_focused_window")};
@@ -650,6 +677,12 @@ void autoSaveAfterExecutionSettingsMigrateAndPersist() {
                     settings.exportTasks(row.trigger) == row.allowed,
                 "each action has an independent empty default");
     }
+    require(!settings.exportTasks(ExportTrigger::ScreenshotSave,
+                                  storage::ScreenshotType::FocusedWindow) &&
+                settings.exportTasks(ExportTrigger::ScreenshotCopy,
+                                     storage::ScreenshotType::CurrentMonitor) ==
+                    storage::exportTaskRow(ExportTrigger::ScreenshotCopy).allowed,
+            "all-types selections run only on the capture types covered by the row");
     require(appStorage.flushNow().success, "flush export tasks");
     appStorage.shutdown();
     static_cast<void>(initialize(executable, temporary.filePath(QStringLiteral("data"))));
@@ -657,6 +690,23 @@ void autoSaveAfterExecutionSettingsMigrateAndPersist() {
         require(settings.exportTasks(row.trigger) == row.allowed &&
                     settings.setExportTasks(row.trigger, {}),
                 "task selections survive reload and can be cleared");
+    using storage::ScreenshotType;
+    const auto trigger = ExportTrigger::ScreenshotCopy;
+    const QStringList selected{
+        QStringLiteral("auto_save.normal"), QStringLiteral("pin_to_screen.scrolling"),
+        QStringLiteral("auto_save.focused_window"), QStringLiteral("pin_to_screen.focused_window"),
+        QStringLiteral("upload_to_cloud.current_monitor")};
+    require(settings.setSelectedExportTaskIds(trigger, selected) && appStorage.flushNow().success,
+            "store independent copy options");
+    appStorage.shutdown();
+    static_cast<void>(initialize(executable, temporary.filePath(QStringLiteral("data"))));
+    require(settings.selectedExportTaskIds(trigger) == selected &&
+                settings.exportTasks(trigger, ScreenshotType::Normal) == ExportTask::AutoSave &&
+                settings.exportTasks(trigger, ScreenshotType::Scrolling) == ExportTask::Pin &&
+                settings.exportTasks(trigger, ScreenshotType::FocusedWindow) ==
+                    (ExportTask::AutoSave | ExportTask::Pin) &&
+                settings.exportTasks(trigger, ScreenshotType::CurrentMonitor) == ExportTask::Upload,
+            "reloaded copy options match each type independently");
     appStorage.shutdown();
 }
 
@@ -2009,8 +2059,8 @@ void screenshotTranslationSettingsRoundTripSupportedValues() {
             "layout processing should default to Smart Merge for existing configurations");
     require(translation.originalImageTranslationEnabled(),
             "original image translation should default to enabled for existing configurations");
-    require(!translation.copyTranslationResultsAsImage(), "translation image copy defaults off");
-    require(translation.setCopyTranslationResultsAsImage(true), "enable translation image copy");
+    require(translation.copyTranslationResultsAsImage(), "translation image copy defaults on");
+    require(translation.setCopyTranslationResultsAsImage(false), "save disabled image copy");
     require(translation.configuration() ==
                 storage::ScreenshotTranslationConfiguration{
                     QStringLiteral("auto"), {}, QStringLiteral("free-translation")},
@@ -2032,8 +2082,8 @@ void screenshotTranslationSettingsRoundTripSupportedValues() {
     require(!translation.originalImageTranslationEnabled() &&
                 translation.configuration() == selected,
             "an explicitly disabled display toggle must survive restart");
-    require(translation.copyTranslationResultsAsImage(),
-            "translation image copy survives restart independently of display mode");
+    require(!translation.copyTranslationResultsAsImage(),
+            "an explicitly disabled image copy preference survives restart");
     require(conversion.visionModel() == QStringLiteral("vision-model"),
             "vision model survives storage restart independently of translation settings");
 
@@ -2180,7 +2230,7 @@ void verifyPinToScreenShortcutSettings() {
     const storage::PinToScreenShortcutSettings shortcutSettings;
     const shortcuts::ShortcutBindingMap defaults = shortcutSettings.allShortcuts();
     require(
-        defaults.size() == 39 &&
+        defaults.size() == 46 &&
             portable(defaults.value(QStringLiteral("copy_to_clipboard"))) ==
                 QStringList{QStringLiteral("Ctrl+C")} &&
             portable(defaults.value(QStringLiteral("copy_original_content"))) ==

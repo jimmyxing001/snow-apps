@@ -392,7 +392,7 @@ void screenshotInteractionCatalog() {
     require(page && page->sections.size() == 2 &&
                 page->sections[0].id == QStringLiteral("screenshots") &&
                 page->sections[1].id == QStringLiteral("pin-to-screen") &&
-                page->sections[0].items.size() == 7 && page->sections[1].items.size() == 22,
+                page->sections[0].items.size() == 7 && page->sections[1].items.size() == 28,
             "mouse operations groups configurable actions in category order");
     for (const auto& section : page->sections) {
         require(section.itemLayout == settings::SettingsSectionItemLayout::TwoColumnGrid,
@@ -1133,7 +1133,11 @@ void builtInCatalogIsCompleteAndValid() {
             "dedicated recognition behavior section");
     const auto& recognitionSave = recognition.items.front();
     require(
-        recognitionSave.title.translated() == QStringLiteral("Save recognition result as image") &&
+        recognitionSave.title.translated() ==
+                QStringLiteral("Export recognition result as image") &&
+            recognitionSave.description.translated() ==
+                QStringLiteral("Include recognition results when exporting an image with the text "
+                               "recognition tool active.") &&
             std::get<settings::SettingsSwitchDefinition>(recognitionSave.payload).binding ==
                 settings::SettingsSwitchBinding::SaveRecognitionResultAsImage &&
             storage::ConfigurationSchema::defaultValue(recognitionSave.configurationKey).toBool(),
@@ -1171,8 +1175,8 @@ void builtInCatalogIsCompleteAndValid() {
     require(copyImage &&
                 std::get<settings::SettingsSwitchDefinition>(copyImage->payload).binding ==
                     settings::SettingsSwitchBinding::CopyTranslationResultsAsImage &&
-                !storage::ConfigurationSchema::defaultValue(copyImage->configurationKey).toBool(),
-            "translation image copy has an independent default-off switch");
+                storage::ConfigurationSchema::defaultValue(copyImage->configurationKey).toBool(),
+            "translation image copy has an independent default-on switch");
     const auto& translationItems = catalog
                                        .section(QStringLiteral("text-recognition-translation"),
                                                 QStringLiteral("translation-settings"))
@@ -1432,9 +1436,27 @@ void builtInCatalogIsCompleteAndValid() {
         QStringList ids;
         for (const auto& option : multi.options)
             ids << option.value.toString();
+        QStringList expectedIds;
+        for (const auto& option : storage::exportTaskOptions(row.trigger))
+            expectedIds.append(option.id.toString());
+        if (row.trigger == storage::ExportTrigger::ScreenshotCopy) {
+            const QStringList types{
+                QStringLiteral("Normal"), QStringLiteral("Scrolling screenshot"),
+                QStringLiteral("Focused window"), QStringLiteral("Current monitor")};
+            QStringList labels;
+            for (const auto& option : multi.options)
+                labels.append(option.label.translated());
+            QStringList expected;
+            for (const auto& action : {QStringLiteral("Auto-save"), QStringLiteral("Pin to screen"),
+                                       QStringLiteral("Upload to cloud")}) {
+                expected.append(action);
+                for (const auto& type : types)
+                    expected.append(QStringLiteral("%1 (%2)").arg(action, type));
+            }
+            require(labels == expected, "copy task labels identify all four types in action order");
+        }
         require(item.configurationKey == row.key &&
-                    multi.binding == settings::exportTaskBinding(row.trigger) &&
-                    ids == storage::exportTaskIds(row.allowed),
+                    multi.binding == settings::exportTaskBinding(row.trigger) && ids == expectedIds,
                 "each action exposes its own ordered task selection");
     }
     require(visibleRows == taskSection.items.size() &&
@@ -1850,7 +1872,7 @@ void builtInCatalogIsCompleteAndValid() {
             std::get<settings::SettingsLocalShortcutDefinition>(
                 drawingShortcuts->items.at(2).payload)
                     .scope == settings::SettingsLocalShortcutScope::Drawing &&
-            pinToScreenShortcuts != nullptr && pinToScreenShortcuts->items.size() == 39 &&
+            pinToScreenShortcuts != nullptr && pinToScreenShortcuts->items.size() == 46 &&
             pinToScreenShortcuts->items.at(35).configurationKey ==
                 QStringLiteral("pin_to_screen_shortcuts/batch_select_all") &&
             pinToScreenShortcuts->items.at(36).configurationKey ==
@@ -2482,6 +2504,9 @@ void globalShortcutActionsHaveStableContracts() {
         {Action::ScreenshotQuickSave, "screenshot", "quick.screenshot-quick-save",
          "global_shortcuts/screenshot_quick_save",
          settings::SettingsCommandKind::ExecuteQuickAction},
+        {Action::ScreenshotPinWindowToScreen, "screenshot", "quick.screenshot-pin-window-to-screen",
+         "global_shortcuts/screenshot_pin_window_to_screen",
+         settings::SettingsCommandKind::ExecuteQuickAction},
         {Action::ScreenshotFullScreen, "screenshot", "quick.screenshot-full-screen",
          "global_shortcuts/screenshot_full_screen",
          settings::SettingsCommandKind::ExecuteQuickAction},
@@ -2581,7 +2606,7 @@ void globalShortcutActionsHaveStableContracts() {
     }
 
     require(actions.size() == expectations.size() &&
-                expectations.size() == 31 + WINDOW_TOPMOST_ACTION_COUNT,
+                expectations.size() == 32 + WINDOW_TOPMOST_ACTION_COUNT,
             "the global-hotkeys catalog must expose all shortcut actions exactly once");
     const auto* stitch = catalog.itemForShortcut(Action::StitchSelectedImages);
     const auto* stitchSchema = storage::ConfigurationSchema::entry(
@@ -2839,12 +2864,17 @@ void globalShortcutActionsHaveStableContracts() {
             : nullptr;
     const auto* screenshotSection =
         catalog.section(QStringLiteral("global-hotkeys"), QStringLiteral("screenshot"));
-    require(screenshotSection != nullptr && screenshotSection->items.size() >= 10 &&
+    require(screenshotSection != nullptr && screenshotSection->items.size() >= 11 &&
                 screenshotSection->items.at(6).id == QStringLiteral("quick.screenshot-scrolling") &&
                 screenshotSection->items.at(7).id == QStringLiteral("quick.screenshot-copy") &&
                 screenshotSection->items.at(8).id == QStringLiteral("quick.screenshot-save") &&
-                screenshotSection->items.at(9).id == QStringLiteral("quick.screenshot-quick-save"),
-            "Scrolling screenshot must immediately precede Copy to clipboard and save actions");
+                screenshotSection->items.at(9).id ==
+                    QStringLiteral("quick.screenshot-quick-save") &&
+                screenshotSection->items.at(10).id ==
+                    QStringLiteral("quick.screenshot-pin-window-to-screen") &&
+                screenshotSection->items.at(10).title.translated() ==
+                    QStringLiteral("Pin window to screen"),
+            "Pin window to screen must immediately follow Quick save");
     const auto* scrolling = catalog.itemForShortcut(Action::ScreenshotScrolling);
     const auto* scrollingSchema = storage::ConfigurationSchema::entry(scrolling->configurationKey);
     const auto& scrollingShortcut =
@@ -3271,7 +3301,7 @@ void searchIndexIsGeneratedAndRanked() {
     require(!translation.isEmpty() && translation.constFirst().location.itemId ==
                                           QStringLiteral("translation.original-image"),
             "search should navigate directly to the original image translation toggle");
-    const auto recognition = index.search(QStringLiteral("Save recognition result as image"));
+    const auto recognition = index.search(QStringLiteral("Export recognition result as image"));
     require(!recognition.isEmpty() &&
                 recognition.constFirst().location.itemId ==
                     QStringLiteral("text-recognition.save-recognition-result-as-image"),
@@ -4139,7 +4169,7 @@ int main(int argc, char** argv) {
         require(catalog.validationErrors().isEmpty(), "batch shortcuts preserve catalog validity");
         const auto* section = catalog.section(QStringLiteral("shortcuts-mouse"),
                                               QStringLiteral("pin-to-screen-shortcuts"));
-        require(section && section->items.size() == 39,
+        require(section && section->items.size() == 46,
                 "pinned shortcuts expose all four batch commands");
         for (const auto& id :
              {QStringLiteral("batch_select_all"), QStringLiteral("batch_image_stitching"),

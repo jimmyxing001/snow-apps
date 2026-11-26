@@ -736,6 +736,7 @@ set(SNOW_SHOT_STORAGE_SOURCES
     src/storage/cloudsyncconfiguration.cpp
     src/storage/configurationstore.cpp
     src/storage/configurationschema.cpp
+    src/storage/exporttasks.cpp
     src/storage/exportfilename.cpp
     src/storage/timevariables.cpp
     src/storage/screenshotexportvariables.cpp
@@ -2105,6 +2106,7 @@ set(PROJECT_CXX_SOURCES
     src/presentation/ocr/screenshottableeditor.cpp
     src/presentation/ocr/screenshotocrtexttransform.cpp
     src/presentation/ocr/screenshotocrrecognitionservice.cpp
+    src/presentation/ocr/screenshotocrlinegeometry.cpp
     src/presentation/ocr/screenshotocrassets.cpp
     src/presentation/ocr/screenshotqrcontroller.cpp
     include/snow_shot/presentation/screenshotqrcontroller.h
@@ -2694,6 +2696,9 @@ if(SNOW_SHOT_BUILD_TESTS)
     set_tests_properties(snow-shot-scrolling-interval-settings-tests PROPERTIES
         LABELS "unit" TIMEOUT 60
         ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
+    add_test(NAME snow-shot-pinned-action-transition-tests
+        COMMAND snow-shot-pinned-window-tests --action-transitions-only -platform offscreen)
+    set_tests_properties(snow-shot-pinned-action-transition-tests PROPERTIES LABELS "unit" TIMEOUT 60)
     add_test(NAME snow-shot-pinned-mouse-operations-tests
         COMMAND snow-shot-pinned-window-tests --mouse-operations-only -platform offscreen)
     set_tests_properties(snow-shot-pinned-mouse-operations-tests PROPERTIES LABELS "unit" TIMEOUT 60)
@@ -3587,6 +3592,11 @@ if(SNOW_SHOT_BUILD_TESTS)
     add_test(NAME snow-shot-stitch-selected-images-settings-tests
         COMMAND snow-shot-settings-page-loading-tests --stitch-selected-images-only)
     set_tests_properties(snow-shot-stitch-selected-images-settings-tests PROPERTIES LABELS unit
+        ENVIRONMENT "${_SNOW_SHOT_OFFSCREEN_QPA_ENVIRONMENT}"
+        ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
+    add_test(NAME snow-shot-pin-window-shortcut-settings-tests
+        COMMAND snow-shot-settings-page-loading-tests --pin-window-shortcut-only)
+    set_tests_properties(snow-shot-pin-window-shortcut-settings-tests PROPERTIES LABELS unit TIMEOUT 30
         ENVIRONMENT "${_SNOW_SHOT_OFFSCREEN_QPA_ENVIRONMENT}"
         ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
     set_tests_properties(snow-shot-settings-page-loading-tests PROPERTIES
@@ -9654,6 +9664,12 @@ if(SNOW_SHOT_BUILD_TESTS)
         LABELS "unit" TIMEOUT 30 SNOW_TEST_CROSS_PLATFORM TRUE
         ENVIRONMENT "${_SNOW_SHOT_OFFSCREEN_QPA_ENVIRONMENT}"
         ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
+    add_test(NAME snow-shot-recognition-toolbar-overlap-tests
+        COMMAND snow-shot-recognition-window-tests --toolbar-overlap-only -platform offscreen)
+    set_tests_properties(snow-shot-recognition-toolbar-overlap-tests PROPERTIES
+        LABELS "unit" TIMEOUT 30
+        ENVIRONMENT "${_SNOW_SHOT_OFFSCREEN_QPA_ENVIRONMENT}"
+        ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
     add_test(
         NAME snow-shot-recognition-window-tests
         COMMAND snow-shot-recognition-window-tests -platform offscreen
@@ -9664,7 +9680,10 @@ if(SNOW_SHOT_BUILD_TESTS)
     if(WIN32)
         add_test(NAME snow-shot-recognition-native-surface-tests
             COMMAND snow-shot-recognition-window-tests --native-surface-only -platform windows)
-        set_tests_properties(snow-shot-recognition-native-surface-tests PROPERTIES
+        add_test(NAME snow-shot-recognition-native-toolbar-overlap-tests
+            COMMAND snow-shot-recognition-window-tests --toolbar-overlap-only -platform windows)
+        set_tests_properties(snow-shot-recognition-native-surface-tests
+            snow-shot-recognition-native-toolbar-overlap-tests PROPERTIES
             LABELS "interactive;windows" RUN_SERIAL TRUE TIMEOUT 60
             ENVIRONMENT
                 "QT_QPA_PLATFORM=windows;QT_QPA_PLATFORM_PLUGIN_PATH=$<TARGET_FILE_DIR:Qt6::QWindowsIntegrationPlugin>"
@@ -9677,6 +9696,7 @@ if(SNOW_SHOT_BUILD_TESTS)
 
     add_executable(snow-shot-ocr-layout-tests
         tests/screenshot_ocr_layout_tests.cpp
+        src/presentation/ocr/screenshotocrlinegeometry.cpp
         src/presentation/ocr/screenshotocrlayout.cpp
     )
     target_include_directories(snow-shot-ocr-layout-tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
@@ -9960,7 +9980,10 @@ if(SNOW_SHOT_BUILD_TESTS)
         add_test(NAME snow-shot-mcp-application-fixture-tests
             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/mcp_application_fixture_tests.py"
                 "$<TARGET_FILE:snow_shot_mcp>" "$<TARGET_FILE:snow_shot>")
-        set_tests_properties(snow-shot-mcp-application-fixture-tests PROPERTIES TIMEOUT 120 LABELS unit
+        add_test(NAME snow-shot-mcp-pinned-action-fixture-tests
+            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/mcp_application_fixture_tests.py"
+                "$<TARGET_FILE:snow_shot_mcp>" "$<TARGET_FILE:snow_shot>" --pin-actions-only)
+        set_tests_properties(snow-shot-mcp-application-fixture-tests snow-shot-mcp-pinned-action-fixture-tests PROPERTIES TIMEOUT 120 LABELS unit
             ENVIRONMENT "${_SNOW_SHOT_OFFSCREEN_QPA_ENVIRONMENT}"
             ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
     endif()
@@ -12181,6 +12204,11 @@ if(SNOW_SHOT_BUILD_TESTS)
         COMMAND snow_shot --clipboard-pin-tests --ocr-copy-shortcut-only -platform offscreen)
     add_test(NAME snow-shot-screenshot-controller-clipboard-tests
         COMMAND snow_shot --clipboard-pin-tests -platform offscreen)
+    add_test(NAME snow-shot-recognition-image-outputs-tests
+        COMMAND snow_shot --clipboard-pin-tests --recognition-image-outputs-tests -platform offscreen)
+    set_tests_properties(snow-shot-recognition-image-outputs-tests PROPERTIES
+        LABELS unit SNOW_TEST_CROSS_PLATFORM TRUE TIMEOUT 60 RUN_SERIAL TRUE
+        ENVIRONMENT "${_snow_controller_clipboard_qpa_environment}")
     add_test(NAME snow-shot-screenshot-export-tasks-tests
         COMMAND snow_shot --clipboard-pin-tests --export-tasks -platform offscreen)
     add_test(NAME snow-shot-clipboard-pin-selection-priority-tests
@@ -13878,6 +13906,12 @@ if(SNOW_SHOT_BUILD_BENCHMARKS)
         COMMAND snow-shot-pinned-selection-performance-benchmark)
     set_tests_properties(snow-shot-pinned-selection-performance-benchmark PROPERTIES LABELS "benchmark")
     if(TARGET snow-shot-pinned-window-tests)
+        target_compile_definitions(snow-shot-pinned-window-tests PRIVATE
+            SNOW_SHOT_PINNED_ACTION_BENCHMARK=1)
+        add_test(NAME snow-shot-pinned-action-performance-benchmark
+            COMMAND snow-shot-pinned-window-tests --pinned-action-performance-only -platform offscreen)
+        set_tests_properties(snow-shot-pinned-action-performance-benchmark PROPERTIES
+            LABELS "benchmark" RUN_SERIAL TRUE TIMEOUT 120)
         add_test(NAME snow-shot-pinned-multi-selection-performance-benchmark
             COMMAND snow-shot-pinned-window-tests --multi-selection-performance-only -platform offscreen)
         set_tests_properties(snow-shot-pinned-multi-selection-performance-benchmark PROPERTIES

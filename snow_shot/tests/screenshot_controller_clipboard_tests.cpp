@@ -8,10 +8,13 @@
 #include "snow_shot/app/shellimagelaunch.h"
 #include "snow_shot/app/mcp/screenshotmcpsession.h"
 #include "snow_shot/network/snowshotapiclient.h"
+#include "snow_shot/presentation/directcapturecontroller.h"
+#include "snow_shot/presentation/directcaptureworkflow.h"
 #include "snow_shot/presentation/languagemanager.h"
 #include "snow_shot/presentation/mainwindow.h"
 #include "snow_shot/presentation/screenshotoverlaywindow.h"
 #include "snow_shot/presentation/screenshotcontroller.h"
+#include "snow_shot/presentation/screenshothistoryservice.h"
 #include "snow_shot/presentation/screenshotocrrecognitionservice.h"
 #include "snow_shot/presentation/screenshotocrpresentation.h"
 #include "snow_shot/presentation/screenshotrecognitionsessioncontroller.h"
@@ -61,6 +64,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QFileDialog>
+#include <QLineEdit>
 #include <QMimeData>
 #include <QMouseEvent>
 #include <QJsonArray>
@@ -160,7 +164,26 @@ void documentQuickSaveCancelsOnShutdown(const QString& directory) {
     auto& commands = ScreenshotControllerTestAccess::commands(*controller);
     commands.setDocumentTool();
     auto* session = controller->findChild<ScreenshotRecognitionSessionController*>();
+    require(session && session->active() &&
+                session->busy(ScreenshotRecognitionSessionController::Mode::Document),
+            "document fixture has an active pending request");
+    require(settings.setImageFormat(QStringLiteral("png")) &&
+                settings.setAutoSaveFilenameFormat(QStringLiteral("document-pending")),
+            "configure image fallback for the pending document");
+    commands.quickSaveSelection();
+    const QString pendingImage = QDir(directory).filePath(QStringLiteral("document-pending.png"));
+    waitUntil([&] { return !ScreenshotControllerTestAccess::exportActive(*controller); },
+              "pending document saves an image without waiting for recognition");
+    require(QImage(pendingImage).size() == QSize(120, 80) && QFile::remove(pendingImage),
+            "pending document produced a standard PNG");
+    require(settings.setAutoSaveFilenameFormat(QStringLiteral("document-shutdown")),
+            "restore the document result filename");
+    ScreenshotControllerTestAccess::prepareSelection(*controller, fixture(), selection);
+    ScreenshotControllerTestAccess::presentSelection(*controller);
+    commands.setDocumentTool();
+    session = controller->findChild<ScreenshotRecognitionSessionController*>();
     require(session && session->active(), "document fixture has an active session");
+    session->cancelWorkflow();
     auto results = session->cachedRecognitionResults();
     auto document = std::make_shared<ScreenshotRecognizedDocument>();
     document->html = QStringLiteral("<p>Document shutdown fixture</p>");
@@ -2257,6 +2280,219 @@ void pinOutputsUseHiDpiScaling() {
             "restore pin output settings");
 }
 
+void recognitionImageOutputsMatch(const QString& directory) {
+    using Access = ScreenshotControllerTestAccess;
+    const snow_shot::storage::ScreenshotSettings settings;
+    const snow_shot::storage::TextRecognitionSettings textSettings;
+    cloud_upload_tests::S3Server server;
+    const auto profile = cloud_upload_tests::configuration(server.url());
+    require(settings.setImageSaveDirectory(directory) &&
+                settings.setImageFormat(QStringLiteral("png")) &&
+                settings.setHiDpiImageScaling(QStringLiteral("200")) &&
+                settings.setAutoExecuteAfterTextRecognition(QStringLiteral("no_action")) &&
+                snow_shot::storage::CloudUploadConfigurationSettings().setSettings(
+                    {{profile}, profile.id}),
+            "configure screenshot recognition image outputs");
+    for (bool includeRecognition : {false, true}) {
+        const QString name = includeRecognition ? QStringLiteral("recognized-capture")
+                                                : QStringLiteral("standard-capture");
+        require(settings.setAutoSaveFilenameFormat(name) &&
+                    textSettings.setSaveRecognitionResultAsImage(includeRecognition),
+                "configure the image output branch for this capture");
+        QImage printed, shared;
+        ScreenshotPrintService print([&](QWidget*, QImage image, auto completion) {
+            printed = std::move(image);
+            completion({ScreenshotPrintService::Status::Cancelled, {}});
+        });
+        ScreenshotAirDropService share([&](QWidget*, QString path, auto completion) {
+            shared = QImage(path);
+            completion({ScreenshotAirDropService::Status::Cancelled, {}});
+        });
+        ScreenshotOcrRecognitionService recognition(isolatedRecognitionOptions(directory));
+        ScreenshotController controller(nullptr, nullptr, &recognition);
+        controller.setPrintService(&print);
+        controller.setAirDropService(&share);
+        ScreenshotSelectionParams selection;
+        selection.selection = QRect(10, 12, 80, 50);
+        Access::prepareSelection(controller, fixture(), selection);
+        Access::presentSelection(controller);
+        require(
+            !Access::runtime(controller)
+                 .applyAnnotationTransaction(QByteArrayLiteral(
+                     R"({"version":1,"operations":[{"type":"rectangle","bounds":[24,43,12,8]}]})"))
+                 .isEmpty(),
+            "add drawing content before OCR");
+        auto& commands = Access::commands(controller);
+        commands.setOcrTool();
+        waitUntil([] { return bool(visibleRecognitionWindow()); }, "show the on-image OCR view");
+        auto displayed = std::make_shared<ScreenshotOcrPresentation>();
+        displayed->selection = selection.selection;
+        ScreenshotOcrLine line;
+        line.text = QStringLiteral("Partial OCR");
+        line.quad = {QPointF(15, 20), QPointF(75, 20), QPointF(75, 35), QPointF(15, 35)};
+        displayed->lines.append(line);
+        visibleRecognitionWindow()->setOcrPresentation(std::move(displayed));
+
+        commands.printSelection();
+        waitUntil([&] { return !printed.isNull() && !print.busy(); }, "print the capture snapshot");
+        commands.airDropSelection();
+        waitUntil([&] { return !shared.isNull() && !share.busy(); }, "share the capture snapshot");
+        const auto previousUploads = server.count;
+        commands.uploadSelectionToCloud();
+        waitUntil(
+            [&] {
+                return server.count > previousUploads &&
+                       !controller.findChild<ScreenshotCloudUploadJob*>();
+            },
+            "upload the capture snapshot");
+        commands.quickSaveSelection();
+        waitUntil([&] { return !Access::exportActive(controller); }, "save the capture snapshot");
+        const QImage saved(QDir(directory).filePath(name + QStringLiteral(".png")));
+        require(saved.size() == (includeRecognition ? QSize(80, 50) : QSize(40, 25)) &&
+                    samePixels(saved, QImage::fromData(server.body)) && samePixels(saved, shared) &&
+                    printed == ScreenshotPrintService::opaqueImage(saved),
+                "all capture outputs use the same image and configured output dimensions");
+    }
+}
+
+void systemSaveFreezesCaptureAndHistory(const QString& directory) {
+    using Access = ScreenshotControllerTestAccess;
+    namespace storage = snow_shot::storage;
+    const storage::ScreenshotSettings settings;
+    auto& applicationStorage = storage::ApplicationStorage::instance();
+    const auto previousPolicy = applicationStorage.captureHistoryPolicy();
+    auto policy = previousPolicy;
+    policy.mode = storage::CaptureHistoryMode::Full;
+    require(applicationStorage.requestCaptureHistoryPolicyAsync(policy).get().success &&
+                settings.setHiDpiImageScaling(QStringLiteral("disabled")) &&
+                settings.setSaveAsFileDialog(QStringLiteral("system")) &&
+                settings.setLastManualSaveFormat(QStringLiteral("png")) &&
+                settings.setShowSaveResult(false),
+            "configure system Save with full capture history");
+    const bool nativeDialogsDisabled = QApplication::testAttribute(Qt::AA_DontUseNativeDialogs);
+    QApplication::setAttribute(Qt::AA_DontUseNativeDialogs);
+    const auto restore = qScopeGuard([&] {
+        QApplication::setAttribute(Qt::AA_DontUseNativeDialogs, nativeDialogsDisabled);
+        require(applicationStorage.requestCaptureHistoryPolicyAsync(previousPolicy).get().success,
+                "restore capture history policy after system Save");
+    });
+    auto& history = applicationStorage.captureHistory();
+    for (const bool scrolling : {false, true}) {
+        ScreenshotController controller;
+        ScreenshotSelectionParams selection;
+        selection.selection = QRect(10, 12, 80, 50);
+        auto image = fixture();
+        image.fill(Qt::blue);
+        Access::prepareSelection(controller, image, selection);
+        if (scrolling)
+            Access::prepareScrollingSnapshot(controller, scrollingSnapshot(image));
+        else
+            Access::presentSelection(controller);
+        const auto canvasHistory = Access::runtime(controller).serializeDocumentHistory();
+        const auto revision = history.recordsSnapshot().revision;
+        const QString path = QDir(directory).filePath(
+            scrolling ? QStringLiteral("frozen-scrolling.png") : QStringLiteral("frozen-save.png"));
+        bool changedDuringDialog = false;
+        QTimer editAndSave;
+        editAndSave.setInterval(5);
+        QObject::connect(&editAndSave, &QTimer::timeout, &controller, [&] {
+            auto* dialog = qobject_cast<QFileDialog*>(QApplication::activeModalWidget());
+            if (!dialog)
+                return;
+            editAndSave.stop();
+            if (scrolling) {
+                auto next = image;
+                next.fill(Qt::red);
+                Access::prepareScrollingSnapshot(controller, scrollingSnapshot(next));
+                changedDuringDialog = true;
+            } else {
+                changedDuringDialog =
+                    controller.mcpApplyAnnotations(editablePinRectangle(20, 22, Qt::red), nullptr,
+                                                   nullptr) &&
+                    Access::runtime(controller).serializeDocumentHistory() != canvasHistory;
+            }
+            auto* filename = dialog->findChild<QLineEdit*>(QStringLiteral("fileNameEdit"));
+            require(filename, "system Save shows a filename editor");
+            filename->setText(path);
+            QMetaObject::invokeMethod(dialog, "accept", Qt::QueuedConnection);
+        });
+        editAndSave.start();
+        Access::commands(controller).saveSelectionToFile();
+        waitUntil([&] { return history.recordsSnapshot().revision > revision; },
+                  "system Save publishes capture history");
+        require(changedDuringDialog, "the capture changed during the system Save dialog");
+        const auto record = history.records().front();
+        require(record.scrolling == scrolling && record.selection.rectangle == selection.selection,
+                "history retains the original capture selection and mode");
+        const QImage saved(path);
+        const auto resultImage = history.loadResultImage(record);
+        const auto payload = history.load(record);
+        require(payload && payload->canvasHistory == canvasHistory,
+                "the restorable canvas history predates the dialog-time edit");
+        require(saved.size() == (scrolling ? image.size() : selection.selection.size()),
+                "system Save writes the original capture dimensions");
+        require(saved.pixelColor(10, 10) == QColor(Qt::blue),
+                "system Save writes the pixels before the dialog-time edit");
+        require(resultImage && samePixels(saved, *resultImage),
+                "the history result and saved file contain the same pixels");
+    }
+}
+
+void followUpPinsUseNativeImageResolution() {
+    using Access = ScreenshotControllerTestAccess;
+    const snow_shot::storage::ScreenshotSettings settings;
+    cloud_upload_tests::S3Server server;
+    const auto profile = cloud_upload_tests::configuration(server.url());
+    require(settings.setKeepAnnotationsEditableAfterPinningToScreen(false) &&
+                settings.setHiDpiImageScaling(QStringLiteral("200")) &&
+                settings.setImageFormat(QStringLiteral("png")) &&
+                snow_shot::storage::CloudUploadConfigurationSettings().setSettings(
+                    {{profile}, profile.id}),
+            "configure scaled output and flattened follow-up pins");
+    for (auto trigger : {ExportTrigger::ScreenshotPrint, ExportTrigger::ScreenshotAirDrop,
+                         ExportTrigger::ScreenshotUpload}) {
+        require(settings.setExportTasks(trigger, ExportTask::Pin), "enable the follow-up pin");
+        for (const bool scrolling : {false, true}) {
+            QSize exportedSize;
+            ScreenshotPrintService print([&](QWidget*, QImage image, auto completion) {
+                exportedSize = image.size();
+                completion({ScreenshotPrintService::Status::Submitted, {}});
+            });
+            ScreenshotAirDropService share([&](QWidget*, QString path, auto completion) {
+                exportedSize = QImage(path).size();
+                completion({ScreenshotAirDropService::Status::Shared, {}});
+            });
+            ScreenshotController controller;
+            controller.setPrintService(&print);
+            controller.setAirDropService(&share);
+            ScreenshotSelectionParams selection;
+            selection.selection = QRect(10, 12, 80, 50);
+            const auto image = fixture();
+            Access::prepareSelection(controller, image, selection);
+            if (scrolling)
+                Access::prepareScrollingSnapshot(controller, scrollingSnapshot(image));
+            else
+                Access::presentSelection(controller);
+            auto& commands = Access::commands(controller);
+            if (trigger == ExportTrigger::ScreenshotPrint)
+                commands.printSelection();
+            else if (trigger == ExportTrigger::ScreenshotAirDrop)
+                commands.airDropSelection();
+            else
+                commands.uploadSelectionToCloud();
+            waitUntil([] { return visiblePins().size() == 1; }, "follow-up pin becomes ready");
+            if (trigger == ExportTrigger::ScreenshotUpload)
+                exportedSize = QImage::fromData(server.body).size();
+            const auto nativeSize = scrolling ? image.size() : selection.selection.size();
+            require(exportedSize == nativeSize / 2 &&
+                        visiblePins().first()->persistenceSnapshot().image.size() == nativeSize,
+                    "primary output is scaled and the follow-up pin is at source resolution");
+            closePins();
+        }
+        require(settings.setExportTasks(trigger, {}), "clear the follow-up pin");
+    }
+}
+
 void exportTaskClipboardOrder() {
     using Clipboard = ScreenshotClipboardService;
     auto* clipboard = QApplication::clipboard();
@@ -2445,6 +2681,144 @@ void exportTaskErrorsSurviveCaptureTeardown() {
     }
 }
 
+void scopedCopyTasksFollowTheCurrentExport() {
+    using Access = ScreenshotControllerTestAccess;
+    namespace storage = snow_shot::storage;
+    auto& appStorage = storage::ApplicationStorage::instance();
+    const auto previousPolicy = appStorage.captureHistoryPolicy();
+    auto policy = previousPolicy;
+    policy.mode = storage::CaptureHistoryMode::Full;
+    const storage::ScreenshotSettings settings;
+    QTemporaryDir output;
+    const auto trigger = ExportTrigger::ScreenshotCopy;
+    require(
+        output.isValid() && appStorage.requestCaptureHistoryPolicyAsync(policy).get().success &&
+            settings.setImageSaveDirectory(output.path()) &&
+            settings.setAutoSaveFilenameFormat(QStringLiteral("scrolling")) &&
+            settings.setImageFormat(QStringLiteral("png")) &&
+            settings.setSelectedExportTaskIds(trigger, {QStringLiteral("auto_save.scrolling"),
+                                                        QStringLiteral("pin_to_screen.normal")}),
+        "configure distinct scrolling and normal copy tasks");
+    const auto restore = qScopeGuard([&] {
+        settings.setExportTasks(trigger, {});
+        require(appStorage.requestCaptureHistoryPolicyAsync(previousPolicy).get().success,
+                "restore the capture history policy after testing scoped copy tasks");
+    });
+
+    ScreenshotSelectionParams selection;
+    selection.selection = QRect(10, 12, 80, 50);
+    QString recordId;
+    {
+        ScreenshotController controller;
+        Access::prepareSelection(controller, fixture(), selection);
+        Access::prepareScrollingSnapshot(controller, scrollingSnapshot(fixture()));
+        const auto revision = appStorage.captureHistory().recordsSnapshot().revision;
+        Access::commands(controller).copySelectionToClipboard();
+        waitUntil(
+            [&] {
+                return !Access::exportActive(controller) &&
+                       appStorage.captureHistory().recordsSnapshot().revision > revision &&
+                       QFileInfo::exists(output.filePath(QStringLiteral("scrolling.png")));
+            },
+            "scrolling copy saves its file and history entry");
+        const auto record = appStorage.captureHistory().records().front();
+        require(record.scrolling == true && visiblePins().isEmpty(),
+                "live scrolling copy skips the normal pin");
+        recordId = record.id;
+    }
+
+    ScreenshotController editor;
+    ScreenshotSelectionParams live;
+    live.selection = QRect(1, 1, 10, 10);
+    Access::prepareSelection(editor, fixture(), live);
+    auto& history = Access::history(editor);
+    require(history.navigateToRecord(recordId),
+            "open the scrolling record in the screenshot editor");
+    waitUntil([&] { return !history.navigationInProgress(); }, "history editor finishes loading");
+    require(Access::selection(editor).pixelSelection() == selection.selection,
+            "the editor restored the saved selection");
+    Access::commands(editor).copySelectionToClipboard();
+    waitUntil([&] { return !Access::exportActive(editor) && !visiblePins().isEmpty(); },
+              "copying the history entry pins it");
+    require(visiblePins().size() == 1 && QDir(output.path()).entryList(QDir::Files).size() == 1,
+            "a history editor copy runs the normal pin and skips scrolling auto-save");
+    closePins();
+}
+
+void scopedDirectCopyTasksFollowTheTarget() {
+    using namespace snow_shot::presentation;
+    namespace storage = snow_shot::storage;
+    auto& appStorage = storage::ApplicationStorage::instance();
+    const auto previousPolicy = appStorage.captureHistoryPolicy();
+    auto policy = previousPolicy;
+    policy.mode = storage::CaptureHistoryMode::Disabled;
+    const storage::ScreenshotSettings settings;
+    const auto trigger = ExportTrigger::ScreenshotCopy;
+    const auto previousTasks = settings.selectedExportTaskIds(trigger);
+    const auto previousDirectory = settings.imageSaveDirectory();
+    const auto previousFilename = settings.autoSaveFilenameFormat();
+    const auto previousFormat = settings.imageFormat();
+    const auto previousCopyFile = settings.copyImageFileToClipboard();
+    const auto previousShutter = settings.shutterSoundTargets();
+    const auto restore = qScopeGuard([&] {
+        settings.setSelectedExportTaskIds(trigger, previousTasks);
+        settings.setImageSaveDirectory(previousDirectory);
+        settings.setAutoSaveFilenameFormat(previousFilename);
+        settings.setImageFormat(previousFormat);
+        settings.setCopyImageFileToClipboard(previousCopyFile);
+        settings.setShutterSoundTargets(previousShutter);
+        require(appStorage.requestCaptureHistoryPolicyAsync(previousPolicy).get().success,
+                "restore the capture history policy after testing scoped direct copy tasks");
+    });
+    QTemporaryDir output;
+    require(output.isValid() && appStorage.requestCaptureHistoryPolicyAsync(policy).get().success &&
+                settings.setImageSaveDirectory(output.path()) &&
+                settings.setAutoSaveFilenameFormat(QStringLiteral("direct-monitor")) &&
+                settings.setImageFormat(QStringLiteral("png")) &&
+                settings.setCopyImageFileToClipboard(false) &&
+                settings.setShutterSoundTargets({}) &&
+                settings.setSelectedExportTaskIds(trigger,
+                                                  {QStringLiteral("pin_to_screen.focused_window"),
+                                                   QStringLiteral("auto_save.current_monitor")}),
+            "configure independent direct capture tasks");
+
+    DirectCaptureController controller;
+    DirectCaptureControllerTestAccess::setFrameAcquirer(
+        controller, [](const DirectCaptureRequest& request) {
+            DirectCaptureFrame frame;
+            frame.image = QImage(9, 7, QImage::Format_RGBA8888);
+            frame.image.fill(request.target == DirectCaptureTarget::FocusedWindow ? Qt::red
+                                                                                  : Qt::blue);
+            frame.physicalBounds = QRect(QPoint(), frame.image.size());
+            frame.logicalBounds = frame.physicalBounds;
+            return frame;
+        });
+    QList<QColor> pins;
+    QStringList errors;
+    QObject::connect(
+        &controller, &DirectCaptureController::pinRequested, &controller,
+        [&](const QImage& image, const QRect&) { pins.append(image.pixelColor(0, 0)); });
+    QObject::connect(&controller, &DirectCaptureController::operationFailed, &controller,
+                     [&](const QString& error, bool) { errors.append(error); });
+
+    controller.captureFocusedWindow();
+    waitUntil([&] { return !controller.blocksApplicationUpdate(); },
+              "focused window copy finishes");
+    require(errors.isEmpty() && pins == QList<QColor>{Qt::red} &&
+                captureClipboardOutput().first.pixelColor(0, 0) == QColor(Qt::red),
+            "focused window capture copies and pins the red frame");
+
+    const auto path = output.filePath(QStringLiteral("direct-monitor.png"));
+    controller.captureCurrentMonitor();
+    waitUntil([&] { return !controller.blocksApplicationUpdate() && QFileInfo::exists(path); },
+              "current monitor copy finishes and auto-saves");
+    require(errors.isEmpty() && pins == QList<QColor>{Qt::red} &&
+                captureClipboardOutput().first.pixelColor(0, 0) == QColor(Qt::blue) &&
+                QImage(path).pixelColor(0, 0) == QColor(Qt::blue) &&
+                QDir(output.path()).entryList(QDir::Files).size() == 1,
+            "current monitor capture copies and saves the blue frame");
+}
+
 void userExportTasks() {
     namespace storage = snow_shot::storage;
     QTemporaryDir directory;
@@ -2454,9 +2828,11 @@ void userExportTasks() {
     const storage::ScreenshotSettings settings;
     require(directory.isValid() &&
                 storage::CloudUploadConfigurationSettings().setSettings({{profile}, profile.id}) &&
-                settings.setExportTasks(ExportTrigger::ScreenshotSave, ExportTask::CopyFile |
-                                                                           ExportTask::Pin |
-                                                                           ExportTask::Upload) &&
+                settings.setSelectedExportTaskIds(ExportTrigger::ScreenshotSave,
+                                                  {QStringLiteral("copy_file.normal"),
+                                                   QStringLiteral("pin_to_screen"),
+                                                   QStringLiteral("pin_to_screen.normal"),
+                                                   QStringLiteral("upload_to_cloud.normal")}) &&
                 settings.setExportTasks(ExportTrigger::ScreenshotPin, ExportTask::AutoSave) &&
                 settings.setExportTasks(ExportTrigger::ScreenshotCopy, ExportTask::AutoSave) &&
                 settings.setExportTasks(ExportTrigger::ScreenshotUpload, ExportTask::AutoSave) &&
@@ -2479,16 +2855,22 @@ void userExportTasks() {
     waitUntil([&] { return !ScreenshotControllerTestAccess::exportActive(controller); },
               "primary save completes");
     ScreenshotControllerTestAccess::prepareSelection(controller, fixture(), selection);
+    const auto copiedFilePath = [] {
+        // File-only copies use the Qt clipboard with the offscreen platform plugin.
+        const auto* mime = QApplication::clipboard()->mimeData();
+        return mime && !mime->hasImage() && mime->urls().size() == 1
+                   ? mime->urls().front().toLocalFile()
+                   : QString{};
+    };
     waitUntil(
         [&] {
-            return server.count == 1 && visiblePins().size() == 1 &&
-                   !captureClipboardOutput().second.isEmpty();
+            return server.count == 1 && visiblePins().size() == 1 && !copiedFilePath().isEmpty();
         },
         "all selected follow-up tasks complete across a new capture");
-    const auto [copiedImage, path] = captureClipboardOutput();
+    const auto path = copiedFilePath();
     QFile saved(path);
     require(
-        copiedImage.isNull() && saved.open(QIODevice::ReadOnly) && saved.readAll() == server.body &&
+        saved.open(QIODevice::ReadOnly) && saved.readAll() == server.body &&
             QFileInfo(path).absolutePath() == directory.path() &&
             QImage(path).size() == QSize(40, 25) &&
             server.headers.toLower().contains("content-type: image/jpeg"),
@@ -2503,8 +2885,7 @@ void userExportTasks() {
     }
     waitUntil([&] { return !controller.findChild<ScreenshotCloudUploadJob*>(); },
               "background upload completes");
-    require(captureClipboardOutput().second == path &&
-                QDir(directory.path()).entryList(QDir::Files).size() == 1,
+    require(copiedFilePath() == path && QDir(directory.path()).entryList(QDir::Files).size() == 1,
             "background uploads preserve the clipboard and follow-up pins and uploads never run "
             "another row");
     closePins();
@@ -2706,6 +3087,8 @@ int runScreenshotControllerClipboardTests(int argc, char** argv) {
         exportTaskClipboardOrder();
         exportTaskPinsKeepEditableAnnotations();
         exportTaskErrorsSurviveCaptureTeardown();
+        scopedCopyTasksFollowTheCurrentExport();
+        scopedDirectCopyTasksFollowTheTarget();
         userExportTasks();
         storage.shutdown();
         return EXIT_SUCCESS;
@@ -2857,6 +3240,13 @@ int runScreenshotControllerClipboardTests(int argc, char** argv) {
         QApplication::clipboard()->clear();
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
         storage.shutdown();
+        return EXIT_SUCCESS;
+    }
+    if (application.arguments().contains(QStringLiteral("--recognition-image-outputs-tests"))) {
+        const auto shutdown = qScopeGuard([&] { storage.shutdown(); });
+        recognitionImageOutputsMatch(directory.path());
+        systemSaveFreezesCaptureAndHistory(directory.path());
+        followUpPinsUseNativeImageResolution();
         return EXIT_SUCCESS;
     }
     if (application.arguments().contains(QStringLiteral("--controller-reselection-tests"))) {

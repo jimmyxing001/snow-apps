@@ -1126,8 +1126,20 @@
             <translation>取消截圖</translation>
         </message>
         <message>
+            <source>Click-through</source>
+            <translation>滑鼠穿透</translation>
+        </message>
+        <message>
             <source>Close</source>
             <translation>關閉</translation>
+        </message>
+        <message>
+            <source>Close all windows</source>
+            <translation>關閉所有視窗</translation>
+        </message>
+        <message>
+            <source>Close other windows</source>
+            <translation>關閉其他視窗</translation>
         </message>
         <message>
             <source>Command</source>
@@ -1186,6 +1198,10 @@
             <translation>頂部隱藏</translation>
         </message>
         <message>
+            <source>Hide other windows</source>
+            <translation>隱藏其他視窗</translation>
+        </message>
+        <message>
             <source>Left-button double-click</source>
             <translation>左鍵雙擊</translation>
         </message>
@@ -1196,6 +1212,10 @@
         <message>
             <source>Left-button single-click</source>
             <translation>左鍵單擊</translation>
+        </message>
+        <message>
+            <source>Lock mode</source>
+            <translation>鎖定模式</translation>
         </message>
         <message>
             <source>Menu</source>
@@ -1272,6 +1292,10 @@
         <message>
             <source>Shift</source>
             <translation>Shift</translation>
+        </message>
+        <message>
+            <source>Show all windows</source>
+            <translation>顯示所有視窗</translation>
         </message>
         <message>
             <source>Show text recognition results</source>
@@ -2003,6 +2027,22 @@
             <translation>自動儲存</translation>
         </message>
         <message>
+            <source>Auto-save (Current monitor)</source>
+            <translation>自動儲存（目前顯示器）</translation>
+        </message>
+        <message>
+            <source>Auto-save (Focused window)</source>
+            <translation>自動儲存（焦點視窗）</translation>
+        </message>
+        <message>
+            <source>Auto-save (Normal)</source>
+            <translation>自動儲存（一般截圖）</translation>
+        </message>
+        <message>
+            <source>Auto-save (Scrolling screenshot)</source>
+            <translation>自動儲存（捲動截圖）</translation>
+        </message>
+        <message>
             <source>Auto-save image filename format</source>
             <translation>自動儲存影像檔名格式</translation>
         </message>
@@ -2463,6 +2503,14 @@
             <translation>剪貼簿內容</translation>
         </message>
         <message>
+            <source>Close all windows</source>
+            <translation>關閉所有視窗</translation>
+        </message>
+        <message>
+            <source>Close other windows</source>
+            <translation>關閉其他視窗</translation>
+        </message>
+        <message>
             <source>Close window</source>
             <translation>關閉視窗</translation>
         </message>
@@ -2583,6 +2631,14 @@
             <translation>複製檔案</translation>
         </message>
         <message>
+            <source>Copy file (Normal)</source>
+            <translation>複製檔案（一般截圖）</translation>
+        </message>
+        <message>
+            <source>Copy file (Scrolling screenshot)</source>
+            <translation>複製檔案（捲動截圖）</translation>
+        </message>
+        <message>
             <source>Copy image file to clipboard</source>
             <translation>將影像檔案複製到剪貼簿</translation>
         </message>
@@ -2625,6 +2681,14 @@
         <message>
             <source>Copy to clipboard</source>
             <translation>複製到剪貼簿</translation>
+        </message>
+        <message>
+            <source>Copy to clipboard (Normal)</source>
+            <translation>複製到剪貼簿（一般截圖）</translation>
+        </message>
+        <message>
+            <source>Copy to clipboard (Scrolling screenshot)</source>
+            <translation>複製到剪貼簿（捲動截圖）</translation>
         </message>
         <message>
             <source>Copy translation results as an image</source>
@@ -3039,6 +3103,10 @@
             <translation>匯出記錄</translation>
         </message>
         <message>
+            <source>Export recognition result as image</source>
+            <translation>將辨識結果匯出為影像</translation>
+        </message>
+        <message>
             <source>Export recording</source>
             <translation>匯出螢幕錄製</translation>
         </message>
@@ -3255,6 +3323,10 @@
             <translation>隱藏或顯示目前群組中的所有視窗</translation>
         </message>
         <message>
+            <source>Hide other windows</source>
+            <translation>隱藏其他視窗</translation>
+        </message>
+        <message>
             <source>Hide the toolbar near the left or right screen edge. Hover over the edge control to show it again</source>
             <translation>工具列靠近螢幕左邊緣或右邊緣時自動隱藏。將滑鼠停留在邊緣控制項上可再次顯示工具列</translation>
         </message>
@@ -3289,6 +3361,10 @@
         <message>
             <source>Image and document files</source>
             <translation>影像與文件檔案</translation>
+        </message>
+        <message>
+            <source>Image compression</source>
+            <translation>影像壓縮</translation>
         </message>
         <message>
             <source>Image editing</source>
@@ -3355,12 +3431,12 @@
             <translation>匯入設定</translation>
         </message>
         <message>
-            <source>Include saved annotation styles in the configuration archive</source>
-            <translation>在設定封存檔中包含已儲存的標註樣式</translation>
+            <source>Include recognition results when exporting an image with the text recognition tool active.</source>
+            <translation>文字辨識工具啟用時，在匯出的影像中包含辨識結果。</translation>
         </message>
         <message>
-            <source>Include the displayed text recognition or original-image translation result when saving a screenshot selection</source>
-            <translation>儲存截圖選取範圍時包含目前顯示的文字辨識或原圖翻譯結果</translation>
+            <source>Include saved annotation styles in the configuration archive</source>
+            <translation>在設定封存檔中包含已儲存的標註樣式</translation>
         </message>
         <message>
             <source>Include the pointer and capture controls in screenshots</source>
@@ -3931,6 +4007,10 @@
             <translation>權限狀態與授權</translation>
         </message>
         <message>
+            <source>Pin a live view of the window in the selected area</source>
+            <translation>將選取範圍內視窗的即時畫面固定到螢幕</translation>
+        </message>
+        <message>
             <source>Pin clipboard content to screen</source>
             <translation>將剪貼簿內容固定到螢幕</translation>
         </message>
@@ -3961,6 +4041,22 @@
         <message>
             <source>Pin to screen</source>
             <translation>固定到螢幕</translation>
+        </message>
+        <message>
+            <source>Pin to screen (Current monitor)</source>
+            <translation>固定到螢幕（目前顯示器）</translation>
+        </message>
+        <message>
+            <source>Pin to screen (Focused window)</source>
+            <translation>固定到螢幕（焦點視窗）</translation>
+        </message>
+        <message>
+            <source>Pin to screen (Normal)</source>
+            <translation>固定到螢幕（一般截圖）</translation>
+        </message>
+        <message>
+            <source>Pin to screen (Scrolling screenshot)</source>
+            <translation>固定到螢幕（捲動截圖）</translation>
         </message>
         <message>
             <source>Pin to screen management</source>
@@ -4439,10 +4535,6 @@
             <translation>儲存位置、剪貼簿行為、歷史與清理</translation>
         </message>
         <message>
-            <source>Save recognition result as image</source>
-            <translation>將辨識結果儲存為影像</translation>
-        </message>
-        <message>
             <source>Save system audio and microphone audio as separate MP4 tracks for independent editing. Most players play one track at a time</source>
             <translation>將系統音訊和麥克風音訊儲存為獨立的 MP4 音軌，以便分別編輯。大多數播放器一次只播放一個音軌</translation>
         </message>
@@ -4865,6 +4957,10 @@
         <message>
             <source>Show a system notification when export finishes. Click it to locate the exported file</source>
             <translation>匯出完成後顯示系統通知。點擊通知可定位匯出的檔案</translation>
+        </message>
+        <message>
+            <source>Show all windows</source>
+            <translation>顯示所有視窗</translation>
         </message>
         <message>
             <source>Show border</source>
@@ -5437,6 +5533,22 @@
         <message>
             <source>Upload to cloud</source>
             <translation>上傳至雲端</translation>
+        </message>
+        <message>
+            <source>Upload to cloud (Current monitor)</source>
+            <translation>上傳至雲端（目前顯示器）</translation>
+        </message>
+        <message>
+            <source>Upload to cloud (Focused window)</source>
+            <translation>上傳至雲端（焦點視窗）</translation>
+        </message>
+        <message>
+            <source>Upload to cloud (Normal)</source>
+            <translation>上傳至雲端（一般截圖）</translation>
+        </message>
+        <message>
+            <source>Upload to cloud (Scrolling screenshot)</source>
+            <translation>上傳至雲端（捲動截圖）</translation>
         </message>
         <message>
             <source>Use GPU acceleration when available. Recognition uses the CPU while acceleration is unavailable</source>

@@ -1126,8 +1126,20 @@
             <translation>Отменить скриншот</translation>
         </message>
         <message>
+            <source>Click-through</source>
+            <translation>Пропускать клики</translation>
+        </message>
+        <message>
             <source>Close</source>
             <translation>Закрыть</translation>
+        </message>
+        <message>
+            <source>Close all windows</source>
+            <translation>Закрыть все окна</translation>
+        </message>
+        <message>
+            <source>Close other windows</source>
+            <translation>Закрыть другие окна</translation>
         </message>
         <message>
             <source>Command</source>
@@ -1186,6 +1198,10 @@
             <translation>Скрытие у верхнего края экрана</translation>
         </message>
         <message>
+            <source>Hide other windows</source>
+            <translation>Скрыть другие окна</translation>
+        </message>
+        <message>
             <source>Left-button double-click</source>
             <translation>Двойной щелчок левой кнопкой</translation>
         </message>
@@ -1196,6 +1212,10 @@
         <message>
             <source>Left-button single-click</source>
             <translation>Щелчок левой кнопкой</translation>
+        </message>
+        <message>
+            <source>Lock mode</source>
+            <translation>Режим блокировки</translation>
         </message>
         <message>
             <source>Menu</source>
@@ -1272,6 +1292,10 @@
         <message>
             <source>Shift</source>
             <translation>Shift</translation>
+        </message>
+        <message>
+            <source>Show all windows</source>
+            <translation>Показать все окна</translation>
         </message>
         <message>
             <source>Show text recognition results</source>
@@ -2003,6 +2027,22 @@
             <translation>Автосохранение</translation>
         </message>
         <message>
+            <source>Auto-save (Current monitor)</source>
+            <translation>Автосохранение (текущий монитор)</translation>
+        </message>
+        <message>
+            <source>Auto-save (Focused window)</source>
+            <translation>Автосохранение (активное окно)</translation>
+        </message>
+        <message>
+            <source>Auto-save (Normal)</source>
+            <translation>Автосохранение (обычный скриншот)</translation>
+        </message>
+        <message>
+            <source>Auto-save (Scrolling screenshot)</source>
+            <translation>Автосохранение (скриншот с прокруткой)</translation>
+        </message>
+        <message>
             <source>Auto-save image filename format</source>
             <translation>Формат имён файлов при автосохранении изображений</translation>
         </message>
@@ -2463,6 +2503,14 @@
             <translation>Содержимое буфера обмена</translation>
         </message>
         <message>
+            <source>Close all windows</source>
+            <translation>Закрыть все окна</translation>
+        </message>
+        <message>
+            <source>Close other windows</source>
+            <translation>Закрыть другие окна</translation>
+        </message>
+        <message>
             <source>Close window</source>
             <translation>Закрыть окно</translation>
         </message>
@@ -2583,6 +2631,14 @@
             <translation>Копировать файл</translation>
         </message>
         <message>
+            <source>Copy file (Normal)</source>
+            <translation>Копировать файл (обычный скриншот)</translation>
+        </message>
+        <message>
+            <source>Copy file (Scrolling screenshot)</source>
+            <translation>Копировать файл (скриншот с прокруткой)</translation>
+        </message>
+        <message>
             <source>Copy image file to clipboard</source>
             <translation>Копировать файл изображения в буфер обмена</translation>
         </message>
@@ -2625,6 +2681,14 @@
         <message>
             <source>Copy to clipboard</source>
             <translation>Копировать в буфер обмена</translation>
+        </message>
+        <message>
+            <source>Copy to clipboard (Normal)</source>
+            <translation>Копировать в буфер обмена (обычный скриншот)</translation>
+        </message>
+        <message>
+            <source>Copy to clipboard (Scrolling screenshot)</source>
+            <translation>Копировать в буфер обмена (скриншот с прокруткой)</translation>
         </message>
         <message>
             <source>Copy translation results as an image</source>
@@ -3039,6 +3103,10 @@
             <translation>Экспорт журналов</translation>
         </message>
         <message>
+            <source>Export recognition result as image</source>
+            <translation>Экспортировать результат распознавания как изображение</translation>
+        </message>
+        <message>
             <source>Export recording</source>
             <translation>Экспорт записи экрана</translation>
         </message>
@@ -3255,6 +3323,10 @@
             <translation>Скрыть или показать все окна текущей группы</translation>
         </message>
         <message>
+            <source>Hide other windows</source>
+            <translation>Скрыть другие окна</translation>
+        </message>
+        <message>
             <source>Hide the toolbar near the left or right screen edge. Hover over the edge control to show it again</source>
             <translation>Скрывать панель у левого или правого края экрана. Наведите указатель на край, чтобы показать её снова.</translation>
         </message>
@@ -3289,6 +3361,10 @@
         <message>
             <source>Image and document files</source>
             <translation>Файлы изображений и документов</translation>
+        </message>
+        <message>
+            <source>Image compression</source>
+            <translation>Сжатие изображения</translation>
         </message>
         <message>
             <source>Image editing</source>
@@ -3355,12 +3431,12 @@
             <translation>Импорт настроек</translation>
         </message>
         <message>
-            <source>Include saved annotation styles in the configuration archive</source>
-            <translation>Включить сохранённые стили разметок в архив конфигурации</translation>
+            <source>Include recognition results when exporting an image with the text recognition tool active.</source>
+            <translation>Включать результаты распознавания в экспортируемое изображение, когда активен инструмент распознавания текста.</translation>
         </message>
         <message>
-            <source>Include the displayed text recognition or original-image translation result when saving a screenshot selection</source>
-            <translation>Включать отображаемый результат распознавания текста или перевода исходного изображения при сохранении выделенной области скриншота</translation>
+            <source>Include saved annotation styles in the configuration archive</source>
+            <translation>Включить сохранённые стили разметок в архив конфигурации</translation>
         </message>
         <message>
             <source>Include the pointer and capture controls in screenshots</source>
@@ -3931,6 +4007,10 @@
             <translation>Статус разрешений и доступ</translation>
         </message>
         <message>
+            <source>Pin a live view of the window in the selected area</source>
+            <translation>Закрепить на экране окно из выбранной области в реальном времени</translation>
+        </message>
+        <message>
             <source>Pin clipboard content to screen</source>
             <translation>Закрепить содержимое буфера обмена на экране</translation>
         </message>
@@ -3961,6 +4041,22 @@
         <message>
             <source>Pin to screen</source>
             <translation>Закрепить на экране</translation>
+        </message>
+        <message>
+            <source>Pin to screen (Current monitor)</source>
+            <translation>Закрепить на экране (текущий монитор)</translation>
+        </message>
+        <message>
+            <source>Pin to screen (Focused window)</source>
+            <translation>Закрепить на экране (активное окно)</translation>
+        </message>
+        <message>
+            <source>Pin to screen (Normal)</source>
+            <translation>Закрепить на экране (обычный скриншот)</translation>
+        </message>
+        <message>
+            <source>Pin to screen (Scrolling screenshot)</source>
+            <translation>Закрепить на экране (скриншот с прокруткой)</translation>
         </message>
         <message>
             <source>Pin to screen management</source>
@@ -4439,10 +4535,6 @@
             <translation>Места сохранения, работа с буфером обмена, история и очистка</translation>
         </message>
         <message>
-            <source>Save recognition result as image</source>
-            <translation>Сохранять результат распознавания как изображение</translation>
-        </message>
-        <message>
             <source>Save system audio and microphone audio as separate MP4 tracks for independent editing. Most players play one track at a time</source>
             <translation>Сохранять системный звук и звук микрофона отдельными дорожками MP4 для независимого редактирования. Большинство проигрывателей воспроизводят только одну дорожку за раз</translation>
         </message>
@@ -4865,6 +4957,10 @@
         <message>
             <source>Show a system notification when export finishes. Click it to locate the exported file</source>
             <translation>Показывать системное уведомление по завершении экспорта. Нажмите на него, чтобы открыть папку с экспортированным файлом</translation>
+        </message>
+        <message>
+            <source>Show all windows</source>
+            <translation>Показать все окна</translation>
         </message>
         <message>
             <source>Show border</source>
@@ -5437,6 +5533,22 @@
         <message>
             <source>Upload to cloud</source>
             <translation>Загрузить в облако</translation>
+        </message>
+        <message>
+            <source>Upload to cloud (Current monitor)</source>
+            <translation>Загрузить в облако (текущий монитор)</translation>
+        </message>
+        <message>
+            <source>Upload to cloud (Focused window)</source>
+            <translation>Загрузить в облако (активное окно)</translation>
+        </message>
+        <message>
+            <source>Upload to cloud (Normal)</source>
+            <translation>Загрузить в облако (обычный скриншот)</translation>
+        </message>
+        <message>
+            <source>Upload to cloud (Scrolling screenshot)</source>
+            <translation>Загрузить в облако (скриншот с прокруткой)</translation>
         </message>
         <message>
             <source>Use GPU acceleration when available. Recognition uses the CPU while acceleration is unavailable</source>

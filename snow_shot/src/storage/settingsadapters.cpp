@@ -192,6 +192,13 @@ const QStringList& pinToScreenShortcutActionIds() {
         QStringLiteral("flip_horizontal"),
         QStringLiteral("flip_vertical"),
         QStringLiteral("reset_transform"),
+        QStringLiteral("split_image"),
+        QStringLiteral("image_editing"),
+        QStringLiteral("image_compression"),
+        QStringLiteral("show_all_windows"),
+        QStringLiteral("hide_other_windows"),
+        QStringLiteral("close_other_windows"),
+        QStringLiteral("close_all_windows"),
         QStringLiteral("batch_select_all"),
         QStringLiteral("batch_image_stitching"),
         QStringLiteral("batch_copy_files_to_clipboard"),
@@ -783,6 +790,16 @@ bool ShortcutSettings::setScreenshotQuickSave(
     return setShortcutValue(QStringLiteral("global_shortcuts/screenshot_quick_save"), bindings);
 }
 
+shortcuts::ShortcutBindingList ShortcutSettings::screenshotPinWindowToScreen() const {
+    return shortcutValue(QStringLiteral("global_shortcuts/screenshot_pin_window_to_screen"));
+}
+
+bool ShortcutSettings::setScreenshotPinWindowToScreen(
+    const shortcuts::ShortcutBindingList& bindings) const {
+    return setShortcutValue(QStringLiteral("global_shortcuts/screenshot_pin_window_to_screen"),
+                            bindings);
+}
+
 shortcuts::ShortcutBindingList ShortcutSettings::screenshotFullScreen() const {
     return shortcutValue(QStringLiteral("global_shortcuts/screenshot_full_screen"));
 }
@@ -1198,25 +1215,39 @@ bool ScreenshotSettings::setSelectionResizeMode(const QString& mode) const {
     return cache().setValue(QStringLiteral("screenshot/selection_resize_mode"), mode);
 }
 
-ExportTasks ScreenshotSettings::exportTasks(ExportTrigger trigger) const {
-    const auto& row = exportTaskRow(trigger);
-    const auto values = cache().value(row.key.toString()).toArray();
-    ExportTasks tasks;
-    for (const auto& value : values) {
-        const auto id = value.toString();
-        for (const auto& option : exportTaskOptions) {
-            if (option.id == id) {
-                tasks |= option.task;
-                break;
-            }
-        }
+QStringList ScreenshotSettings::selectedExportTaskIds(ExportTrigger trigger) const {
+    const auto key = exportTaskRow(trigger).key.toString();
+    const auto scopedKey = exportTaskScopedKey(trigger);
+    if (scopedKey.isEmpty())
+        return stringList(cache().value(key));
+
+    const auto values = cache().snapshot();
+    return stringList(values.value(key)) + stringList(values.value(scopedKey));
+}
+
+bool ScreenshotSettings::setSelectedExportTaskIds(ExportTrigger trigger,
+                                                  const QStringList& ids) const {
+    const auto key = exportTaskRow(trigger).key.toString();
+    const auto scopedKey = exportTaskScopedKey(trigger);
+    if (scopedKey.isEmpty())
+        return cache().setValue(key, stringArray(ids));
+
+    const auto scopedOptions = exportTaskScopedOptionIds(trigger);
+    QJsonArray allTypes;
+    QJsonArray scoped;
+    for (const auto& id : ids) {
+        auto& group = scopedOptions.contains(id.trimmed(), Qt::CaseInsensitive) ? scoped : allTypes;
+        group.append(id);
     }
-    return tasks & row.allowed;
+    return cache().setValues({{key, allTypes}, {scopedKey, scoped}});
+}
+
+ExportTasks ScreenshotSettings::exportTasks(ExportTrigger trigger, ScreenshotType type) const {
+    return resolveExportTasks(trigger, type, selectedExportTaskIds(trigger));
 }
 
 bool ScreenshotSettings::setExportTasks(ExportTrigger trigger, ExportTasks tasks) const {
-    const auto& row = exportTaskRow(trigger);
-    return cache().setValue(row.key.toString(), stringArray(exportTaskIds(tasks & row.allowed)));
+    return setSelectedExportTaskIds(trigger, exportTaskIds(tasks & exportTaskRow(trigger).allowed));
 }
 
 bool ScreenshotSettings::copyImageFileToClipboard() const {
@@ -1691,6 +1722,10 @@ bool localShortcutChangesValid(const QMap<QString, QJsonValue>& current,
                 key == QStringLiteral("screenshot_shortcuts/toggle_guides"),
                 shortcuts::ShortcutPolicy::Application);
             for (const auto& binding : bindings) {
+                if (changes.contains(key) &&
+                    group.prefix == QStringLiteral("pin_to_screen_shortcuts/") &&
+                    PinToScreenShortcutSettings::isReservedShortcut(binding))
+                    return false;
                 if (affected && group.policy == LocalShortcutPolicy::Drawing &&
                     DrawingShortcutSettings::isReservedShortcut(binding) &&
                     !DrawingShortcutSettings::isReservedShortcutAllowed(id, binding)) {
@@ -1876,6 +1911,26 @@ PinToScreenShortcutSettings::screenshotShortcuts(const QString& actionId) const 
             break;
     }
     return bindings;
+}
+
+bool PinToScreenShortcutSettings::isReservedShortcut(const shortcuts::ShortcutBinding& shortcut) {
+    // Storage can also run under QCoreApplication, without a Qt platform theme.
+    const auto paste = qobject_cast<QGuiApplication*>(QCoreApplication::instance())
+                           ? QKeySequence::keyBindings(QKeySequence::Paste)
+                           : QList<QKeySequence>{QKeySequence(Qt::CTRL | Qt::Key_V),
+#ifdef Q_OS_MACOS
+                                                 QKeySequence(Qt::META | Qt::Key_Y),
+#else
+                                                 QKeySequence(Qt::SHIFT | Qt::Key_Insert),
+#endif
+                                                 QKeySequence(Qt::Key_Paste)};
+    return std::ranges::any_of(paste, [&shortcut](const QKeySequence& sequence) {
+        if (sequence.count() != 1)
+            return false;
+        const shortcuts::ShortcutBinding fixed{sequence.toString(QKeySequence::PortableText)};
+        return shortcut == fixed ||
+               shortcuts::bindingsConflict(shortcut, fixed, shortcuts::ShortcutPolicy::Application);
+    });
 }
 
 bool PinToScreenShortcutSettings::actionsMayConflict(const QString& first, const QString& second) {
