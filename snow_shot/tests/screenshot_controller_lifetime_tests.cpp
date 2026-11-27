@@ -69,6 +69,26 @@ ScreenshotPinnedWindow* fixturePin(const QString& id) {
     return found;
 }
 
+void cancellingWhileRecapturePreparesReleasesInput() {
+    QWidget hiddenWindow;
+    bool inputTransparent = false;
+    ScreenshotController controller;
+    QImage image(32, 32, QImage::Format_RGBA8888);
+    image.fill(Qt::white);
+    ScreenshotSelectionParams selection;
+    selection.selection = QRect(0, 0, 32, 32);
+    ScreenshotControllerTestAccess::prepareSelection(controller, std::move(image), selection);
+    ScreenshotControllerTestAccess::prepareRecaptureInput(controller, hiddenWindow,
+                                                          inputTransparent);
+    require(inputTransparent && !hiddenWindow.isVisible(),
+            "recapture preparation owns input state and a hidden window");
+
+    controller.mcpCancelCapture();
+
+    require(!inputTransparent, "cancelling must immediately restore prepared recapture input");
+    require(!hiddenWindow.isVisible(), "cancelling must leave retired capture windows hidden");
+}
+
 void reportRestoreFailure(const QString& id, const ScreenshotController& controller) {
     auto* pin = fixturePin(id);
     std::cerr << "restore fixture id=" << qPrintable(id)
@@ -325,6 +345,25 @@ void capturePreparationRechecksAfterActivityObservers() {
             "activity observer refusal releases the preparation reservation");
 }
 
+void plainGlobalMouseScreenshotHasNoPendingAction() {
+    using Action = snow_shot::presentation::settings::SettingsGlobalMouseAction;
+    int starts = 0;
+    ScreenshotController controller;
+    QObject::connect(&controller, &ScreenshotController::captureActivityChanged, &controller,
+                     [&](const QString& source, bool active) {
+                         if (source != QStringLiteral("selection") || !active)
+                             return;
+                         ++starts;
+                         require(ScreenshotControllerTestAccess::pendingCaptureAction(controller) ==
+                                     ScreenshotController::CaptureAction::None,
+                                 "a plain global mouse screenshot must enter normal editing");
+                         controller.setCaptureSuspended(true);
+                     });
+    require(!controller.beginGlobalMouseCapture(Action::Screenshot, 1, QPointF(2, 3)) &&
+                starts == 1 && !controller.captureAcquisitionActive(),
+            "plain screenshot must prepare capture before the fixture blocks native acquisition");
+}
+
 void capturePreparationSurvivesControllerRetirement() {
     enum class Entry { Action, GlobalMouse, Mcp };
     for (const auto entry : {Entry::Action, Entry::GlobalMouse, Entry::Mcp}) {
@@ -482,7 +521,11 @@ int runScreenshotControllerLifetimeTests(int argc, char** argv) {
     drainRetiredCaptureSurfaces();
     capturePreparationRechecksAfterActivityObservers();
     drainRetiredCaptureSurfaces();
+    plainGlobalMouseScreenshotHasNoPendingAction();
+    drainRetiredCaptureSurfaces();
     capturePreparationSurvivesControllerRetirement();
+    drainRetiredCaptureSurfaces();
+    cancellingWhileRecapturePreparesReleasesInput();
     drainRetiredCaptureSurfaces();
     delayedPresentationWaitsForSuspensionRestoration();
     acceptedRestorationBlocksApplicationTransitionsUntilPresentationSettles();

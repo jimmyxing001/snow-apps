@@ -778,8 +778,13 @@ void builtInCatalogIsCompleteAndValid() {
         QStringLiteral("system.launch-as-administrator"),
         QStringLiteral("system.restart-as-administrator"),
         QStringLiteral("system.context-menu-mode"),
-        QStringLiteral("system.annotation-mode-when-opening-for-editing"),
-        QStringLiteral("windows-context-menu-shortcut.edit_with_snow_shot"),
+        QStringLiteral("system.context-menu-options"),
+        QStringLiteral("windows-context-menu-shortcut.pin_to_screen"),
+        QStringLiteral("windows-context-menu-shortcut.pin_to_screen_and_annotate"),
+        QStringLiteral("windows-context-menu-shortcut.stitch_images"),
+        QStringLiteral("windows-context-menu-shortcut.split_images"),
+        QStringLiteral("windows-context-menu-shortcut.edit_images"),
+        QStringLiteral("windows-context-menu-shortcut.compress_images"),
         QStringLiteral("screenshot.api-mode"),
         QStringLiteral("screen-recording.api-mode"),
         QStringLiteral("screenshot.window-element-api"),
@@ -2373,6 +2378,7 @@ void globalMouseSettingsHaveStableContracts() {
         Action action;
     };
     const Expectation expectations[] = {
+        {"global-mouse.screenshot", "Screenshot", "global_mouse/screenshot", Action::Screenshot},
         {"global-mouse.screenshot-copy", "Copy to clipboard", "global_mouse/screenshot_copy",
          Action::ScreenshotCopy},
         {"global-mouse.screenshot-fixed", "Pin to screen", "global_mouse/screenshot_fixed",
@@ -2408,10 +2414,9 @@ void globalMouseSettingsHaveStableContracts() {
             "Screen recording must have its own category and one configurable function");
     require(section->reset == settings::SettingsSectionReset::GlobalMouse &&
                 section->itemLayout == settings::SettingsSectionItemLayout::VerticalList &&
-                section->items.size() == 7 &&
-                section->items.at(2).id == QStringLiteral("global-mouse.screenshot-ocr") &&
-                section->items.at(3).id == QStringLiteral("global-mouse.screenshot-ocr-copy"),
-            "Global mouse Screenshot must use action containers and reset all seven fields");
+                section->items.size() == 8 &&
+                section->items.constFirst().id == QStringLiteral("global-mouse.screenshot"),
+            "Global mouse Screenshot must start with the plain screenshot action");
 
     const auto& navigation = catalog.navigation();
     const auto* quick = std::get_if<settings::SettingsNavigationPageDefinition>(&navigation.at(0));
@@ -2456,8 +2461,8 @@ void globalMouseSettingsHaveStableContracts() {
                 registry.fieldForGlobalMouseAction(expected.action) == descriptor,
             "Global mouse action metadata and typed registry bindings must remain stable");
     }
-    require(registry.fieldsForReset(settings::SettingsSectionReset::GlobalMouse).size() == 8,
-            "Global mouse reset metadata must cover every Screenshot action");
+    require(registry.fieldsForReset(settings::SettingsSectionReset::GlobalMouse).size() == 9,
+            "Global mouse reset metadata must cover every action");
 }
 
 void globalShortcutActionsHaveStableContracts() {
@@ -4209,8 +4214,8 @@ int main(int argc, char** argv) {
                 !registry.fieldForSelect(settings::SettingsSelectBinding::UpdateMode) &&
                 registry.fieldForSelect(settings::SettingsSelectBinding::ContextMenuMode),
             "Store settings expose startup and context menu controls without elevation or updates");
-        require(registry.field(QStringLiteral("windows-context-menu-shortcut.edit_with_snow_shot")),
-                "Store settings expose the classic Explorer menu access key");
+        require(registry.field(QStringLiteral("windows-context-menu-shortcut.pin_to_screen")),
+                "Store settings expose Explorer menu access keys");
         return 0;
     }
     if (application.arguments().contains(QStringLiteral("--translation-confidence-only"))) {
