@@ -53,6 +53,7 @@ class ScreenshotClipboardPayload final {
     friend struct ScreenshotClipboardPayloadTestAccess;
 
     void reset() noexcept;
+    void confirmFilePublication();
 
 #if defined(Q_OS_WIN) || defined(_WIN32)
     void* m_dibHandle = nullptr;
@@ -65,6 +66,7 @@ class ScreenshotClipboardPayload final {
     QByteArray m_placementBytes;
     QByteArray m_appearanceBytes;
     QString m_filePath;
+    std::function<void()> m_filePublished;
 };
 
 enum class ScreenshotClipboardCommitFailure {
@@ -87,6 +89,10 @@ struct ScreenshotClipboardCommitResult final {
     // Supersession is a successful no-op; inspect superseded when actual publication matters.
     [[nodiscard]] bool succeeded() const {
         return failure == ScreenshotClipboardCommitFailure::None;
+    }
+    // User-visible completion (closing a capture or marking an edit exported) needs a real write.
+    [[nodiscard]] bool published() const {
+        return succeeded() && !superseded;
     }
     [[nodiscard]] QString errorString() const;
 };
@@ -122,6 +128,8 @@ class ScreenshotClipboardService final {
     // On the GUI thread, also protect delayed work against writes by other clipboard users.
     [[nodiscard]] static PublicationId reservePublication(QClipboard* clipboard);
     [[nodiscard]] static bool publicationCurrent(PublicationId id);
+    // On the GUI thread, retire a reservation made with reservePublication(clipboard).
+    static void cancelPublication(PublicationId id);
     // Order a clipboard follow-up at action time. It takes precedence over older requests
     // only once it attempts to publish, so an unsuccessful primary action has no effect.
     [[nodiscard]] static PublicationId deferPublication() {
@@ -153,9 +161,12 @@ class ScreenshotClipboardService final {
     // Duplicate native ownership for simultaneous consumers without producing image rows again.
     [[nodiscard]] static ScreenshotClipboardPayload
     clonePrepared(const ScreenshotClipboardPayload& payload);
-    // Add an exported file to the same publication as the image representations.
+    // Keep staged files alive through the write. The optional callback runs when the clipboard
+    // accepts the file or a listener reads its URL during publication, even if it then replaces
+    // the clipboard contents or closes the receiver.
     [[nodiscard]] static ScreenshotClipboardPayload withFile(ScreenshotClipboardPayload payload,
-                                                             const QString& path);
+                                                             const QString& path,
+                                                             std::function<void()> published = {});
     [[nodiscard]] static ScreenshotClipboardCommitHandle commit(QClipboard* clipboard,
                                                                 QObject* receiver,
                                                                 ScreenshotClipboardPayload payload,

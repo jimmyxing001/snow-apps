@@ -224,6 +224,29 @@ void tiffFilesAndMimeDataPreservePixels() {
                                                        &error),
             "encode a TIFF import fixture with straight alpha");
 
+#ifdef Q_OS_MACOS
+    ScreenshotClipboardContentSnapshot native;
+    native.nativeTiff = bytes;
+    const auto nativeReference = ScreenshotClipboardContentReader::decode(native);
+    const auto rasterOnlyBudget = bytes.size() + pixels.width() * pixels.height() * 8;
+    require(!ScreenshotClipboardContentReader::decode(
+                native, {},
+                [rasterOnlyBudget](qint64 requested) { return requested <= rasterOnlyBudget; }),
+            "native TIFF decode must reserve conversion storage beyond a single raster");
+    QList<qint64> reservations;
+    const auto nativeBudgeted =
+        ScreenshotClipboardContentReader::decode(native, {}, [&reservations](qint64 requested) {
+            reservations.append(requested);
+            return true;
+        });
+    require(reservations.size() >= 2 && reservations.first() == bytes.size() &&
+                reservations.last() > rasterOnlyBudget,
+            "native TIFF decode must account for both retained bytes and conversion storage");
+    require(nativeReference && nativeBudgeted && nativeBudgeted->image == nativeReference->image &&
+                nativeBudgeted->image.colorSpace() == nativeReference->image.colorSpace(),
+            "the budgeted native TIFF conversion must preserve pixels and the color profile");
+#endif
+
     QMimeData mime;
     mime.setData(QStringLiteral("image/tiff"), bytes);
     const auto decoded = ScreenshotClipboardContentReader::readMimeData(&mime, 1.0);
@@ -441,6 +464,28 @@ void firstFrameFilesKeepCompositionProfilesAndRevisionChecks() {
     require(files.size() == 1 &&
                 ScreenshotClipboardContentReader::decodeImageFile(files.first()).isNull(),
             "first-frame-only decoding rejects malformed image files");
+
+    const auto largePath = directory.filePath(QStringLiteral("large-still.bmp"));
+    QImage pixels(1024, 1024, QImage::Format_RGB32);
+    const QColor color(28, 91, 187);
+    pixels.fill(color);
+    require(pixels.save(largePath, "BMP"), "write a multi-chunk image fixture");
+    const auto large = ScreenshotClipboardContentReader::snapshotLocalFiles({largePath});
+    require(large.size() == 1 && large.first().size > 2 * 1024 * 1024,
+            "the large fixture must span multiple reads");
+    int readPolls = 0;
+    int admissions = 0;
+    const auto interrupted = ScreenshotClipboardContentReader::decodeImageFile(
+        large.first(), [&] { return admissions > 0 && ++readPolls == 2; },
+        [&](qint64) {
+            ++admissions;
+            return true;
+        });
+    require(interrupted.isNull() && readPolls == 2 && admissions == 1,
+            "cancel a large import between reads before admitting the decoded raster");
+    const auto decoded = ScreenshotClipboardContentReader::decodeImageFile(large.first());
+    require(decoded.size() == pixels.size() && decoded.pixelColor(975, 975) == color,
+            "a multi-chunk import retains pixels after its encoded snapshot is released");
 }
 
 void animationReplacementPreparationIsAtomicAndWorkerSafe() {
